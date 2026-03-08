@@ -398,6 +398,9 @@ static int evdev_open(struct inode *inode, struct file *file)
 					bufsize * sizeof(struct input_event);
 	struct evdev_client *client;
 	int error;
+#ifdef CONFIG_HID_FTV_BLEREMOTE
+	struct input_dev *dev = evdev->handle.dev;
+#endif
 
 	client = kzalloc(size, GFP_KERNEL | __GFP_NOWARN);
 	if (!client)
@@ -405,6 +408,14 @@ static int evdev_open(struct inode *inode, struct file *file)
 	if (!client)
 		return -ENOMEM;
 
+#ifdef CONFIG_HID_FTV_BLEREMOTE
+	if (dev->name) {
+		if (strcmp(dev->name, "Amazon Fire TV Remote") == 0) {
+			pr_info("firetv remote, set the clock to CLOCK_MONOTONIC directly\n");
+			client->clkid = CLOCK_MONOTONIC;
+		}
+	}
+#endif
 	client->bufsize = bufsize;
 	spin_lock_init(&client->buffer_lock);
 	client->evdev = evdev;
