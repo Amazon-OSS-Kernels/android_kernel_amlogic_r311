@@ -254,7 +254,6 @@ void new_resampleA_set_format(enum resample_idx id, int channel, int bits)
 	//			 msb << 13);
 	if (get_resample_version() >= T5_RESAMPLE)
 		get_toddr_bits_config(src, bits, &msb, &lsb);
-
 	resample_set_bits(id, msb, lsb);
 
 	new_resample_adjust_enable(id, mclk_ratio, 1);

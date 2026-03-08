@@ -378,9 +378,6 @@ static int xhci_abort_cmd_ring(struct xhci_hcd *xhci, unsigned long flags)
 	return 0;
 }
 
-#ifdef CONFIG_USB_SERIAL_PORT
-extern unsigned int db_wait;
-#endif
 void xhci_ring_ep_doorbell(struct xhci_hcd *xhci,
 		unsigned int slot_id,
 		unsigned int ep_index,
@@ -399,10 +396,6 @@ void xhci_ring_ep_doorbell(struct xhci_hcd *xhci,
 	if ((ep_state & EP_HALT_PENDING) || (ep_state & SET_DEQ_PENDING) ||
 	    (ep_state & EP_HALTED))
 		return;
-#ifdef CONFIG_USB_SERIAL_PORT
-	if (db_wait == 1)
-		return;
-#endif
 	writel(DB_VALUE(ep_index, stream_id), db_addr);
 	/* The CPU has better things to do at this point than wait for a
 	 * write-posting flush.  It'll get there soon enough.
@@ -2367,15 +2360,6 @@ static int handle_tx_event(struct xhci_hcd *xhci,
 	if (!ep_ring ||
 	    (le32_to_cpu(ep_ctx->ep_info) & EP_STATE_MASK) ==
 	    EP_STATE_DISABLED) {
-#ifdef CONFIG_USB_SERIAL_PORT
-		if (xhci->quirks & XHCI_CRG_HOST){
-			if (!db_wait)
-				xhci_err(xhci,
-					 "ERROR Transfer event for disabled endpoint slot %u ep %u\n",
-					 slot_id, ep_index);
-		}
-	goto err_out;
-#else
 		xhci_err(xhci, "ERROR Transfer event for disabled endpoint "
 				"or incorrect stream ring\n");
 		xhci_err(xhci, "@%016llx %08x %08x %08x %08x\n",
@@ -2389,7 +2373,6 @@ static int handle_tx_event(struct xhci_hcd *xhci,
 		xhci_dbg(xhci, "Event ring:\n");
 		xhci_debug_segment(xhci, xhci->event_ring->deq_seg);
 		return -ENODEV;
-#endif
 	}
 
 	/* Count current td numbers if ep->skip is set */
@@ -2676,20 +2659,6 @@ cleanup:
 	} while (handling_skipped_tds);
 
 	return 0;
-#ifdef CONFIG_USB_SERIAL_PORT
-err_out:
-	if (xhci->quirks & XHCI_CRG_HOST)
-		if (!db_wait)
-			xhci_err(xhci, "@%016llx %08x %08x %08x %08x\n",
-				 (unsigned long long)xhci_trb_virt_to_dma
-				 (xhci->event_ring->deq_seg,
-				 xhci->event_ring->dequeue),
-				 lower_32_bits(le64_to_cpu(event->buffer)),
-				 upper_32_bits(le64_to_cpu(event->buffer)),
-				 le32_to_cpu(event->transfer_len),
-				 le32_to_cpu(event->flags));
-	return -ENODEV;
-#endif
 }
 
 /*
@@ -2873,11 +2842,7 @@ irqreturn_t xhci_msi_irq(int irq, void *hcd)
  * @more_trbs_coming:	Will you enqueue more TRBs before calling
  *			prepare_transfer()?
  */
-#ifdef CONFIG_USB_SERIAL_PORT
-void queue_trb(struct xhci_hcd *xhci, struct xhci_ring *ring,
-#else
 static void queue_trb(struct xhci_hcd *xhci, struct xhci_ring *ring,
-#endif
 		bool more_trbs_coming,
 		u32 field1, u32 field2, u32 field3, u32 field4)
 {

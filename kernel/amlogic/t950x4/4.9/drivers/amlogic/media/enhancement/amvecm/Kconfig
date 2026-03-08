@@ -11,11 +11,4 @@ config AMLOGIC_MEDIA_ENHANCEMENT_VECM
         default n
         help
             "Amlogic amvecm module init"
-
-config AMLOGIC_MEDIA_HDR_V1
-        bool "Amlogic HDR algorithm V1"
-        default n
-        help
-            "Amlogic HDR algorithm V1"
-
 endmenu

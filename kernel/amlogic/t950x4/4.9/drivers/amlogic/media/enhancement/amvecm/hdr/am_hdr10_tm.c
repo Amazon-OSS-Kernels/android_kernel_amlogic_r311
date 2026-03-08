@@ -40,11 +40,7 @@ unsigned int panell = 400;
 module_param(panell, uint, 0664);
 MODULE_PARM_DESC(panell, "display panel luminance\n");
 
-#ifdef CONFIG_AMLOGIC_MEDIA_HDR_V1
-unsigned int hdr10_tm_enable = 1;
-#else
 unsigned int hdr10_tm_enable = 2;
-#endif
 module_param(hdr10_tm_enable, uint, 0664);
 MODULE_PARM_DESC(hdr10_tm_enable, "hdr10_tm_enable\n");
 

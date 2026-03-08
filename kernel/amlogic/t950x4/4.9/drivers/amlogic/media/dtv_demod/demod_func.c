@@ -1102,13 +1102,10 @@ void demod_set_reg(struct aml_demod_reg *demod_reg)
 
 		switch (demod_reg->mode) {
 		case REG_MODE_DTMB:
-			if (demod_reg->addr >= 0x00 && demod_reg->addr <= 0xff)
-				dtmb_write_reg(demod_reg->addr, demod_reg->val);
+			dtmb_write_reg(demod_reg->addr, demod_reg->val);
 			break;
 
 		case REG_MODE_DVBT_ISDBT:
-			if (demod_reg->addr < 0x00 || demod_reg->addr > 0xff)
-				break;
 			if (demod_reg->access_mode == ACCESS_WORD)
 				dvbt_isdtb_wr_reg_new(demod_reg->addr, demod_reg->val);
 			else if (demod_reg->access_mode == ACCESS_BITS)
@@ -1118,13 +1115,10 @@ void demod_set_reg(struct aml_demod_reg *demod_reg)
 
 		case REG_MODE_DVBT_T2:
 			if (demod_reg->access_mode == ACCESS_BYTE)
-				if (demod_reg->addr >= 0x00 && demod_reg->addr <= 0xff)
-					dvbt_t2_wrb(demod_reg->addr, demod_reg->val);
+				dvbt_t2_wrb(demod_reg->addr, demod_reg->val);
 			break;
 
 		case REG_MODE_ATSC:
-			if (demod_reg->addr < 0x00 || demod_reg->addr > 0xff)
-				break;
 			if (cpu_after_eq(MESON_CPU_MAJOR_ID_TL1))
 				atsc_write_reg_v4(demod_reg->addr, demod_reg->val);
 			else
@@ -1132,18 +1126,14 @@ void demod_set_reg(struct aml_demod_reg *demod_reg)
 			break;
 
 		case REG_MODE_OTHERS:
-			if (demod_reg->addr >= 0x00 && demod_reg->addr <= 0xff)
-				demod_set_cbus_reg(demod_reg->val, demod_reg->addr);
+			demod_set_cbus_reg(demod_reg->val, demod_reg->addr);
 			break;
 
 		case REG_MODE_DVBC_J83B:
-			if (demod_reg->addr >= 0x00 && demod_reg->addr <= 0xff)
-				qam_write_reg(demod_reg->addr, demod_reg->val);
+			qam_write_reg(demod_reg->addr, demod_reg->val);
 			break;
 
 		case REG_MODE_FRONT:
-			if (demod_reg->addr < 0x00 || demod_reg->addr > 0xff)
-				break;
 			if (demod_reg->access_mode == ACCESS_BITS)
 				front_write_bits(demod_reg->addr, demod_reg->val,
 						 demod_reg->start_bit, demod_reg->bit_width);
@@ -1152,8 +1142,6 @@ void demod_set_reg(struct aml_demod_reg *demod_reg)
 			break;
 
 		case REG_MODE_TOP:
-			if (demod_reg->addr < 0x00 || demod_reg->addr > 0xff)
-				break;
 			if (demod_reg->access_mode == ACCESS_BITS)
 				demod_top_write_bits(demod_reg->addr, demod_reg->val,
 						 demod_reg->start_bit, demod_reg->bit_width);
@@ -1162,13 +1150,11 @@ void demod_set_reg(struct aml_demod_reg *demod_reg)
 			break;
 
 		case REG_MODE_COLLECT_DATA:
-			if (demod_reg->addr >= 0x00 && demod_reg->addr <= 0xffffffff)
-				apb_write_reg_collect(demod_reg->addr, demod_reg->val);
+			apb_write_reg_collect(demod_reg->addr, demod_reg->val);
 			break;
 
 		default:
-			if (demod_reg->addr >= 0x00 && demod_reg->addr <= 0xffffffff)
-				demod_set_demod_reg(demod_reg->val, demod_reg->addr);
+			demod_set_demod_reg(demod_reg->val, demod_reg->addr);
 			break;
 		}
 

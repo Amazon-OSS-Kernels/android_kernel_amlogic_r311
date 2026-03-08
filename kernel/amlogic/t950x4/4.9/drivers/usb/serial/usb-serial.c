@@ -85,11 +85,7 @@ exit:
 	return port;
 }
 
-#ifdef CONFIG_USB_SERIAL_PORT
-static int allocate_minors(struct usb_serial *serial, int num_ports,const char *dev_name)
-#else
 static int allocate_minors(struct usb_serial *serial, int num_ports)
-#endif
 {
 	struct usb_serial_port *port;
 	unsigned int i, j;
@@ -102,12 +98,6 @@ static int allocate_minors(struct usb_serial *serial, int num_ports)
 		port = serial->port[i];
 		minor = idr_alloc(&serial_minors, port, 0,
 					USB_SERIAL_TTY_MINORS, GFP_KERNEL);
-#ifdef CONFIG_USB_SERIAL_PORT
-		/*use ttyUSB0 for usb serial*/
-		if(!strcmp(dev_name, "1-3")){
-		minor=0;
-		}
-#endif
 		if (minor < 0)
 			goto error;
 		port->minor = minor;
@@ -1068,21 +1058,15 @@ static int usb_serial_probe(struct usb_interface *interface,
 	 * registered.
 	 */
 	serial->disconnected = 1;
-#ifndef CONFIG_USB_SERIAL_PORT
+
 	if (allocate_minors(serial, num_ports)) {
 		dev_err(ddev, "No more free serial minor numbers\n");
 		goto probe_error;
 	}
-#endif
+
 	/* register all of the individual ports with the driver core */
 	for (i = 0; i < num_ports; ++i) {
 		port = serial->port[i];
-#ifdef CONFIG_USB_SERIAL_PORT
-		if (allocate_minors(serial, num_ports, dev_name(&port->serial->dev->dev))) {
-			dev_err(ddev, "No more free serial minor numbers\n");
-			goto probe_error;
-		}
-#endif
 		dev_set_name(&port->dev, "ttyUSB%d", port->minor);
 		dev_dbg(ddev, "registering %s\n", dev_name(&port->dev));
 		device_enable_async_suspend(&port->dev);

@@ -29,6 +29,5 @@ extern int tsync_pcr_set_apts(unsigned int pts);
 extern int get_vsync_pts_inc_mode(void);
 
 extern int tsync_pcr_demux_pcr_used(void);
-void tsync_pcr_mode_reinit(u8 type);
 
 #endif

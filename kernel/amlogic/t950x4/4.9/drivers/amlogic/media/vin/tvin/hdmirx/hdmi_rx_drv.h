@@ -524,7 +524,6 @@ struct aud_info_s {
 
 struct phy_sts {
 	uint32_t cable_clk;
-	uint32_t cable_clk_pre;
 	uint32_t tmds_clk;
 	uint32_t aud_div;
 	uint32_t pll_rate;

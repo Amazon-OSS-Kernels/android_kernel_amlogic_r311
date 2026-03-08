@@ -27,9 +27,8 @@
 #define WOL_POWER_DISABLE 0
 
 
-unsigned int wol_power_state = WOL_POWER_DISABLE;
-extern unsigned int support_mac_wol;
-extern void set_wol_flag(unsigned int flag);
+static unsigned int wol_power_state = WOL_POWER_DISABLE;
+
 
 static int wol_power_proc_show(struct seq_file *seq, void *v)
 {
@@ -62,10 +61,6 @@ static ssize_t wol_power_proc_write(struct file *seq,
 	}
 
 	pr_info("set wol_power state=%d\n", value);
-#ifdef CONFIG_ENABLE_WOL_THR_UI
-	if (value != support_mac_wol)
-		set_wol_flag(value);
-#endif
 	scpi_set_wol_power(value);
 	wol_power_state = value;
 

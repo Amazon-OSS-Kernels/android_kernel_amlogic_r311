@@ -190,7 +190,7 @@ static ssize_t amazon_led_pattern_store(struct device *dev,
 		break;
 	case 6:
 		meson_led_state_set_blink_off(DEFAULT_LED_ID, 1, 500, 500, 0, 0);
-		//msleep(1100);
+		msleep(1100);
 		schedule_delayed_work(&data->led_work, msecs_to_jiffies(1100));
 		break;
 	default:

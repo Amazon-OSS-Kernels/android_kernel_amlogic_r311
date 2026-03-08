@@ -3622,8 +3622,7 @@ static void hdmi_in_delay_maxmin_old(struct vframe_s *vf)
 	int vdin_keep_count = VDIN_KEEP_COUNT;
 
 	if (vf->source_type != VFRAME_SOURCE_TYPE_HDMI &&
-		vf->source_type != VFRAME_SOURCE_TYPE_CVBS &&
-		vf->source_type != VFRAME_SOURCE_TYPE_TUNER)
+		vf->source_type != VFRAME_SOURCE_TYPE_CVBS)
 		return;
 
 	if (vf->type & VIDTYPE_DI_PW) {
@@ -5142,9 +5141,8 @@ static irqreturn_t vsync_isr_in(int irq, void *dev_id)
 	vsync_count++;
 	timer_count++;
 	if (display_frame_count < 3 && vf &&
-	    (vf->source_type == VFRAME_SOURCE_TYPE_HDMI ||
-	    vf->source_type == VFRAME_SOURCE_TYPE_CVBS ||
-	    vf->source_type == VFRAME_SOURCE_TYPE_TUNER))
+		(vf->source_type == VFRAME_SOURCE_TYPE_HDMI ||
+		vf->source_type == VFRAME_SOURCE_TYPE_CVBS))
 		hdmi_in_delay_maxmin_old(vf);
 
 #if defined(CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_VECM)

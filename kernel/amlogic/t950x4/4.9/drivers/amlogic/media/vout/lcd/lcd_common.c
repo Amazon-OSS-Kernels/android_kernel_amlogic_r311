@@ -605,12 +605,6 @@ int lcd_power_load_from_dts(struct lcd_config_s *pconf,
 				temp = pconf->lcd_power->power_on_step[i].value;
 				pconf->lcd_timing.ss_level |= temp << 8;
 			break;
-			case LCD_POWER_TYPE_SWITCH_DURATION:
-				pconf->lcd_power->on_off_duration =
-					pconf->lcd_power->power_on_step[i].delay;
-				LCDPR("%s power on_off_duration=%d\n", __func__,
-					pconf->lcd_power->on_off_duration);
-				break;
 			default:
 				break;
 			}
@@ -668,12 +662,6 @@ int lcd_power_load_from_dts(struct lcd_config_s *pconf,
 				lcd_extern_index_lut_add(index);
 				break;
 #endif
-			case LCD_POWER_TYPE_SWITCH_DURATION:
-				pconf->lcd_power->off_on_duration =
-					pconf->lcd_power->power_off_step[i].delay;
-				LCDPR("%s power off_on_duration=%d\n", __func__,
-					pconf->lcd_power->off_on_duration);
-				break;
 			default:
 				break;
 			}
@@ -752,12 +740,6 @@ int lcd_power_load_from_unifykey(struct lcd_config_s *pconf,
 			temp = pconf->lcd_power->power_on_step[i].value;
 			pconf->lcd_timing.ss_level |= temp << 8;
 			break;
-		case LCD_POWER_TYPE_SWITCH_DURATION:
-			pconf->lcd_power->on_off_duration =
-				pconf->lcd_power->power_on_step[i].delay;
-			LCDPR("%s power on_off_duration=%d\n", __func__,
-				pconf->lcd_power->on_off_duration);
-			break;
 		default:
 			break;
 		}
@@ -813,12 +795,6 @@ int lcd_power_load_from_unifykey(struct lcd_config_s *pconf,
 			lcd_extern_index_lut_add(index);
 			break;
 #endif
-		case LCD_POWER_TYPE_SWITCH_DURATION:
-			pconf->lcd_power->off_on_duration =
-				pconf->lcd_power->power_off_step[j].delay;
-			LCDPR("%s power off_on_duration=%d\n", __func__,
-				pconf->lcd_power->off_on_duration);
-			break;
 		default:
 			break;
 		}

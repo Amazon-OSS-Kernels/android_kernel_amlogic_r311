@@ -21,7 +21,6 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/mmc.h>
 #include <linux/amlogic/sd.h>
-#include <linux/version.h>
 
 #include "core.h"
 #include "host.h"
@@ -1992,9 +1991,6 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				EXT_CSD_RST_N_FUNCTION, 1,
 				card->ext_csd.generic_cmd6_time);
 	}
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 53)
-	host->caps2 |= MMC_CAP2_HC_ERASE_SZ;
-#endif
 #endif
 
 	/*

@@ -110,7 +110,7 @@ extern int get_vsync_pts_inc_mode(void);
 
 extern void tsync_avevent_locked(enum avevent_e event, u32 param);
 
-void tsync_mode_reinit(u8 type);
+extern void tsync_mode_reinit(void);
 
 extern void tsync_avevent(enum avevent_e event, u32 param);
 
@@ -180,7 +180,6 @@ extern u32 timestamp_get_pts_latency(u8 type);
 extern void timestamp_clean_pts_latency(u8 type);
 extern int tsync_get_vpts_adjust(void);
 void tsync_set_av_state(u8 type, int state);
-u8 tsync_get_demux_pcrscr_valid(void);
 void timestamp_checkin_firstaoffset_set(u32 offset);
 u32 timestamp_checkin_firstaoffset_get(void);
 

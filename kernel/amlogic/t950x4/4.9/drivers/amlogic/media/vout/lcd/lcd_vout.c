@@ -197,12 +197,6 @@ static struct lcd_power_ctrl_s lcd_power_config = {
 			.type = LCD_POWER_TYPE_MAX,
 		},
 	},
-	.on_off_duration = 0,
-	.off_on_duration = 0,
-	.pwr_on_start_time = 0,
-	.pwr_on_done_time = 0,
-	.pwr_off_start_time = 0,
-	.pwr_off_done_time = 0,
 };
 
 static struct lcd_boot_ctrl_s lcd_boot_ctrl_config = {
@@ -331,7 +325,6 @@ static void dummy_light_set(unsigned int action)
 #endif
 static void lcd_power_ctrl(int status)
 {
-	unsigned long long min_time = 0, cur_time = 0, last_time = 0, pwr_switch_dly = 0;
 	struct lcd_power_ctrl_s *lcd_power = lcd_driver->lcd_config->lcd_power;
 	struct lcd_power_step_s *power_step;
 #ifdef CONFIG_AMLOGIC_LCD_EXTERN
@@ -341,45 +334,6 @@ static void lcd_power_ctrl(int status)
 	int value = -1;
 
 	LCDPR("%s: %d\n", __func__, status);
-	lcd_power->pwr_on_start_time = 0;
-	lcd_power->pwr_on_done_time = 0;
-	lcd_power->pwr_off_start_time = 0;
-	lcd_power->pwr_off_done_time = 0;
-	if (status) {
-		if (lcd_power->off_on_duration > 0) {
-			cur_time = sched_clock();
-			last_time = lcd_power->pwr_off_done_time;
-			min_time = (unsigned long long)lcd_power->off_on_duration * 1000000;//ns
-			if ((cur_time - last_time) < min_time) {
-				pwr_switch_dly = min_time - (cur_time - last_time);
-				pwr_switch_dly >>= 20; //ms
-			}
-
-			LCDPR("power_off_done_time:%lld, current_time:%lld\n", last_time, cur_time);
-			if (pwr_switch_dly) {
-				LCDPR("need delay other %lldms to resume\n", pwr_switch_dly);
-				lcd_wait_ms((size_t)pwr_switch_dly);
-			}
-		}
-		lcd_power->pwr_on_start_time = sched_clock();
-	} else {
-		if (lcd_power->on_off_duration > 0) {
-			cur_time = sched_clock();
-			last_time = lcd_power->pwr_on_done_time;
-			min_time = (unsigned long long)lcd_power->on_off_duration * 1000000;//ns
-			if ((cur_time - last_time) < min_time) {
-				pwr_switch_dly = min_time - (cur_time - last_time);
-				pwr_switch_dly >>= 20; //ms
-			}
-
-			LCDPR("power_on_done_time:%lld, current_time:%lld\n", last_time, cur_time);
-			if (pwr_switch_dly) {
-				LCDPR("need delay other %lldms to power_off\n", pwr_switch_dly);
-				lcd_wait_ms((size_t)pwr_switch_dly);
-			}
-		}
-		lcd_power->pwr_off_start_time = sched_clock();
-	}
 #if defined(CONFIG_AMAZON_METRICS_LOG)
 	dummy_light_set(status);
 #endif
@@ -452,17 +406,10 @@ static void lcd_power_ctrl(int status)
 			break;
 		}
 		if ((power_step->type != LCD_POWER_TYPE_WAIT_GPIO) &&
-			(power_step->type != LCD_POWER_TYPE_SWITCH_DURATION) &&
 			(power_step->delay > 0))
-			lcd_wait_ms(power_step->delay);
+			mdelay(power_step->delay);
 		i++;
 	}
-
-	if (status)
-		lcd_power->pwr_on_done_time = sched_clock();
-	else
-		lcd_power->pwr_off_done_time = sched_clock();
-
 	if (lcd_debug_print_flag)
 		LCDPR("%s: %d finished\n", __func__, status);
 }
@@ -578,28 +525,6 @@ static void lcd_module_reset(void)
 	LCDPR("clear mute\n");
 
 	mutex_unlock(&lcd_vout_mutex);
-}
-
-static void lcd_suspend_work(struct work_struct *p_work)
-{
-	struct aml_lcd_drv_s *lcd_drv = aml_lcd_get_driver();
-
-	LCDPR("%s\n", __func__);
-#ifdef CONFIG_HAS_WAKELOCK
-	if (!wake_lock_active(&lcd_drv->wake_lock))
-		wake_lock_timeout(lcd_drv->wake_lock, 2000);
-#endif
-
-	mutex_lock(&lcd_drv->power_mutex);
-	aml_lcd_notifier_call_chain(LCD_EVENT_POWER_OFF, NULL);
-	lcd_resume_flag = 0;
-	LCDPR("%s finished\n", __func__);
-	mutex_unlock(&lcd_drv->power_mutex);
-
-#ifdef CONFIG_HAS_WAKELOCK
-	if (wake_lock_active(&lcd_drv->wake_lock))
-		wake_unlock(&lcd_drv->wake_lock);
-#endif
 }
 
 static void lcd_resume_work(struct work_struct *p_work)
@@ -1503,17 +1428,6 @@ static int lcd_config_probe(struct platform_device *pdev)
 		LCDPR("detect resume_type: %d\n", lcd_driver->lcd_resume_type);
 	}
 
-	ret = of_property_read_u32(lcd_driver->dev->of_node,
-				   "suspend_type", &val);
-	if (ret) {
-		if (lcd_debug_print_flag)
-			LCDPR("failed to get suspend_type\n");
-		lcd_driver->lcd_suspend_type = 1; /* default workqueue */
-	} else {
-		lcd_driver->lcd_suspend_type = (unsigned char)val;
-		LCDPR("detect suspend_type: %d\n", lcd_driver->lcd_suspend_type);
-	}
-
 	lcd_driver->res_vsync_irq = platform_get_resource_byname(pdev,
 		IORESOURCE_IRQ, "vsync");
 	lcd_driver->res_vsync2_irq = platform_get_resource_byname(pdev,
@@ -1763,11 +1677,6 @@ static int lcd_probe(struct platform_device *pdev)
 		LCDERR("can't create lcd workqueue\n");
 
 	INIT_WORK(&(lcd_driver->lcd_resume_work), lcd_resume_work);
-	INIT_WORK(&lcd_driver->lcd_suspend_work, lcd_suspend_work);
-
-#ifdef CONFIG_HAS_WAKELOCK
-	wake_lock_init(&lcd_driver->wake_lock, WAKE_LOCK_SUSPEND, "lcd_power_lock");
-#endif
 
 	lcd_ioremap(pdev);
 	ret = lcd_config_probe(pdev);
@@ -1784,7 +1693,6 @@ static int lcd_remove(struct platform_device *pdev)
 
 	cancel_work(&lcd_driver->lcd_probe_work);
 	cancel_work_sync(&(lcd_driver->lcd_resume_work));
-	cancel_work_sync(&lcd_driver->lcd_suspend_work);
 	if (lcd_driver->workqueue)
 		destroy_workqueue(lcd_driver->workqueue);
 
@@ -1792,10 +1700,6 @@ static int lcd_remove(struct platform_device *pdev)
 	lcd_fops_remove();
 	lcd_debug_remove();
 	lcd_config_remove(lcd_driver->dev);
-
-#ifdef CONFIG_HAS_WAKELOCK
-	wake_lock_destroy(&lcd_driver->wake_lock);
-#endif
 
 	kfree(lcd_driver);
 	lcd_driver = NULL;
@@ -1806,7 +1710,6 @@ static int lcd_remove(struct platform_device *pdev)
 
 static int lcd_resume(struct platform_device *pdev)
 {
-	LCDPR("%s\n", __func__);
 	if (lcd_debug_print_flag)
 		LCDPR("resume method: %d\n", get_resume_method());
 
@@ -1817,14 +1720,9 @@ static int lcd_resume(struct platform_device *pdev)
 
 	if (lcd_driver == NULL)
 		return 0;
-
-	if (!lcd_driver->lcd_config)
-		return 0;
-
 	if ((lcd_driver->lcd_status & LCD_STATUS_VMODE_ACTIVE) == 0)
 		return 0;
 
-	LCDPR("resume type=%d\n", lcd_driver->lcd_resume_type);
 	if (lcd_driver->lcd_resume_type) {
 		lcd_resume_flag = 1;
 		if (lcd_driver->workqueue) {
@@ -1848,7 +1746,6 @@ static int lcd_resume(struct platform_device *pdev)
 
 static int lcd_suspend(struct platform_device *pdev, pm_message_t state)
 {
-	LCDPR("%s\n", __func__);
 	if (lcd_driver == NULL)
 		return 0;
 

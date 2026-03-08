@@ -66,7 +66,6 @@
 
 #define STMMAC_ALIGN(x)	L1_CACHE_ALIGN(x)
 #define	TSO_MAX_BUFF_SIZE	(SZ_16K - 1)
-extern unsigned int support_mac_wol;
 
 /* Module parameters */
 #define TX_TIMEO	5000
@@ -806,13 +805,9 @@ static void stmmac_adjust_link(struct net_device *dev)
 		priv->oldduplex = -1;
 	}
 
-	if (new_state && netif_msg_link(priv)) {
+	if (new_state && netif_msg_link(priv))
 		phy_print_status(phydev);
-		if (phydev->link && support_mac_wol) {
-			printk("---clear wakeup time\n");
-			pm_relax(priv->device);
-		}
-	}
+
 	spin_unlock_irqrestore(&priv->lock, flags);
 
 	if (phydev->is_pseudo_fixed_link)
@@ -1607,6 +1602,8 @@ static void stmmac_check_ether_addr(struct stmmac_priv *priv)
 					     priv->dev->dev_addr, 0);
 		if (!is_valid_ether_addr(priv->dev->dev_addr))
 			eth_hw_addr_random(priv->dev);
+		pr_info("%s: device MAC address %pM\n", priv->dev->name,
+			priv->dev->dev_addr);
 	}
 }
 
@@ -3592,7 +3589,7 @@ int stmmac_suspend(struct device *dev)
 	if (device_may_wakeup(priv->device)) {
 		//priv->hw->mac->pmt(priv->hw, priv->wolopts);
 		priv->hw->mac->pmt(priv->hw, 0x1 << 5);
-		//priv->irq_wake = 1;
+		priv->irq_wake = 1;
 	} else {
 		stmmac_set_mac(priv->ioaddr, false);
 		pinctrl_pm_select_sleep_state(priv->device);
