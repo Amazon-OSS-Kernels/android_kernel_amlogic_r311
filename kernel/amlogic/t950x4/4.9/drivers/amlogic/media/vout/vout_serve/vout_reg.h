@@ -244,6 +244,9 @@
 #define ENCP_VIDEO_MATRIX_CB                       0x1bbb
 #define ENCP_VIDEO_MATRIX_CR                       0x1bbc
 #define ENCP_VIDEO_RGBIN_CTRL                      0x1bbd
+#define VPP_VDO_MEAS_CTRL                          0x1da8
+#define VPP_VDO_MEAS_VS_COUNT_HI                   0x1da9
+#define VPP_VDO_MEAS_VS_COUNT_LO                   0x1daa
 
 /* HIU */
 #define HHI_VIID_CLK_DIV                           0x4a

@@ -31,4 +31,11 @@ config AMLOGIC_LEDS_STATE
 	default n
 	help
 	  Choose this option if you want to use the LED state.
+
+config NEW_LED_BR
+	tristate "LED STR BL"
+        depends on LEDS_CLASS
+        default n
+        help
+          STR LED BL is 50%
 endif

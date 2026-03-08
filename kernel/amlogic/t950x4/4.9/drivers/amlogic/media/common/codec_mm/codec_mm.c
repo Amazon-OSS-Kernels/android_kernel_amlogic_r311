@@ -530,6 +530,25 @@ static void *codec_mm_map_phyaddr(struct codec_mm_s *mem)
 	return vaddr;
 }
 
+int codec_mm_add_release_callback(struct codec_mm_s *mem, struct codec_mm_cb_s *cb)
+{
+	unsigned long flags;
+
+	if (!mem || !cb)
+		return -EINVAL;
+
+	spin_lock_irqsave(&mem->lock, flags);
+
+	if (cb->func)
+		list_add_tail(&cb->node, &mem->release_cb_list);
+	else
+		INIT_LIST_HEAD(&cb->node);
+	spin_unlock_irqrestore(&mem->lock, flags);
+
+	return 0;
+}
+EXPORT_SYMBOL(codec_mm_add_release_callback);
+
 static int codec_mm_alloc_in(
 	struct codec_mm_mgt_s *mgt, struct codec_mm_s *mem)
 {
@@ -892,6 +911,7 @@ struct codec_mm_s *codec_mm_alloc(const char *owner, int size,
 	mem->page_count = count;
 	mem->align2n = align2n;
 	mem->flags = memflags;
+	INIT_LIST_HEAD(&mem->release_cb_list);
 	ret = codec_mm_alloc_in(mgt, mem);
 	if (ret < 0 &&
 		mgt->alloced_for_sc_cnt > 0 && /*have used for scatter.*/
@@ -998,8 +1018,14 @@ void codec_mm_release(struct codec_mm_s *mem, const char *owner)
 			mem->from_flags, index);
 	mem->owner[index] = NULL;
 	if (index == 0) {
+		struct codec_mm_cb_s *cur, *tmp;
 		list_del(&mem->list);
 		spin_unlock_irqrestore(&mgt->lock, flags);
+		list_for_each_entry_safe(cur,
+			tmp, &mem->release_cb_list, node) {
+			list_del_init(&cur->node);
+			cur->func(mem, cur);
+		}
 		codec_mm_free_in(mgt, mem);
 		kfree(mem);
 		return;

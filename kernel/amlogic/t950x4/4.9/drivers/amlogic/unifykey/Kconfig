@@ -30,4 +30,10 @@ config AMLOGIC_V7_UNIFYKEY
 	    y here, means select unifykey for m8b
 	    n here, means don't use unifykey for m8b
 
+config UNIFYKEY_RELOAD
+	bool "Amlogic unifykey mem reload"
+	default n
+	help
+            Amlogic unifykey reload
+
 endmenu

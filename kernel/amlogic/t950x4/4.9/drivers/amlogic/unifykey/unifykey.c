@@ -383,7 +383,13 @@ int key_unify_init(struct aml_unifykey_dev *ukdev, char *buf, unsigned int len)
 
 	if (ukdev->init_flag == 1) {
 		pr_err(" %s() already inited!\n", __func__);
+#ifdef CONFIG_UNIFYKEY_RELOAD
+//		return 0;
+		ukdev->init_flag = 0;
+		pr_err(" %s() inited again!\n", __func__);
+#else
 		return 0;
+#endif
 	}
 
 	bakerr = 0;

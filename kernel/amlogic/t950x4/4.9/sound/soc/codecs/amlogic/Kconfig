@@ -102,6 +102,12 @@ config AMLOGIC_SND_CODEC_TL1_ACODEC
 #Third part codecs
 # Amlogic add codecs
 
+config NEW_EQ_DRC
+	bool "new tas5805 eq drc logic"
+        default n
+        help
+                new tas5805 eq drc logic.
+
 config AMLOGIC_SND_SOC_TAS5782M
 	bool "Texas Instruments TAS5782M amplifier"
 	depends on AMLOGIC_SND_SOC_CODECS

@@ -220,6 +220,10 @@ static long long  max_dis_hwc;
 
 #define PARSE_MD_IN_ADVANCE 1
 
+static int drop_cnt_last;
+static int drop_cnt_continue_max;
+static u64 drop_last_jiffies_64;
+
 static int video_receiver_event_fun(int type, void *data, void *);
 
 static const struct vframe_receiver_op_s video_vf_receiver = {
@@ -3858,12 +3862,18 @@ bool black_threshold_check(u8 id)
 
 	layer = &vd_layer[id];
 	layer_info = &glayer_info[id];
+#ifdef CONFIG_ENABLE_AFD
+	if (layer_info->layer_width <= 1 ||
+	    layer_info->layer_height <= 1)
+		return true;
+#else
 	if ((layer_info->layer_top == 0) &&
 	    (layer_info->layer_left == 0) &&
 	    (layer_info->layer_width <= 1) &&
 	    (layer_info->layer_height <= 1))
 		/* special case to do full screen display */
 		return ret;
+#endif
 
 	frame_par = layer->cur_frame_par;
 
@@ -3876,10 +3886,17 @@ bool black_threshold_check(u8 id)
 
 	if ((layer_info->layer_width <= black_threshold_width) ||
 	    (layer_info->layer_height <= black_threshold_height)) {
+#ifdef CONFIG_ENABLE_AFD
+		if (frame_par &&
+		    (frame_par->VPP_pic_in_height_ <= 1 ||
+		     frame_par->VPP_line_in_length_ <= 1))
+			ret = true;
+#else
 		if (frame_par &&
 		    (frame_par->vscale_skip_count == 8) &&
 		    (frame_par->hscale_skip_count == 1))
 			ret = true;
+#endif
 	}
 	return ret;
 }
@@ -5632,6 +5649,17 @@ static irqreturn_t vsync_isr_in(int irq, void *dev_id)
 			int iret1 = 0, iret2 = 0;
 #endif
 
+			/* show first frame only if show_nosync was enabled */
+			if (show_nosync && tsync_get_mode() ==
+				TSYNC_MODE_PCRMASTER) {
+				show_nosync = false;
+				if (DEBUG_FLAG_OMX_DEBUG_DROP_FRAME &
+					debug_flag) {
+					pr_info("%s, show_nosync disabled\n",
+						__func__);
+				}
+			}
+
 			ATRACE_COUNTER(MODULE_NAME,  __LINE__);
 			if (debug_flag & DEBUG_FLAG_PTS_TRACE)
 				pr_info("vpts = 0x%x, c.dur=0x%x, n.pts=0x%x, scr = 0x%x, pcr-pts-diff=%d, ptstrace=%d\n",
@@ -6836,6 +6864,19 @@ exit:
 		vsync_exit_line_max = enc_line;
 	if (video_suspend)
 		video_suspend_cycle++;
+
+	if (drop_cnt_continue_max < drop_frame_count - drop_cnt_last)
+		drop_cnt_continue_max = drop_frame_count - drop_cnt_last;
+	if (div_u64(((jiffies_64 - drop_last_jiffies_64) * 1000), HZ) > 5000) {
+		drop_last_jiffies_64 = jiffies_64;
+		pr_info("vpp: total:rec=%d;drop=%d; max_continue_drop in last 5s=%d\n",
+			receive_frame_count, drop_frame_count, drop_cnt_continue_max);
+		drop_cnt_continue_max = 0;
+	}
+	drop_cnt_last = drop_frame_count;
+
+	if (vd_layer[0].dispbuf)
+		last_frame_duration = vd_layer[0].dispbuf->duration;
 #ifdef FIQ_VSYNC
 	if (video_notify_flag)
 		fiq_bridge_pulse_trigger(&vsync_fiq_bridge);
@@ -7408,6 +7449,8 @@ static int video_receiver_event_fun(int type, void *data, void *private_data)
 		drop_frame_count = 0;
 		receive_frame_count = 0;
 		display_frame_count = 0;
+		drop_last_jiffies_64 = jiffies_64;
+		drop_cnt_continue_max = 0;
 		mutex_lock(&omx_mutex);
 		omx_run = false;
 		omx_pts_set_from_hwc_count = 0;
@@ -12712,6 +12755,15 @@ static ssize_t tvin_source_type_store(struct class *cla,
 	return count;
 }
 
+static ssize_t duration_show(struct class *cla,
+			     struct class_attribute *attr, char *buf)
+{
+	/*duration: 800(120fps) 801(119.88fps) 960(100fps) 1600(60fps) 1920(50fps)*/
+	/*3200(30fps) 3203(29.97) 3840(25fps) 4000(24fps) 4004(23.976fps)*/
+
+	return snprintf(buf, 80, "duration:%lld\n", last_frame_duration);
+}
+
 static struct class_attribute amvideo_class_attrs[] = {
 	__ATTR(axis,
 	       0664,
@@ -13058,6 +13110,7 @@ static struct class_attribute amvideo_class_attrs[] = {
 		0664,
 		tvin_source_type_show,
 		tvin_source_type_store),
+	__ATTR_RO(duration),
 	__ATTR_NULL
 };
 

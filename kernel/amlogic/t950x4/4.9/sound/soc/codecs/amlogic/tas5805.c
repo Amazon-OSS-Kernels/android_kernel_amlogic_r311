@@ -650,10 +650,18 @@ const uint32_t tas5805m_volume[] = {
 	0x7D982575,		//578   48dB
 };
 
-#define TAS5805_EQ_PARAM_LENGTH 616
-#define TAS5805_EQ_PARAM_COUNT 1232
-#define TAS5805_DRC_PARAM_LENGTH 520
-#define TAS5805_DRC_PARAM_COUNT  1040
+#ifdef CONFIG_NEW_EQ_DRC
+#define TAS5805_EQ_PARAM_COUNT 1800
+#define TAS5805_DRC_PARAM_COUNT  1800
+#else
+#define TAS5805_EQPARAM_LENGTH 610
+#define TAS5805_EQ_LENGTH 245
+#define FILTER_PARAM_BYTE 244
+static  int m_eq_tab[TAS5805_EQPARAM_LENGTH][2];
+#define TAS5805_DRC_PARAM_LENGTH 29
+#define TAS5805_DRC_PARAM_COUNT  58
+static  int m_drc_tab[TAS5805_DRC_PARAM_LENGTH][2];
+#endif
 
 struct tas5805m_priv {
 	struct regmap *regmap;
@@ -662,9 +670,13 @@ struct tas5805m_priv {
 	int mute;
 	struct snd_soc_codec *codec;
 	int eq_enable;
-	char *m_eq_tab;
 	int drc_enable;
+#ifdef CONFIG_NEW_EQ_DRC
+	char *m_eq_tab;
 	char *m_drc_tab;
+	int eq_len;
+	int drc_len;
+#endif
 };
 
 const struct regmap_config tas5805m_regmap = {
@@ -875,24 +887,44 @@ static int tas5805_set_DRC_param(struct snd_kcontrol *kcontrol,
 				  unsigned int size)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct tas5805m_priv *tas5805m = snd_soc_codec_get_drvdata(codec);
 	char tmp_string[TAS5805_DRC_PARAM_COUNT];
 	char *p_string = &tmp_string[0];
-	char *p = tas5805m->m_drc_tab;
 	unsigned int i = 0, res;
 	struct snd_ctl_tlv *tlv;
 	char *val = (char *)bytes + sizeof(*tlv);
+#ifdef CONFIG_NEW_EQ_DRC
+	struct tas5805m_priv *tas5805m = snd_soc_codec_get_drvdata(codec);
+	char *p = tas5805m->m_drc_tab;
+	int len = 0;
+#endif
 
 	res = copy_from_user(p_string, val, TAS5805_DRC_PARAM_COUNT);
 	if (res)
 		return -EFAULT;
 
-	memcpy(p, p_string, TAS5805_DRC_PARAM_COUNT);
+#ifdef CONFIG_NEW_EQ_DRC
+	len = tmp_string[0] * tmp_string[1] + tmp_string[2];
+	tas5805m->drc_len = len;
+	len /= 2;
+	p_string += 3;
 
-	for (i = 0; i < TAS5805_DRC_PARAM_LENGTH; i++) {
+	memcpy(p, p_string, (TAS5805_DRC_PARAM_COUNT - 3));
+
+	for (i = 0; i < len; i++) {
 		snd_soc_write(codec, *p, *(p + 1));
 		p += 2;
 	}
+#else
+	for (i = 0; i < TAS5805_DRC_PARAM_COUNT/2; i++) {
+		m_drc_tab[i][0] = tmp_string[2*i];
+		m_drc_tab[i][1] = tmp_string[2*i+1];
+		/*pr_info("tas5805_drc_tab[%d] = {0x%x, 0x%x}\n",*/
+		/*	i, tmp_string[2*i], tmp_string[2*i+1]);*/
+	}
+
+	for (i = 0; i < TAS5805_DRC_PARAM_LENGTH; i++)
+		snd_soc_write(codec, m_drc_tab[i][0], m_drc_tab[i][1]);
+#endif
 
 	return 0;
 }
@@ -901,6 +933,7 @@ static int tas5805_get_DRC_param(struct snd_kcontrol *kcontrol,
 			    unsigned int __user *bytes,
 			    unsigned int size)
 {
+#ifdef CONFIG_NEW_EQ_DRC
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct tas5805m_priv *tas5805m = snd_soc_codec_get_drvdata(codec);
 	struct snd_ctl_tlv *tlv;
@@ -912,9 +945,11 @@ static int tas5805_get_DRC_param(struct snd_kcontrol *kcontrol,
 	if (res)
 		return -EFAULT;
 
+#endif
 	return 0;
 }
 
+#ifdef CONFIG_NEW_EQ_DRC
 static int tas5805_set_EQ_param(struct snd_kcontrol *kcontrol,
 				  const unsigned int __user *bytes,
 				  unsigned int size)
@@ -927,14 +962,28 @@ static int tas5805_set_EQ_param(struct snd_kcontrol *kcontrol,
 	unsigned int i = 0, res;
 	struct snd_ctl_tlv *tlv;
 	char *val = (char *)bytes + sizeof(*tlv);
+#ifdef CONFIG_NEW_EQ_DRC
+	int len = 0;
+#endif
 
 	res = copy_from_user(p_string, val, TAS5805_EQ_PARAM_COUNT);
 	if (res)
 		return -EFAULT;
 
+#ifdef CONFIG_NEW_EQ_DRC
+	len = tmp_string[0] * tmp_string[1] + tmp_string[2];
+	tas5805m->eq_len = len;
+	len /= 2;
+	p_string += 3;
+
+	memcpy(p, p_string, (TAS5805_EQ_PARAM_COUNT - 3));
+
+	for (i = 0; i < len; i++) {
+#else
 	memcpy(p, p_string, TAS5805_EQ_PARAM_COUNT);
 
 	for (i = 0; i < TAS5805_EQ_PARAM_LENGTH; i++) {
+#endif
 		snd_soc_write(codec, *p, *(p + 1));
 		p += 2;
 	}
@@ -960,6 +1009,47 @@ static int tas5805_get_EQ_param(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+#else
+
+static int tas5805_set_EQ_param(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	void *data;
+	char tmp_string[TAS5805_EQ_LENGTH];
+	char *p_string = &tmp_string[0];
+	u8 *val;
+	int band_id;
+	unsigned int i = 0, j = 0;
+
+	data = kmemdup(ucontrol->value.bytes.data,
+		TAS5805_EQ_LENGTH, GFP_KERNEL | GFP_DMA);
+	if (!data)
+		return -ENOMEM;
+
+	val = (u8 *) data;
+	memcpy(p_string, val, TAS5805_EQ_LENGTH);
+	band_id = tmp_string[0];
+	for (j = 0, i = band_id * FILTER_PARAM_BYTE / 2;
+			j < FILTER_PARAM_BYTE / 2; i++, j++) {
+		m_eq_tab[i][0] = tmp_string[2*j+1];
+		m_eq_tab[i][1] = tmp_string[2*j+2];
+	}
+	if (band_id == 4) {
+		for (i = 0; i < TAS5805_EQPARAM_LENGTH; i++)
+			snd_soc_write(codec, m_eq_tab[i][0], m_eq_tab[i][1]);
+	}
+	kfree(data);
+	return 0;
+}
+
+static int tas5805_get_EQ_param(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	return 0;
+}
+#endif
+
 static const struct snd_kcontrol_new tas5805m_vol_control[] = {
 	{
 	 .iface = SNDRV_CTL_ELEM_IFACE_MIXER,
@@ -979,8 +1069,13 @@ static const struct snd_kcontrol_new tas5805m_vol_control[] = {
 			   tas5805_get_EQ_enum, tas5805_set_EQ_enum),
 	SOC_SINGLE_BOOL_EXT("Set DRC Enable", 0,
 			   tas5805_get_DRC_enum, tas5805_set_DRC_enum),
+#ifdef CONFIG_NEW_EQ_DRC
 	SND_SOC_BYTES_TLV("EQ table", TAS5805_EQ_PARAM_COUNT,
 			   tas5805_get_EQ_param, tas5805_set_EQ_param),
+#else
+	SND_SOC_BYTES_EXT("EQ table", TAS5805_EQ_LENGTH,
+			   tas5805_get_EQ_param, tas5805_set_EQ_param),
+#endif
 	SND_SOC_BYTES_TLV("DRC table", TAS5805_DRC_PARAM_COUNT,
 			   tas5805_get_DRC_param, tas5805_set_DRC_param),
 };
@@ -1107,9 +1202,11 @@ static int tas5805m_snd_resume(struct snd_soc_codec *codec)
 	int ret;
 	struct tas5805m_priv *tas5805m = snd_soc_codec_get_drvdata(codec);
 	struct tas5805m_platform_data *pdata = tas5805m->pdata;
+#ifdef CONFIG_NEW_EQ_DRC
 	char *p_drc = tas5805m->m_drc_tab;
 	char *p_eq = tas5805m->m_eq_tab;
 	int i;
+#endif
 	dev_info(codec->dev, "tas5805m_snd_resume!\n");
 
 	if (pdata->reset_pin)
@@ -1127,22 +1224,26 @@ static int tas5805m_snd_resume(struct snd_soc_codec *codec)
 
 	tas5805m_set_volume(codec, tas5805m->vol);
 
-	if (tas5805m->drc_enable) {
-		for (i = 0; i < TAS5805_DRC_PARAM_LENGTH; i++) {
-			snd_soc_write(codec, *p_drc, *(p_drc + 1));
-			p_drc += 2;
-		}
-	}
-
+#ifdef CONFIG_NEW_EQ_DRC
 	if (tas5805m->eq_enable) {
-		for (i = 0; i < TAS5805_EQ_PARAM_LENGTH; i++) {
+		for (i = 0; i < (tas5805m->eq_len / 2); i++) {
 			snd_soc_write(codec, *p_eq, *(p_eq + 1));
 			p_eq += 2;
 		}
 	}
 
-	tas5805m_mute(codec, tas5805m->mute);
+	if (tas5805m->drc_enable) {
+                for (i = 0; i < (tas5805m->drc_len / 2); i++) {
+                        snd_soc_write(codec, *p_drc, *(p_drc + 1));
+                        p_drc += 2;
+                }
+        }
 
+	tas5805m_mute(codec, tas5805m->mute);
+#else
+	tas5805m_mute(codec, tas5805m->mute);
+	tas5805m_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
+#endif
 	return 0;
 err:
 	return ret;
@@ -1256,7 +1357,13 @@ static int tas5805m_i2c_probe(struct i2c_client *i2c,
 
 	tas5805m_parse_dt(tas5805m, i2c->dev.of_node);
 	tas5805m->regmap = regmap;
+#ifdef CONFIG_NEW_EQ_DRC
 	tas5805m->vol = 400;	//10dB
+	tas5805m->eq_len = 0;
+	tas5805m->drc_len = 0;
+#else
+	tas5805m->vol = 100;	//100, -10dB
+#endif
 
 	dev_set_drvdata(&i2c->dev, tas5805m);
 
@@ -1268,6 +1375,7 @@ static int tas5805m_i2c_probe(struct i2c_client *i2c,
 
 	reset_tas5805m_GPIO(&i2c->dev);
 
+#ifdef CONFIG_NEW_EQ_DRC
 	tas5805m->m_drc_tab =
 		devm_kzalloc(&i2c->dev,
 			     sizeof(char) * TAS5805_DRC_PARAM_COUNT,
@@ -1282,16 +1390,19 @@ static int tas5805m_i2c_probe(struct i2c_client *i2c,
 	if (!tas5805m->m_eq_tab)
 		return -ENOMEM;
 
+#endif
 	return ret;
 }
 
 static int tas5805m_i2c_remove(struct i2c_client *i2c)
 {
+#ifdef CONFIG_NEW_EQ_DRC
 	struct tas5805m_priv *tas5805m = (struct tas5805m_priv *)i2c_get_clientdata(i2c);
 	snd_soc_unregister_codec(&i2c->dev);
 	devm_kfree(&i2c->dev, tas5805m->m_drc_tab);
 	devm_kfree(&i2c->dev, tas5805m->m_eq_tab);
 	devm_kfree(&i2c->dev, tas5805m->pdata);
+#endif
 	devm_kfree(&i2c->dev, i2c_get_clientdata(i2c));
 
 	return 0;

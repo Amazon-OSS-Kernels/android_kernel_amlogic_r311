@@ -71,6 +71,8 @@ extern int vout_notifier_call_chain(unsigned int long, void *p);
 extern int vout_register_server(struct vout_server_s *p);
 extern int vout_unregister_server(struct vout_server_s *p);
 
+unsigned int vout_frame_rate_measure(void);
+
 int get_vout_disp_cap(char *buf);
 extern struct vinfo_s *get_current_vinfo(void);
 extern enum vmode_e get_current_vmode(void);

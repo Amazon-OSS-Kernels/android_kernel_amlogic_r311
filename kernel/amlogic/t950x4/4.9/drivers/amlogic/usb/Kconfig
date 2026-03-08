@@ -73,4 +73,10 @@ config AMLOGIC_USB3PHY
 
           To compile this driver as a module, choose M here: the
           module will be called phy-aml-usb.
+
+config NEW_USB_SQUELCH
+	tristate "new USB SQUELCH"
+        default n
+        help
+          set new USB SQUELCH
 endmenu

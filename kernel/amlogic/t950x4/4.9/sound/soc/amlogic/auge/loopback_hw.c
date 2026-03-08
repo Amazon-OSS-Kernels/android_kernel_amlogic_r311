@@ -215,7 +215,8 @@ void lb_set_datain_cfg(int id, struct data_cfg *datain_cfg)
 			     conf->val << conf->shift);
 }
 
-void lb_set_datalb_cfg(int id, struct data_cfg *datalb_cfg, int version)
+void lb_set_datalb_cfg(int id, struct data_cfg *datalb_cfg,
+		bool multi_bits_lbsrcs)
 {
 	int offset = EE_AUDIO_LB_B_CTRL1 - EE_AUDIO_LB_A_CTRL1;
 	int reg = EE_AUDIO_LB_A_CTRL1 + offset * id;
@@ -231,7 +232,7 @@ void lb_set_datalb_cfg(int id, struct data_cfg *datalb_cfg, int version)
 			datalb_cfg->type       << 13 |
 			datalb_cfg->m          << 8  |
 			datalb_cfg->n          << 3);
-		if (version < T5_RESAMPLE)
+		if (!multi_bits_lbsrcs)
 			audiobus_update_bits(reg,
 				0x3 << 30 |
 				0x1 << 0,
@@ -245,7 +246,7 @@ void lb_set_datalb_cfg(int id, struct data_cfg *datalb_cfg, int version)
 			(datalb_cfg->chnum - 1) << 16 |
 			datalb_cfg->chmask	<< 0
 		);
-		if (version >= T5_RESAMPLE) {
+		if (multi_bits_lbsrcs) {
 			/* from t5 chip, loopback src changed if resample for loopback */
 			int loopback_src;
 

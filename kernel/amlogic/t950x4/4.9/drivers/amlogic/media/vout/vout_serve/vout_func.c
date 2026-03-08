@@ -20,6 +20,7 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/err.h>
+#include <linux/amlogic/clk_measure.h>
 
 /* Amlogic Headers */
 #include <linux/amlogic/media/vout/vout_notify.h>
@@ -127,6 +128,41 @@ struct vout_module_s *vout_func_get_vout2_module(void)
 }
 EXPORT_SYMBOL(vout_func_get_vout2_module);
 #endif
+
+static inline unsigned int vout_do_div(unsigned long long num, unsigned int den)
+{
+	unsigned long long val = num;
+
+	do_div(val, den);
+
+	return (unsigned int)val;
+}
+
+unsigned int vout_frame_rate_measure(void)
+{
+	//int clk_mux = 38;
+	unsigned int val[2], fr;
+	unsigned long long msr_clk;
+
+	//msr_clk = meson_clk_measure(clk_mux);
+	msr_clk = 50000000;
+
+	/* don't need to measure clock again, use fixed 50Mhz clock
+	val[0] = vout_vcbus_read(VPP_VDO_MEAS_CTRL);
+	if (val[0]) {
+		vout_vcbus_write(VPP_VDO_MEAS_CTRL, 0);
+		msleep(200);
+	}
+	*/
+	val[0] = vout_vcbus_read(VPP_VDO_MEAS_VS_COUNT_HI);
+	val[1] = vout_vcbus_read(VPP_VDO_MEAS_VS_COUNT_LO);
+	msr_clk *= 1000;
+	if (val[0] & 0xffff)
+		return 0;
+	fr = vout_do_div(msr_clk, val[1]);
+
+	return fr;
+}
 
 static inline int vout_func_check_state(int index, unsigned int state,
 		struct vout_server_s *p_server)

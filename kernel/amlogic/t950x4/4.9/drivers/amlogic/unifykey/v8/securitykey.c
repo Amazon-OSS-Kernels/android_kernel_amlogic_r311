@@ -49,6 +49,9 @@ static unsigned long storage_status_func;
 static unsigned long storage_verify_func;
 static unsigned long storage_list_func;
 static unsigned long storage_remove_func;
+#ifdef CONFIG_UNIFYKEY_RELOAD
+static unsigned long storage_notify_ex_func;
+#endif
 static unsigned long storage_set_enctype_func;
 static unsigned long storage_get_enctype_func;
 static unsigned long storage_version_func;
@@ -90,6 +93,11 @@ void *secure_storage_getbuffer(uint32_t *size)
 
 void secure_storage_notifier_ex(uint32_t storagesize)
 {
+#ifdef CONFIG_UNIFYKEY_RELOAD
+	spin_lock_irqsave(&storage_lock, lockflags);
+	storage_smc_ops2(storage_notify_ex_func, storagesize);
+	spin_unlock_irqrestore(&storage_lock, lockflags);
+#endif
 }
 
 void secure_storage_type(uint32_t is_emmc)
@@ -402,6 +410,10 @@ static int storage_probe(struct platform_device *pdev)
 		storage_list_func = id;
 	if (!of_property_read_u32(np, "storage_remove", &id))
 		storage_remove_func = id;
+#ifdef CONFIG_UNIFYKEY_RELOAD
+	if (!of_property_read_u32(np, "storage_notify_ex", &id))
+		storage_notify_ex_func = id;
+#endif
 	if (!of_property_read_u32(np, "storage_set_enctype", &id))
 		storage_set_enctype_func = id;
 	if (!of_property_read_u32(np, "storage_get_enctype", &id))

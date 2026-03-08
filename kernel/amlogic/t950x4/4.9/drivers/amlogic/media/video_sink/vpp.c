@@ -1568,9 +1568,23 @@ RESTART:
 		if (wide_mode == VIDEO_WIDEOPTION_NORMAL) {
 			ratio_x = ratio_y = max(ratio_x, ratio_y);
 			if (ext_sar)
+#ifdef CONFIG_ENABLE_AFD
+				ratio_y =
+					div_u64((u64)ratio_y *
+						(u64)h_in,
+						(u32)height_after_ratio);
+#else
 				ratio_y = (ratio_y * h_in) / height_after_ratio;
+#endif
 			else
+#ifdef CONFIG_ENABLE_AFD
+				ratio_y =
+					div_u64((u64)ratio_y *
+						(u64)256ULL,
+						(u32)aspect_factor);
+#else
 				ratio_y = (ratio_y << 8) / aspect_factor;
+#endif
 		} else if (wide_mode == VIDEO_WIDEOPTION_NORMAL_NOSCALEUP) {
 			u32 r1, r2;
 
@@ -3830,16 +3844,8 @@ RERTY:
 		vpp_flags |= VPP_FLAG_FORCE_AFD_ENABLE;
 	}
 #ifdef CONFIG_ENABLE_AFD
-	if (local_input.layer_left == 0 &&
-	    local_input.layer_top == 0 &&
-	    local_input.layer_width <= 1 &&
-	    local_input.layer_height <= 1) {
-		/* special case to do full screen display */
-		local_input.layer_width = vinfo->width;
-		local_input.layer_height = vinfo->height;
-		vpp_flags |= VPP_FLAG_FORCE_NO_OFFSET;
-		adjust = true;
-	} else if (local_input.pps_support) {
+#if 0
+	if (local_input.pps_support) {
 		/* TODO: remove it */
 		if (local_input.layer_width < 16 &&
 		    local_input.layer_height < 16) {
@@ -3851,7 +3857,7 @@ RERTY:
 			adjust = true;
 		}
 	}
-
+#endif
 	if (super_debug && adjust)
 		pr_info("layer%d: adjust pos from (%d %d %d %d) -> (%d %d %d %d)\n",
 			input->layer_id,

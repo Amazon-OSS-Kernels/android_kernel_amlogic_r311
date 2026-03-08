@@ -56,7 +56,9 @@
 /* 20201230: add lcd_customer_pinmux ser api*/
 /* 20210311: add global reset to clear tcon last state*/
 /* 20211009: support 59 & 47 frame rate for tv mode*/
-#define LCD_DRV_VERSION    "20211009"
+/* 20220809: fix tcon axi mem mistake for DLG tcon bin*/
+#define LCD_DRV_VERSION    "20220809"
+
 
 #define VPP_OUT_SATURATE            (1 << 0)
 

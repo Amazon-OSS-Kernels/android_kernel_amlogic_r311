@@ -33,7 +33,11 @@
 #include "phy-aml-new-usb-v2.h"
 
 struct amlogic_usb_v2	*g_phy2_v2;
+#ifdef CONFIG_NEW_USB_SQUELCH
+#define TUNING_DISCONNECT_THRESHOLD 0x37
+#else
 #define TUNING_DISCONNECT_THRESHOLD 0x34
+#endif
 
 void set_usb_phy_host_tuning(int port, int default_val)
 {

@@ -855,6 +855,28 @@ static int acm8625_get_EQ_enum(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int acm8625_set_DRC_enum(struct snd_kcontrol *kcontrol,
+				   struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct acm8625_priv *acm8625 = snd_soc_codec_get_drvdata(codec);
+
+	acm8625->drc_enable = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int acm8625_get_DRC_enum(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct acm8625_priv *acm8625 = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] = acm8625->drc_enable;
+
+	return 0;
+}
+
 static int acm8625_set_DRC_param(struct snd_kcontrol *kcontrol,
 				  const unsigned int __user *bytes,
 				  unsigned int size)
@@ -968,6 +990,8 @@ static const struct snd_kcontrol_new acm8625_vol_control[] = {
 	},
 	SOC_SINGLE_BOOL_EXT("Set EQ Enable", 0,
 			   acm8625_get_EQ_enum, acm8625_set_EQ_enum),
+	SOC_SINGLE_BOOL_EXT("Set DRC Enable", 0,
+			   acm8625_get_DRC_enum, acm8625_set_DRC_enum),
 	SND_SOC_BYTES_TLV("EQ table", ACM8625_EQ_PARAM_COUNT,
 			   acm8625_get_EQ_param, acm8625_set_EQ_param),
 	SND_SOC_BYTES_TLV("DRC table", ACM8625_DRC_PARAM_COUNT,
@@ -1088,6 +1112,9 @@ static int acm8625_snd_resume(struct snd_soc_codec *codec)
 	int ret;
 	struct acm8625_priv *acm8625 = snd_soc_codec_get_drvdata(codec);
 	struct acm8625_platform_data *pdata = acm8625->pdata;
+	char *p_drc = acm8625->m_drc_tab;
+	char *p_eq = acm8625->m_eq_tab;
+	int i;
 
 	dev_info(codec->dev, "acm8625_snd_resume!\n");
 
@@ -1103,6 +1130,23 @@ static int acm8625_snd_resume(struct snd_soc_codec *codec)
 	}
 
 	acm8625_set_volume(codec, acm8625->vol);
+
+	acm8625_write_prepare(codec);
+	if (acm8625->eq_enable) {
+		for (i = 0; i < ACM8625_EQ_PARAM_LENGTH; i++) {
+			snd_soc_write(codec, *p_eq, *(p_eq + 1));
+			p_eq += 2;
+		}
+	}
+
+	if (acm8625->drc_enable) {
+		for (i = 0; i < ACM8625_DRC_PARAM_LENGTH; i++) {
+			snd_soc_write(codec, *p_drc, *(p_drc + 1));
+			p_drc += 2;
+		}
+	}
+	acm8625_write_ready(codec);
+
 	acm8625_mute(codec, acm8625->mute);
 	acm8625_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 

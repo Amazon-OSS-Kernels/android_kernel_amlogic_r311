@@ -31,8 +31,12 @@
 #include <linux/cma.h>
 #include <linux/dma-contiguous.h>
 #include <linux/dma-mapping.h>
+#include <linux/amlogic/media/vout/vout_notify.h>
 #include <linux/amlogic/media/vout/lcd/lcd_vout.h>
 #include <linux/amlogic/media/vout/lcd/lcd_unifykey.h>
+#ifdef CONFIG_AMLOGIC_BACKLIGHT
+#include <linux/amlogic/media/vout/lcd/aml_bl.h>
+#endif
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #ifdef CONFIG_AMLOGIC_TEE
@@ -48,6 +52,9 @@ static struct tcon_rmem_s tcon_rmem;
 static struct tcon_mem_map_table_s tcon_mm_table;
 static struct delayed_work lcd_tcon_delayed_work;
 static struct lcd_tcon_local_cfg_s tcon_local_cfg;
+
+static int lcd_tcon_data_multi_remvoe(struct tcon_mem_map_table_s *mm_table);
+static int lcd_tcon_data_multi_reset(struct tcon_mem_map_table_s *mm_table);
 
 /* **********************************
  * tcon common function
@@ -98,6 +105,17 @@ struct tcon_mem_map_table_s *get_lcd_tcon_mm_table(void)
 		return NULL;
 
 	return &tcon_mm_table;
+}
+
+struct lcd_tcon_local_cfg_s *get_lcd_tcon_local_cfg(void)
+{
+	int ret;
+
+	ret = lcd_tcon_valid_check();
+	if (ret)
+		return NULL;
+
+	return &tcon_local_cfg;
 }
 
 unsigned int lcd_tcon_data_size_align(unsigned int size)
@@ -395,6 +413,52 @@ unsigned int lcd_tcon_table_write(unsigned int addr, unsigned int val)
 	return read_val;
 }
 
+void lcd_tcon_multi_lut_print(void)
+{
+	struct tcon_data_multi_s *data_multi;
+	struct tcon_data_list_s *data_list;
+	int i;
+
+	if (tcon_mm_table.data_multi_cnt == 0) {
+		LCDPR("tcon data_multi_cnt is 0\n");
+		return;
+	}
+	if (!tcon_mm_table.data_multi) {
+		LCDERR("tcon data_multi is null\n");
+		return;
+	}
+
+	LCDPR("tcon multi_update: %d\n", tcon_mm_table.multi_lut_update);
+	for (i = 0; i < tcon_mm_table.data_multi_cnt; i++) {
+		data_multi = &tcon_mm_table.data_multi[i];
+		LCDPR("data_multi[%d]:\n"
+			"  type:        0x%x\n"
+			"  list_cnt:    %d\n"
+			"  bypass_flag: %d\n",
+			i, data_multi->block_type, data_multi->list_cnt,
+			data_multi->bypass_flag);
+		if (data_multi->list_cur) {
+			pr_info("data_multi[%d] current:\n"
+				"  sel_id:     %d\n"
+				"  sel_name:   %s\n",
+				i, data_multi->list_cur->id,
+				data_multi->list_cur->block_name);
+		} else {
+			pr_info("data_multi[%d] current: NULL\n", i);
+		}
+		pr_info("data_multi[%d] list:\n", i);
+		data_list = data_multi->list_header;
+		while (data_list) {
+			pr_info("  block[%d]: %s, vaddr=0x%px\n",
+				data_list->id,
+				data_list->block_name,
+				data_list->block_vaddr);
+			data_list = data_list->next;
+		}
+		pr_info("\n");
+	}
+}
+
 int lcd_tcon_info_print(char *buf, int offset)
 {
 	unsigned int size, cnt, m;
@@ -415,7 +479,8 @@ int lcd_tcon_info_print(char *buf, int offset)
 			"reg_table_len:          %d\n"
 			"tcon_bin_ver:           %s\n"
 			"tcon_rmem_flag:         %d\n"
-			"tcon_data_flag:         %d\n"
+			"bin_path init_load:     %d\n"
+			"bin_path data_flag:     %d\n"
 			"reserved_mem paddr:     0x%lx\n"
 			"reserved_mem size:      0x%x\n"
 			"bin_path_mem_paddr:     0x%lx\n"
@@ -437,6 +502,7 @@ int lcd_tcon_info_print(char *buf, int offset)
 			lcd_tcon_conf->reg_table_len,
 			tcon_local_cfg.bin_ver,
 			tcon_rmem.flag,
+			tcon_mm_table.init_load,
 			tcon_mm_table.tcon_data_flag,
 			(unsigned long)tcon_rmem.rsv_mem_paddr,
 			tcon_rmem.rsv_mem_size,
@@ -459,32 +525,33 @@ int lcd_tcon_info_print(char *buf, int offset)
 			for (i = 0; i < lcd_tcon_conf->axi_bank; i++) {
 				n = lcd_debug_info_len(len + offset);
 				len += snprintf((buf + len), n,
-					"axi_mem[%d]_paddr:      0x%lx\n"
-					"axi_mem[%d]_vaddr:      0x%p\n"
-					"axi_mem[%d]_size:       0x%x\n",
-					i,
-					(unsigned long)tcon_rmem.axi_rmem[i].mem_paddr,
-					i, tcon_rmem.axi_rmem[i].mem_vaddr,
-					i, tcon_rmem.axi_rmem[i].mem_size);
+				"axi_mem[%d]_paddr:  0x%lx\n"
+				"axi_mem[%d]_vaddr:  0x%p\n"
+				"axi_mem[%d]_size:   0x%x\n",
+				i, (unsigned long)tcon_rmem.axi_rmem[i].mem_paddr,
+				i, tcon_rmem.axi_rmem[i].mem_vaddr,
+				i, tcon_rmem.axi_rmem[i].mem_size);
 			}
 		}
 	} else {
 		len += snprintf((buf + len), n,
 			"\ntcon info:\n"
-			"core_reg_width:         %d\n"
-			"reg_table_len:          %d\n"
-			"tcon_bin_ver:           %s\n"
-			"tcon_rmem_flag:         %d\n"
-			"tcon_data_flag:         %d\n"
-			"reserved_mem paddr:     0x%lx\n"
-			"reserved_mem size:      0x%x\n"
-			"bin_path_mem_paddr:     0x%lx\n"
-			"bin_path_mem_vaddr:     0x%p\n"
-			"bin_path_mem_size:      0x%x\n\n",
+			"core_reg_width:      %d\n"
+			"reg_table_len:       %d\n"
+			"tcon_bin_ver:        %s\n"
+			"tcon_rmem_flag:      %d\n"
+			"bin_path init_load:  %d\n"
+			"bin_path data_flag:  %d\n"
+			"reserved_mem paddr:  0x%lx\n"
+			"reserved_mem size:   0x%x\n"
+			"bin_path_mem_paddr:  0x%lx\n"
+			"bin_path_mem_vaddr:  0x%px\n"
+			"bin_path_mem_size:   0x%x\n\n",
 			lcd_tcon_conf->core_reg_width,
 			lcd_tcon_conf->reg_table_len,
 			tcon_local_cfg.bin_ver,
 			tcon_rmem.flag,
+			tcon_mm_table.init_load,
 			tcon_mm_table.tcon_data_flag,
 			(unsigned long)tcon_rmem.rsv_mem_paddr,
 			tcon_rmem.rsv_mem_size,
@@ -495,19 +562,56 @@ int lcd_tcon_info_print(char *buf, int offset)
 			for (i = 0; i < lcd_tcon_conf->axi_bank; i++) {
 				n = lcd_debug_info_len(len + offset);
 				len += snprintf((buf + len), n,
-					"axi_mem[%d]_paddr:      0x%lx\n"
-					"axi_mem[%d]_size:       0x%x\n",
-					i,
-					(unsigned long)tcon_rmem.axi_rmem[i].mem_paddr,
-					i, tcon_rmem.axi_rmem[i].mem_size);
+				 "axi_mem[%d]_paddr:   0x%lx\n"
+				 "axi_mem[%d]_size:    0x%x\n",
+				 i, (unsigned long)tcon_rmem.axi_rmem[i].mem_paddr,
+				 i, tcon_rmem.axi_rmem[i].mem_size);
 			}
 		}
-		if (tcon_mm_table.data_mem_vaddr) {
+		if (tcon_mm_table.data_mem_vaddr && tcon_mm_table.data_size) {
+			n = lcd_debug_info_len(len + offset);
+			len += snprintf((buf + len), n,
+				"data_mem block_cnt:  %d\n",
+				tcon_mm_table.block_cnt);
 			for (i = 0; i < tcon_mm_table.block_cnt; i++) {
 				n = lcd_debug_info_len(len + offset);
 				len += snprintf((buf + len), n,
-					"data_mem_vaddr[%d]:     0x%p\n",
-					i, tcon_mm_table.data_mem_vaddr[i]);
+					"data_mem_vaddr[%d]:  0x%px\n"
+					"data_mem_size[%d]:   0x%x\n",
+					i, tcon_mm_table.data_mem_vaddr[i],
+					i, tcon_mm_table.data_size[i]);
+			}
+		}
+		if ((tcon_mm_table.data_multi_cnt > 0) && tcon_mm_table.data_multi) {
+			n = lcd_debug_info_len(len + offset);
+			len += snprintf((buf + len), n,
+				"tcon multi_update: %d\n",
+				tcon_mm_table.multi_lut_update);
+			for (i = 0; i < tcon_mm_table.data_multi_cnt; i++) {
+				n = lcd_debug_info_len(len + offset);
+				len += snprintf((buf + len), n,
+					"data_multi[%d] current: (bypass:%d):\n",
+					i, tcon_mm_table.data_multi[i].bypass_flag);
+				if (!tcon_mm_table.data_multi[i].list_cur) {
+					n = lcd_debug_info_len(len + offset);
+					len += snprintf((buf + len), n,
+						"  type:      0x%x\n"
+						"  list_cnt:  %d\n"
+						"  list_cur:  NULL\n",
+						tcon_mm_table.data_multi[i].block_type,
+						tcon_mm_table.data_multi[i].list_cnt);
+				} else {
+					n = lcd_debug_info_len(len + offset);
+					len += snprintf((buf + len), n,
+						"  type:      0x%x\n"
+						"  list_cnt:  %d\n"
+						"  sel_id:    %d\n"
+						"  sel_name:  %s\n",
+						tcon_mm_table.data_multi[i].block_type,
+						tcon_mm_table.data_multi[i].list_cnt,
+						tcon_mm_table.data_multi[i].list_cur->id,
+						tcon_mm_table.data_multi[i].list_cur->block_name);
+				}
 			}
 		}
 	}
@@ -527,7 +631,7 @@ int lcd_tcon_info_print(char *buf, int offset)
 		if (cnt > 32)
 			return len;
 		n = lcd_debug_info_len(len + offset);
-		len += snprintf((buf + len), n, "\n");
+		len += snprintf((buf + len), n, "\nbin_path cnt: %d\n", cnt);
 		for (i = 0; i < cnt; i++) {
 			m = 32 + 256 * i;
 			size = mem_vaddr[m] |
@@ -537,20 +641,20 @@ int lcd_tcon_info_print(char *buf, int offset)
 			str = (char *)&mem_vaddr[m + 4];
 			n = lcd_debug_info_len(len + offset);
 			len += snprintf((buf + len), n,
-					"tcon_path[%d]: size: 0x%x, %s\n",
+					"bin_path[%d]: size: 0x%x, %s\n",
 					i, size, str);
 		}
 	}
 
 	n = lcd_debug_info_len(len + offset);
 	len += snprintf((buf + len), n,
-		"\ntcon_status:\n"
-		"vac_valid:              %d\n"
-		"demura_valid:           %d\n"
-		"acc_valid:              %d\n",
-		((tcon_mm_table.valid_flag >> LCD_TCON_DATA_VALID_VAC) & 0x1),
-		((tcon_mm_table.valid_flag >> LCD_TCON_DATA_VALID_DEMURA) & 0x1),
-		((tcon_mm_table.valid_flag >> LCD_TCON_DATA_VALID_ACC) & 0x1));
+	 "\ntcon_status:\n"
+	 "vac_valid:       %d\n"
+	 "demura_valid:    %d\n"
+	 "acc_valid:       %d\n",
+	 ((tcon_mm_table.valid_flag >> LCD_TCON_DATA_VALID_VAC) & 0x1),
+	 ((tcon_mm_table.valid_flag >> LCD_TCON_DATA_VALID_DEMURA) & 0x1),
+	 ((tcon_mm_table.valid_flag >> LCD_TCON_DATA_VALID_ACC) & 0x1));
 	return len;
 }
 
@@ -679,7 +783,7 @@ int lcd_tcon_core_update(void)
 	if (ret)
 		return -1;
 
-	lcd_tcon_core_reg_update(lcd_tcon_conf, &tcon_mm_table);
+	lcd_tcon_core_reg_set(lcd_tcon_conf, &tcon_mm_table, tcon_mm_table.core_reg_table);
 
 	return 0;
 }
@@ -710,20 +814,341 @@ void lcd_tcon_disable(struct lcd_config_s *pconf)
 
 	/* release data*/
 	if (tcon_mm_table.version) {
-		for (i = 0; i < tcon_mm_table.block_cnt; i++) {
-			if (!tcon_mm_table.data_mem_vaddr[i])
-				continue;
-			if (!tcon_mm_table.data_size)
-				continue;
-			memset(tcon_mm_table.data_mem_vaddr[i], 0,
-			       tcon_mm_table.data_size[i]);
+		if (tcon_mm_table.init_load == 0) {
+			tcon_mm_table.valid_flag = 0;
+			tcon_mm_table.tcon_data_flag = 0;
+			tcon_mm_table.block_bit_flag = 0;
+			lcd_tcon_data_multi_remvoe(&tcon_mm_table);
+			for (i = 0; i < tcon_mm_table.block_cnt; i++) {
+				kfree(tcon_mm_table.data_mem_vaddr[i]);
+				tcon_mm_table.data_mem_vaddr[i] = NULL;
+			}
+		} else {
+			lcd_tcon_data_multi_reset(&tcon_mm_table);
 		}
-		tcon_mm_table.valid_flag = 0;
-		tcon_mm_table.tcon_data_flag = 0;
 	}
 
 	if (lcd_tcon_conf->tcon_disable)
 		lcd_tcon_conf->tcon_disable(pconf);
+}
+
+static int lcd_tcon_data_multi_match_policy_check(struct aml_lcd_drv_s *lcd_drv,
+		struct lcd_tcon_data_part_ctrl_s *ctrl_part, unsigned char *p)
+{
+#ifdef CONFIG_AMLOGIC_BACKLIGHT
+	struct aml_bl_drv_s *bldrv;
+	struct bl_pwm_config_s *bl_pwm = NULL;
+#endif
+	unsigned int data_byte, data_cnt, data, min, max;
+	unsigned int sync_num, sync_den, temp;
+	unsigned int j, k;
+
+	if (!ctrl_part)
+		return -1;
+	if (ctrl_part->ctrl_data_flag != LCD_TCON_DATA_CTRL_FLAG_MULTI)
+		return -1;
+
+	data_byte = ctrl_part->data_byte_width;
+	data_cnt = ctrl_part->data_cnt;
+
+	k = 0;
+	data = 0;
+	min = 0;
+	max = 0;
+
+	switch (ctrl_part->ctrl_method) {
+	case LCD_TCON_DATA_CTRL_MULTI_VFREQ:
+		if (data_cnt != 2)
+			goto lcd_tcon_data_multi_match_check_err_data_cnt;
+		temp = vout_frame_rate_measure(); //1000 multi
+		if (temp == 0) {
+			sync_num = lcd_drv->lcd_config->lcd_timing.sync_duration_num;
+			sync_den = lcd_drv->lcd_config->lcd_timing.sync_duration_den;
+			temp = sync_num / sync_den;
+		} else {
+			temp /= 1000;
+		}
+
+		for (j = 0; j < data_byte; j++)
+			min |= (p[k + j] << (j * 8));
+		k += data_byte;
+		for (j = 0; j < data_byte; j++)
+			max |= (p[k + j] << (j * 8));
+		if (temp < min || temp > max)
+			goto lcd_tcon_data_multi_match_check_exit;
+		break;
+	case LCD_TCON_DATA_CTRL_MULTI_BL_LEVEL:
+#ifdef CONFIG_AMLOGIC_BACKLIGHT
+		bldrv = aml_bl_get_driver();
+		if (!bldrv)
+			goto lcd_tcon_data_multi_match_check_err_type;
+		temp = bldrv->level;
+
+		if (data_cnt != 2)
+			goto lcd_tcon_data_multi_match_check_err_data_cnt;
+		for (j = 0; j < data_byte; j++)
+			min |= (p[k + j] << (j * 8));
+		k += data_byte;
+		for (j = 0; j < data_byte; j++)
+			max |= (p[k + j] << (j * 8));
+		if (temp < min || temp > max)
+			goto lcd_tcon_data_multi_match_check_exit;
+#endif
+		break;
+	case LCD_TCON_DATA_CTRL_MULTI_BL_PWM_DUTY:
+#ifdef CONFIG_AMLOGIC_BACKLIGHT
+		bldrv = aml_bl_get_driver();
+		if (!bldrv)
+			goto lcd_tcon_data_multi_match_check_err_type;
+
+		if (data_cnt != 3)
+			goto lcd_tcon_data_multi_match_check_err_data_cnt;
+		for (j = 0; j < data_byte; j++)
+			data |= (p[k + j] << (j * 8));
+		k += data_byte;
+		for (j = 0; j < data_byte; j++)
+			min |= (p[k + j] << (j * 8));
+		k += data_byte;
+		for (j = 0; j < data_byte; j++)
+			max |= (p[k + j] << (j * 8));
+
+		switch (bldrv->bconf->method) {
+		case BL_CTRL_PWM:
+			bl_pwm = bldrv->bconf->bl_pwm;
+			break;
+		case BL_CTRL_PWM_COMBO:
+			if (data == 0)
+				bl_pwm = bldrv->bconf->bl_pwm_combo0;
+			else
+				bl_pwm = bldrv->bconf->bl_pwm_combo1;
+			break;
+		default:
+			break;
+		}
+		if (!bl_pwm)
+			goto lcd_tcon_data_multi_match_check_err_type;
+
+		temp = bl_pwm->pwm_duty;
+		if (temp < min || temp > max)
+			goto lcd_tcon_data_multi_match_check_exit;
+#endif
+		break;
+	case LCD_TCON_DATA_CTRL_DEFAULT:
+		return 1;
+	default:
+		return -1;
+	}
+
+	return 0;
+
+lcd_tcon_data_multi_match_check_exit:
+	return -1;
+
+lcd_tcon_data_multi_match_check_err_data_cnt:
+	LCDERR("%s: ctrl_part %s data_cnt error\n", __func__, ctrl_part->name);
+	return -1;
+
+#ifdef CONFIG_AMLOGIC_BACKLIGHT
+lcd_tcon_data_multi_match_check_err_type:
+	LCDERR("%s: ctrl_part %s type invalid\n", __func__, ctrl_part->name);
+	return -1;
+#endif
+}
+
+/* return:
+ *    0: matched
+ *    1: dft list
+ *   -1: not match
+ */
+int lcd_tcon_data_multi_match_find(unsigned char *data_buf)
+{
+	struct aml_lcd_drv_s *lcd_drv = aml_lcd_get_driver();
+	struct lcd_tcon_data_block_header_s *block_header;
+	struct lcd_tcon_data_block_ext_header_s *ext_header;
+	struct lcd_tcon_data_part_ctrl_s *ctrl_part;
+	unsigned char *p, part_type;
+	unsigned int size, data_offset, offset, i;
+	unsigned short part_cnt;
+	int ret;
+
+	block_header = (struct lcd_tcon_data_block_header_s *)data_buf;
+	p = data_buf + LCD_TCON_DATA_BLOCK_HEADER_SIZE;
+	ext_header = (struct lcd_tcon_data_block_ext_header_s *)p;
+	part_cnt = ext_header->part_cnt;
+
+	data_offset = LCD_TCON_DATA_BLOCK_HEADER_SIZE + block_header->ext_header_size;
+	size = 0;
+	for (i = 0; i < part_cnt; i++) {
+		p = data_buf + data_offset;
+		part_type = p[LCD_TCON_DATA_PART_NAME_SIZE + 3];
+
+		switch (part_type) {
+		case LCD_TCON_DATA_PART_TYPE_CONTROL:
+			offset = LCD_TCON_DATA_PART_CTRL_SIZE_PRE;
+			ctrl_part = (struct lcd_tcon_data_part_ctrl_s *)p;
+			size = offset + (ctrl_part->data_cnt *
+					 ctrl_part->data_byte_width);
+			if (ctrl_part->ctrl_data_flag != LCD_TCON_DATA_CTRL_FLAG_MULTI)
+				break;
+			ret = lcd_tcon_data_multi_match_policy_check(lcd_drv,
+				ctrl_part, (p + offset));
+			if (ret == 0)
+				return 0;
+			if (ret == 1)
+				return 1;
+			break;
+		default:
+			return -1;
+		}
+		data_offset += size;
+	}
+
+	return -1;
+}
+
+/* for tcon power on init,
+ * will apply block_type: LCD_TCON_DATA_BLOCK_TYPE_BASIC_INIT
+ */
+void lcd_tcon_data_multi_current_update(struct tcon_mem_map_table_s *mm_table,
+		struct lcd_tcon_data_block_header_s *block_header, unsigned int index)
+{
+	struct tcon_data_multi_s *data_multi = NULL;
+	struct tcon_data_list_s *temp_list;
+	int i;
+
+	if (!mm_table || !mm_table->data_multi)
+		return;
+	if (mm_table->data_multi_cnt == 0)
+		return;
+
+	for (i = 0; i < mm_table->data_multi_cnt; i++) {
+		data_multi = &mm_table->data_multi[i];
+		if (data_multi->block_type != block_header->block_type)
+			continue;
+		temp_list = data_multi->list_header;
+		while (temp_list) {
+			if (temp_list->id == index) {
+				data_multi->list_cur = temp_list;
+				if (lcd_debug_print_flag) {
+					LCDPR("%s: multi[%d]: type=0x%x, id=%d, %s\n",
+						__func__, i,
+						data_multi->block_type,
+						data_multi->list_cur->id,
+						data_multi->list_cur->block_name);
+				}
+				return;
+			}
+			temp_list = temp_list->next;
+		}
+	}
+}
+
+/* for tcon multi lut update bypass debug */
+void lcd_tcon_data_multi_bypass_set(struct tcon_mem_map_table_s *mm_table,
+				    unsigned int block_type, int flag)
+{
+	struct tcon_data_multi_s *data_multi = NULL;
+	int i;
+
+	if (!mm_table || !mm_table->data_multi)
+		return;
+	if (mm_table->data_multi_cnt == 0)
+		return;
+
+	for (i = 0; i < mm_table->data_multi_cnt; i++) {
+		data_multi = &mm_table->data_multi[i];
+		if (data_multi->block_type == block_type) {
+			data_multi->bypass_flag = flag;
+			LCDPR("tcon multi[%d]: block_type=0x%x, bypass: %d\n",
+			      i, block_type, flag);
+			return;
+		}
+	}
+
+	LCDERR("tcon multi[%d]: block_type=0x%x invalid\n", i, block_type);
+}
+
+/* for tcon vsync switch multi lut dynamiclly,
+ * will bypass block_type: LCD_TCON_DATA_BLOCK_TYPE_BASIC_INIT
+ */
+static int lcd_tcon_data_multi_update(struct tcon_mem_map_table_s *mm_table)
+{
+	struct tcon_data_multi_s *data_multi = NULL;
+	struct tcon_data_list_s *temp_list, *match_list;
+	int i, ret = 0;
+
+	if (!mm_table || !mm_table->data_multi)
+		return 0;
+	if (mm_table->data_multi_cnt == 0)
+		return 0;
+
+	for (i = 0; i < mm_table->data_multi_cnt; i++) {
+		data_multi = &mm_table->data_multi[i];
+		/* bypass LCD_TCON_DATA_BLOCK_TYPE_BASIC_INIT for multi lut swich */
+		if (data_multi->block_type == LCD_TCON_DATA_BLOCK_TYPE_BASIC_INIT)
+			continue;
+		/* bypass_flag for debug */
+		if (data_multi->bypass_flag)
+			continue;
+
+		/* step1: check current list first, for threshold overlap*/
+		temp_list = data_multi->list_cur;
+		if (temp_list) {
+			ret = lcd_tcon_data_multi_match_find(temp_list->block_vaddr);
+			if (ret == 0) //current range, no need update
+				continue;
+		}
+
+		/* step2: traversing list*/
+		temp_list = data_multi->list_header;
+		match_list = NULL;
+		while (temp_list) {
+			ret = lcd_tcon_data_multi_match_find(temp_list->block_vaddr);
+			if (ret == 0) {
+				match_list = temp_list;
+				break;
+			}
+			temp_list = temp_list->next;
+		}
+		if (!match_list) //no active list, no need update setting
+			continue;
+
+		if (data_multi->list_cur &&
+		    data_multi->list_cur->id == match_list->id) {
+			//same list, no need update setting
+			continue;
+		}
+
+		ret = lcd_tcon_data_common_parse_set(match_list->block_vaddr, 0);
+		if (ret) //list update failed
+			continue;
+		data_multi->list_cur = match_list;
+		if (lcd_debug_print_flag == 3) {
+			LCDPR("%s: multi[%d]: type=0x%x, id=%d, %s\n",
+				__func__, i,
+				data_multi->block_type,
+				data_multi->list_cur->id,
+				data_multi->list_cur->block_name);
+		}
+	}
+
+	return ret;
+}
+
+void lcd_tcon_vsync_isr(struct aml_lcd_drv_s *lcd_drv)
+{
+	unsigned long flags = 0;
+
+	if ((lcd_drv->lcd_status & LCD_STATUS_IF_ON) == 0)
+		return;
+
+	if (tcon_mm_table.version) {
+		if (tcon_mm_table.multi_lut_update) {
+			spin_lock_irqsave(&tcon_local_cfg.multi_list_lock, flags);
+			lcd_tcon_data_multi_update(&tcon_mm_table);
+			spin_unlock_irqrestore(&tcon_local_cfg.multi_list_lock, flags);
+		}
+	}
 }
 
 /* **********************************
@@ -915,28 +1340,342 @@ static int lcd_tcon_acc_lut_load(void)
 	return 0;
 }
 
-int lcd_tcon_data_load(void)
+static inline void lcd_tcon_data_list_add(struct tcon_data_multi_s *data_multi,
+					  struct tcon_data_list_s *data_list)
+{
+	struct tcon_data_list_s *temp_list;
+
+	if (!data_multi || !data_list)
+		return;
+
+	//multi list add
+	if (!data_multi->list_header) { /* new list */
+		data_multi->list_header = data_list;
+	} else {
+		temp_list = data_multi->list_header;
+		if (temp_list->id == data_list->id) {
+			data_multi->list_header = data_list;
+			data_multi->list_remove = temp_list;
+			goto lcd_tcon_data_list_add_end;
+		}
+		while (temp_list->next) {
+			if (temp_list->next->id == data_list->id) {
+				temp_list->next = data_list;
+				data_multi->list_remove = temp_list->next;
+				goto lcd_tcon_data_list_add_end;
+			}
+			temp_list = temp_list->next;
+		}
+		temp_list->next = data_list;
+	}
+	data_multi->list_cnt++;
+
+lcd_tcon_data_list_add_end:
+	if (lcd_debug_print_flag) {
+		LCDPR("%s: block[%d]: %s\n",
+		      __func__, data_list->id, data_list->block_name);
+	}
+}
+
+static inline void lcd_tcon_data_list_remove(struct tcon_data_multi_s *data_multi)
+{
+	struct tcon_data_list_s *cur_list, *next_list;
+
+	if (!data_multi)
+		return;
+
+	/* add to exist list */
+	cur_list = data_multi->list_header;
+	while (cur_list) {
+		next_list = cur_list->next;
+		kfree(cur_list);
+		cur_list = next_list;
+	}
+
+	data_multi->block_type = LCD_TCON_DATA_BLOCK_TYPE_MAX;
+	data_multi->list_cnt = 0;
+	data_multi->list_header = NULL;
+	data_multi->list_cur = NULL;
+}
+
+int lcd_tcon_data_multi_add(struct tcon_mem_map_table_s *mm_table,
+			    struct lcd_tcon_data_block_header_s *block_header,
+			    unsigned int index)
+{
+	struct tcon_data_multi_s *data_multi = NULL;
+	struct tcon_data_list_s *data_list;
+	unsigned long flags = 0;
+	int i, ret;
+
+	if (!mm_table->data_multi) {
+		LCDERR("%s: data_multi is null\n", __func__);
+		return -1;
+	}
+	if (mm_table->data_multi_cnt > 0) {
+		if ((mm_table->data_multi_cnt + 1) >= mm_table->block_cnt) {
+			LCDERR("%s: multi block %s invalid\n",
+			       __func__, block_header->name);
+			return -1;
+		}
+	}
+
+	if (lcd_debug_print_flag)
+		LCDPR("%s: block[%d]: %s\n", __func__, index, block_header->name);
+
+	/* create list */
+	data_list = kzalloc(sizeof(*data_list), GFP_KERNEL);
+	if (!data_list)
+		return -1;
+	data_list->block_vaddr = mm_table->data_mem_vaddr[index];
+	data_list->next = NULL;
+	data_list->id = index;
+	data_list->block_name = block_header->name;
+
+	for (i = 0; i < mm_table->data_multi_cnt; i++) {
+		if (mm_table->data_multi[i].block_type == block_header->block_type) {
+			data_multi = &mm_table->data_multi[i];
+			break;
+		}
+	}
+
+	spin_lock_irqsave(&tcon_local_cfg.multi_list_lock, flags);
+	if (!data_multi) { /* create new list */
+		data_multi = &mm_table->data_multi[mm_table->data_multi_cnt];
+		mm_table->data_multi_cnt++;
+		data_multi->block_type = block_header->block_type;
+		data_multi->list_header = NULL;
+		data_multi->list_cur = NULL;
+		data_multi->list_remove = NULL;
+		data_multi->list_cnt = 0;
+		if (lcd_debug_print_flag) {
+			LCDPR("%s: new multi[%d]: type=0x%x, data_multi_cnt=%d\n",
+			      __func__, i, data_multi->block_type,
+			      mm_table->data_multi_cnt);
+		}
+	}
+	lcd_tcon_data_list_add(data_multi, data_list);
+
+	ret = lcd_tcon_data_multi_match_find(data_list->block_vaddr);
+	if (ret == 0) {
+		data_multi->list_cur = data_list;
+		if (lcd_debug_print_flag) {
+			LCDPR("%s: multi[%d]: type=0x%x, id=%d, %s\n",
+				__func__, i,
+				data_multi->block_type,
+				data_multi->list_cur->id,
+				data_multi->list_cur->block_name);
+		}
+	}
+
+	spin_unlock_irqrestore(&tcon_local_cfg.multi_list_lock, flags);
+
+	kfree(data_multi->list_remove);
+	data_multi->list_remove = NULL;
+
+	return 0;
+}
+
+static int lcd_tcon_data_multi_remvoe(struct tcon_mem_map_table_s *mm_table)
+{
+	unsigned long flags = 0;
+	int i;
+
+	if (!mm_table->data_multi)
+		return 0;
+	if (mm_table->data_multi_cnt == 0)
+		return 0;
+
+	spin_lock_irqsave(&tcon_local_cfg.multi_list_lock, flags);
+	for (i = 0; i < mm_table->data_multi_cnt; i++)
+		lcd_tcon_data_list_remove(&mm_table->data_multi[i]);
+	spin_unlock_irqrestore(&tcon_local_cfg.multi_list_lock, flags);
+
+	return 0;
+}
+
+static int lcd_tcon_data_multi_reset(struct tcon_mem_map_table_s *mm_table)
+{
+	unsigned long flags = 0;
+	int i;
+
+	if (!mm_table->data_multi)
+		return 0;
+	if (mm_table->data_multi_cnt == 0)
+		return 0;
+
+	spin_lock_irqsave(&tcon_local_cfg.multi_list_lock, flags);
+	for (i = 0; i < mm_table->data_multi_cnt; i++)
+		mm_table->data_multi[i].list_cur = NULL;
+	spin_unlock_irqrestore(&tcon_local_cfg.multi_list_lock, flags);
+
+	return 0;
+}
+
+static void lcd_tcon_data_complete_check(int index)
+{
+	struct aml_lcd_drv_s *lcd_drv = aml_lcd_get_driver();
+	unsigned char *table = tcon_mm_table.core_reg_table;
+	int i, n = 0;
+
+	if (tcon_mm_table.tcon_data_flag)
+		return;
+
+	if (lcd_debug_print_flag)
+		LCDPR("%s: index %d\n", __func__, index);
+
+	tcon_mm_table.block_bit_flag |= (1 << index);
+	for (i = 0; i < tcon_mm_table.block_cnt; i++) {
+		if (tcon_mm_table.block_bit_flag & (1 << i))
+			n++;
+	}
+	if (n < tcon_mm_table.block_cnt)
+		return;
+
+	tcon_mm_table.tcon_data_flag = 1;
+	LCDPR("%s: tcon_data_flag: %d\n", __func__, tcon_mm_table.tcon_data_flag);
+
+	/* specially check demura setting */
+	if (lcd_drv->data->chip_type == LCD_CHIP_TL1 ||
+	    lcd_drv->data->chip_type == LCD_CHIP_TM2) {
+		if (tcon_mm_table.demura_cnt < 2) {
+			tcon_mm_table.valid_flag &= ~LCD_TCON_DATA_VALID_DEMURA;
+			if (table) {
+				/* disable demura */
+				table[0x178] = 0x38;
+				table[0x17c] = 0x20;
+				table[0x181] = 0x00;
+				table[0x23d] &= ~(1 << 0);
+			}
+		}
+	}
+}
+
+void lcd_tcon_data_block_regen_crc(unsigned char *data)
+{
+	unsigned int raw_crc32 = 0, new_crc32 = 0;
+	struct lcd_tcon_data_block_header_s *header;
+
+	if (!data)
+		return;
+	header = (struct lcd_tcon_data_block_header_s *)data;
+
+	raw_crc32 = (data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24));
+	new_crc32 = cal_crc32(0, data + 4, header->block_size - 4);
+	if (raw_crc32 != new_crc32) {
+		data[0] = (unsigned char)(new_crc32 & 0xff);
+		data[1] = (unsigned char)((new_crc32 >> 8) & 0xff);
+		data[2] = (unsigned char)((new_crc32 >> 16) & 0xff);
+		data[3] = (unsigned char)((new_crc32 >> 24) & 0xff);
+	}
+}
+
+int lcd_tcon_data_load(unsigned char *data_buf, int index)
+{
+	struct lcd_tcon_data_block_header_s *block_header;
+	struct tcon_data_priority_s *data_prio;
+	unsigned int priority;
+	struct lcd_tcon_config_s *tcon_conf = get_lcd_tcon_config();
+	unsigned int *core_reg_table;
+	int j;
+
+	if (!tcon_mm_table.data_size) {
+		LCDERR("%s: data_size buf error\n", __func__);
+		return -1;
+	}
+	if (!tcon_mm_table.data_priority) {
+		LCDERR("%s: data_priority buf error\n", __func__);
+		return -1;
+	}
+
+	data_prio = tcon_mm_table.data_priority;
+	block_header = (struct lcd_tcon_data_block_header_s *)data_buf;
+	if (block_header->block_size < sizeof(struct lcd_tcon_data_block_header_s)) {
+		LCDERR("%s: block[%d] size 0x%x error\n",
+			__func__, index, block_header->block_size);
+		return -1;
+	}
+
+	if (block_header->block_type != LCD_TCON_DATA_BLOCK_TYPE_BASIC_INIT) {
+		tcon_mm_table.valid_flag |= block_header->block_flag;
+		if (block_header->block_flag == LCD_TCON_DATA_VALID_DEMURA)
+			tcon_mm_table.demura_cnt++;
+	} else {
+		core_reg_table = (unsigned int *)(data_buf +
+			sizeof(struct lcd_tcon_data_block_header_s));
+
+		if (!tcon_conf)
+			return -1;
+
+		lcd_tcon_od_pre_disable((unsigned char *)core_reg_table);
+		if (tcon_conf->tcon_axi_mem_update)
+			tcon_conf->tcon_axi_mem_update(core_reg_table);
+		lcd_tcon_data_block_regen_crc(data_buf);
+	}
+
+	/* insertion sort for block data init_priority */
+	data_prio[index].index = index;
+	/*data_prio[i].priority = block_header->init_priority;*/
+	/* update init_priority by index */
+	priority = index;
+	data_prio[index].priority = priority;
+	if (index > 0) {
+		j = index - 1;
+		while (j >= 0) {
+			if (priority > data_prio[j].priority)
+				break;
+			if (priority == data_prio[j].priority) {
+				LCDERR("%s: block %d init_prio same as block %d\n",
+					__func__, data_prio[index].index,
+					data_prio[j].index);
+				return -1;
+			}
+			data_prio[j + 1].index = data_prio[j].index;
+			data_prio[j + 1].priority = data_prio[j].priority;
+			j--;
+		}
+		data_prio[j + 1].index = index;
+		data_prio[j + 1].priority = priority;
+	}
+	tcon_mm_table.data_size[index] = block_header->block_size;
+
+	/* add data multi list */
+	if (block_header->block_ctrl & LCD_TCON_DATA_CTRL_FLAG_MULTI)
+		lcd_tcon_data_multi_add(&tcon_mm_table, block_header, index);
+
+	if (lcd_debug_print_flag) {
+		LCDPR("%s %d: size=0x%x, type=0x%02x, name=%s, init_priority=%d\n",
+			__func__, index,
+			block_header->block_size,
+			block_header->block_type,
+			block_header->name,
+			priority);
+	}
+
+	lcd_tcon_data_complete_check(index);
+
+	return 0;
+}
+
+int lcd_tcon_bin_load(void)
 {
 	struct aml_lcd_drv_s *lcd_drv = aml_lcd_get_driver();
 	unsigned char *table = tcon_mm_table.core_reg_table;
 	struct file *filp = NULL;
 	mm_segment_t old_fs = get_fs();
 	loff_t pos = 0;
-	char *str;
 	struct lcd_tcon_data_block_header_s block_header;
-	struct tcon_data_priority_s *data_prio;
-	int i, j, data_cnt = 0, demura_cnt = 0;
-	unsigned int n = 0, size, priority;
 	unsigned int header_size = LCD_TCON_DATA_BLOCK_HEADER_SIZE;
+	char *str;
+	int i, data_cnt = 0;
+	unsigned int n = 0, size;
 	int ret;
 
-	if (!table) {
-		LCDERR("%s: no tcon bin table\n", __func__);
-		return -1;
-	}
-	LCDPR("%s\n", __func__);
-
 	if (tcon_mm_table.version == 0) {
+		LCDPR("%s\n", __func__);
+		if (!table) {
+			LCDERR("%s: no tcon bin table\n", __func__);
+			return -1;
+		}
 		if ((lcd_drv->data->chip_type == LCD_CHIP_TL1) ||
 		    (lcd_drv->data->chip_type == LCD_CHIP_TM2)) {
 			ret = lcd_tcon_vac_load();
@@ -967,20 +1706,20 @@ int lcd_tcon_data_load(void)
 		ret = lcd_tcon_acc_lut_load();
 		if (ret == 0)
 			tcon_mm_table.valid_flag |= LCD_TCON_DATA_VALID_ACC;
+
+		tcon_mm_table.tcon_data_flag = 1;
 	} else {
+		if (tcon_mm_table.init_load) //bypass load bin path
+			return 0;
+		LCDPR("%s\n", __func__);
 		if (!tcon_mm_table.data_mem_vaddr) {
-			LCDERR("%s: data_mem error\n", __func__);
-			return -1;
-		}
-		if (!tcon_mm_table.data_priority) {
-			LCDERR("%s: data_priority error\n", __func__);
+			LCDERR("%s: data_mem buf error\n", __func__);
 			return -1;
 		}
 		if (!tcon_mm_table.data_size) {
-			LCDERR("%s: data_size error\n", __func__);
+			LCDERR("%s: data_size buf error\n", __func__);
 			return -1;
 		}
-		data_prio = tcon_mm_table.data_priority;
 
 		for (i = 0; i < tcon_mm_table.block_cnt; i++) {
 			n = 32 + i * 256;
@@ -989,108 +1728,58 @@ int lcd_tcon_data_load(void)
 			set_fs(KERNEL_DS);
 			filp = filp_open(str, O_RDONLY, 0);
 			if (IS_ERR(filp)) {
-				LCDERR("%s: read %s error\n", __func__, str);
+				LCDERR("%s: bin[%d]: %s error\n", __func__, i, str);
 				set_fs(old_fs);
-				return -1;
+				continue;
 			}
 
-			if (!tcon_mm_table.data_mem_vaddr[i]) {
-				data_cnt = vfs_read(filp, (void *)&block_header,
-						    header_size, &pos);
-				if (data_cnt != header_size) {
-					LCDERR("read block head failed, data_cnt: %d\n",
-					       data_cnt);
-					goto lcd_tcon_data_load_next;
-				}
-
-				size = block_header.block_size;
-				tcon_mm_table.data_size[i] = size;
-				tcon_mm_table.data_mem_vaddr[i] =
-					kcalloc(size, sizeof(unsigned char),
-						GFP_KERNEL);
-				if (!tcon_mm_table.data_mem_vaddr[i]) {
-					LCDERR("%s: Not enough memory\n", __func__);
-					goto lcd_tcon_data_load_next;
-				}
-			}
 			pos = 0; /* must reset pos for file read */
-			data_cnt =
-			vfs_read(filp, (char *)tcon_mm_table.data_mem_vaddr[i],
-				 size, &pos);
-			if (data_cnt != size) {
-				LCDERR("%s: data_cnt: %d, data_size: %d\n",
-				       __func__, data_cnt, size);
-				goto lcd_tcon_data_load_next;
+			data_cnt = vfs_read(filp, (void *)&block_header,
+					header_size, &pos);
+			if (data_cnt != header_size) {
+				LCDERR("%s: block[%d] header failed, read data_cnt: %d\n",
+					__func__, i, data_cnt);
+				goto lcd_tcon_bin_load_next;
 			}
-			memcpy((void *)&block_header,
-			       (void *)tcon_mm_table.data_mem_vaddr[i],
-			       header_size);
+			size = block_header.block_size;
+			if (size < sizeof(struct lcd_tcon_data_block_header_s)) {
+				LCDERR("%s: block[%d] size 0x%x error\n",
+					__func__, i, size);
+				goto lcd_tcon_bin_load_next;
+			}
 
-			tcon_mm_table.valid_flag |= block_header.block_flag;
-			if (block_header.block_flag ==
-			    LCD_TCON_DATA_VALID_DEMURA)
-				demura_cnt++;
+			tcon_mm_table.data_mem_vaddr[i] =
+				kcalloc(size, sizeof(unsigned char), GFP_KERNEL);
+			if (!tcon_mm_table.data_mem_vaddr[i]) {
+				LCDERR("%s: Not enough memory\n", __func__);
+				goto lcd_tcon_bin_load_next;
+			}
 
-			/* insertion sort for block data init_priority */
-			data_prio[i].index = i;
-			/*data_prio[i].priority = block_header.init_priority;*/
-			/* update init_priority by index */
-			priority = i;
-			data_prio[i].priority = priority;
-			if (i > 0) {
-				j = i - 1;
-				while (j >= 0) {
-					if (priority > data_prio[j].priority)
-						break;
-					if (priority == data_prio[j].priority) {
-						LCDERR
-				("%s: block %d init_prio same as block %d\n",
-				 __func__, data_prio[i].index,
-				 data_prio[j].index);
-						return -1;
-					}
-					data_prio[j + 1].index =
-						data_prio[j].index;
-					data_prio[j + 1].priority =
-						data_prio[j].priority;
-					j--;
-				}
-				data_prio[j + 1].index = i;
-				data_prio[j + 1].priority = priority;
+			pos = 0; /* must reset pos for file read */
+			data_cnt = vfs_read(filp, (char *)tcon_mm_table.data_mem_vaddr[i],
+					size, &pos);
+			if (data_cnt != size) {
+				LCDERR("%s: block[%d]: read data_cnt: 0x%x, block_size: 0x%x\n",
+				       __func__, i, data_cnt, size);
+				goto lcd_tcon_bin_load_next;
 			}
 
 			if (lcd_debug_print_flag) {
-				LCDPR
-		("%s %d: size=0x%x, type=0x%02x, name=%s, init_priority=%d\n",
-				      __func__, i,
-				      block_header.block_size,
-				      block_header.block_type,
-				      block_header.name,
-				      priority);
+				LCDPR("%s: bin[%d]: %s, size: 0x%x -> 0x%x\n",
+				      __func__, i, str, tcon_mm_table.data_size[i], size);
+			}
+			ret = lcd_tcon_data_load(tcon_mm_table.data_mem_vaddr[i], i);
+			if (ret) {
+				kfree(tcon_mm_table.data_mem_vaddr[i]);
+				tcon_mm_table.data_mem_vaddr[i] = NULL;
 			}
 
-lcd_tcon_data_load_next:
+lcd_tcon_bin_load_next:
 			vfs_fsync(filp, 0);
 			filp_close(filp, NULL);
 			set_fs(old_fs);
 		}
-
-		/* specially check demura setting */
-		if ((lcd_drv->data->chip_type == LCD_CHIP_TL1) ||
-		    (lcd_drv->data->chip_type == LCD_CHIP_TM2)) {
-			if (demura_cnt < 2) {
-				tcon_mm_table.valid_flag &=
-					~LCD_TCON_DATA_VALID_DEMURA;
-				/* disable demura */
-				table[0x178] = 0x38;
-				table[0x17c] = 0x20;
-				table[0x181] = 0x00;
-				table[0x23d] &= ~(1 << 0);
-			}
-		}
 	}
-
-	tcon_mm_table.tcon_data_flag = 1;
 
 	return 0;
 }
@@ -1141,6 +1830,8 @@ static int lcd_tcon_bin_path_update(unsigned int size)
 		(mem_vaddr[14] << 16) |
 		(mem_vaddr[15] << 24);
 	tcon_mm_table.block_cnt = block_cnt;
+	tcon_mm_table.init_load = mem_vaddr[20];
+	LCDPR("%s: init_load: %d\n", __func__, tcon_mm_table.init_load);
 
 	return 0;
 }
@@ -1257,6 +1948,11 @@ static int lcd_tcon_mm_table_config_v1(void)
 	if (!tcon_mm_table.data_size)
 		return -1;
 
+	tcon_mm_table.data_multi =
+		kcalloc(cnt, sizeof(struct tcon_data_multi_s), GFP_KERNEL);
+	if (!tcon_mm_table.data_multi)
+		return -1;
+
 	mem_vaddr = tcon_rmem.bin_path_rmem.mem_vaddr;
 	for (i = 0; i < tcon_mm_table.block_cnt; i++) {
 		n = 32 + (i * 256);
@@ -1268,10 +1964,6 @@ static int lcd_tcon_mm_table_config_v1(void)
 			LCDERR("%s: block[%d] size is zero\n", __func__, i);
 			continue;
 		}
-		tcon_mm_table.data_mem_vaddr[i] =
-			kcalloc(data_size, sizeof(unsigned char), GFP_KERNEL);
-		if (!tcon_mm_table.data_mem_vaddr[i])
-			continue;
 		tcon_mm_table.data_size[i] = data_size;
 	}
 
@@ -1347,6 +2039,26 @@ static void lcd_tcon_axi_mem_config_t5(void)
 	}
 }
 
+static void lcd_tcon_axi_rmem_update_t5(unsigned int *table)
+{
+	unsigned int reg, paddr, i;
+
+	if (tcon_rmem.flag == 0 || !tcon_rmem.axi_rmem) {
+		LCDERR("%s: invalid axi_mem\n", __func__);
+		return;
+	}
+
+	for (i = 0; i < lcd_tcon_conf->axi_bank; i++) {
+		reg = lcd_tcon_conf->axi_reg[i];
+		paddr = tcon_rmem.axi_rmem[i].mem_paddr;
+		table[reg] = paddr;
+		if (lcd_debug_print_flag) {
+			LCDPR("%s: axi[%d] reg: 0x%08x, paddr: 0x%08x\n",
+			      __func__, i, reg, paddr);
+		}
+	}
+}
+
 static void lcd_tcon_axi_mem_config_t5d(void)
 {
 	unsigned int size = 0x00500000;
@@ -1374,6 +2086,24 @@ static void lcd_tcon_axi_mem_config_t5d(void)
 	tcon_rmem.axi_rmem->mem_size = size;
 
 	*lcd_tcon_conf->axi_reg = reg;
+}
+
+static void lcd_tcon_axi_rmem_update_t5d(unsigned int *table)
+{
+	unsigned int reg, paddr;
+
+	if (tcon_rmem.flag == 0 || !tcon_rmem.axi_rmem) {
+		LCDERR("%s: invalid axi_mem\n", __func__);
+		return;
+	}
+
+	reg = *lcd_tcon_conf->axi_reg;
+	paddr = tcon_rmem.axi_rmem->mem_paddr;
+	table[reg] = paddr;
+	if (lcd_debug_print_flag) {
+		LCDPR("%s: axi reg: 0x%08x, paddr: 0x%08x\n",
+			__func__, reg, paddr);
+	}
 }
 
 static void lcd_tcon_axi_mem_secure_tl1(void)
@@ -1585,11 +2315,21 @@ lcd_tcon_load_init_data_err:
 	return -1;
 }
 
+void lcd_tcon_init_data_version_update(char *data_buf)
+{
+	if (!data_buf)
+		return;
+
+	memcpy(tcon_local_cfg.bin_ver, data_buf, LCD_TCON_INIT_BIN_VERSION_SIZE);
+	tcon_local_cfg.bin_ver[TCON_BIN_VER_LEN - 1] = '\0';
+}
+
 static int lcd_tcon_load_init_data_from_unifykey_new(void)
 {
 	int key_len, data_len;
 	unsigned char *buf, *p;
 	struct lcd_tcon_init_block_header_s *data_header;
+	struct lcd_tcon_config_s *tcon_conf = get_lcd_tcon_config();
 	int ret;
 
 	data_len = tcon_mm_table.core_reg_table_size +
@@ -1597,6 +2337,10 @@ static int lcd_tcon_load_init_data_from_unifykey_new(void)
 	buf = kcalloc(data_len, sizeof(unsigned char), GFP_KERNEL);
 	if (!buf)
 		return -1;
+	data_header = kzalloc(LCD_TCON_DATA_BLOCK_HEADER_SIZE, GFP_KERNEL);
+	if (!data_header)
+		return -1;
+	tcon_mm_table.core_reg_header = data_header;
 
 	key_len = data_len;
 	ret = lcd_unifykey_get_tcon("lcd_tcon", buf, &key_len);
@@ -1605,17 +2349,18 @@ static int lcd_tcon_load_init_data_from_unifykey_new(void)
 	if (key_len != data_len)
 		goto lcd_tcon_load_init_data_new_err;
 
-	data_header = (struct lcd_tcon_init_block_header_s *)buf;
+	memcpy(data_header, buf, LCD_TCON_DATA_BLOCK_HEADER_SIZE);
 	if (lcd_debug_print_flag) {
 		LCDPR("unifykey header:\n");
 		LCDPR("crc32             = 0x%08x\n", data_header->crc32);
 		LCDPR("block_size        = %d\n", data_header->block_size);
 		LCDPR("chipid            = %d\n", data_header->chipid);
+		LCDPR("resolution        = %dx%d\n",
+			data_header->h_active, data_header->v_active);
+		LCDPR("block_ctrl        = 0x%x\n", data_header->block_ctrl);
 		LCDPR("name              = %s\n", data_header->name);
 	}
-	memcpy(tcon_local_cfg.bin_ver, data_header->version,
-	       LCD_TCON_INIT_BIN_VERSION_SIZE);
-	tcon_local_cfg.bin_ver[TCON_BIN_VER_LEN - 1] = '\0';
+	lcd_tcon_init_data_version_update(data_header->version);
 
 	data_len = tcon_mm_table.core_reg_table_size;
 	tcon_mm_table.core_reg_table =
@@ -1624,6 +2369,9 @@ static int lcd_tcon_load_init_data_from_unifykey_new(void)
 		goto lcd_tcon_load_init_data_new_err;
 	p = buf + LCD_TCON_DATA_BLOCK_HEADER_SIZE;
 	memcpy(tcon_mm_table.core_reg_table, p, data_len);
+	lcd_tcon_od_pre_disable(tcon_mm_table.core_reg_table);
+	if (tcon_conf && tcon_conf->tcon_axi_mem_update && tcon_conf->reg_table_width == 32)
+		tcon_conf->tcon_axi_mem_update((unsigned int *)tcon_mm_table.core_reg_table);
 	kfree(buf);
 
 	LCDPR("tcon: load init data len: %d, ver: %s\n",
@@ -1638,15 +2386,16 @@ lcd_tcon_load_init_data_new_err:
 
 static int lcd_tcon_get_config(struct aml_lcd_drv_s *lcd_drv)
 {
+	tcon_mm_table.data_init = NULL;
 	tcon_mm_table.core_reg_table_size = lcd_tcon_conf->reg_table_len;
 	if (lcd_tcon_conf->core_reg_ver)
 		lcd_tcon_load_init_data_from_unifykey_new();
 	else
 		lcd_tcon_load_init_data_from_unifykey();
 
-	if (tcon_mm_table.tcon_data_flag == 0)
-		lcd_tcon_data_load();
+	lcd_tcon_bin_load();
 	lcd_drv->tcon_status = tcon_mm_table.valid_flag;
+	tcon_mm_table.multi_lut_update = 1;
 
 	lcd_tcon_intr_init(lcd_drv);
 
@@ -1711,6 +2460,7 @@ static struct lcd_tcon_config_s tcon_data_tl1 = {
 	.axi_reg = NULL,
 	.tcon_axi_mem_config = lcd_tcon_axi_mem_config_tl1,
 	.tcon_axi_mem_secure = lcd_tcon_axi_mem_secure_tl1,
+	.tcon_axi_mem_update = NULL,
 	.tcon_gamma_pattern = lcd_tcon_gamma_pattern_tl1,
 	.tcon_enable = lcd_tcon_enable_tl1,
 	.tcon_disable = lcd_tcon_disable_tl1,
@@ -1752,6 +2502,7 @@ static struct lcd_tcon_config_s tcon_data_t5 = {
 	.axi_reg = NULL,
 	.tcon_axi_mem_config = lcd_tcon_axi_mem_config_t5,
 	.tcon_axi_mem_secure = lcd_tcon_axi_mem_secure_t5,
+	.tcon_axi_mem_update = lcd_tcon_axi_rmem_update_t5,
 	.tcon_gamma_pattern = lcd_tcon_gamma_pattern_t5,
 	.tcon_enable = lcd_tcon_enable_t5,
 	.tcon_disable = lcd_tcon_disable_t5,
@@ -1789,6 +2540,7 @@ static struct lcd_tcon_config_s tcon_data_t5d = {
 	.axi_reg = NULL,
 	.tcon_axi_mem_config = lcd_tcon_axi_mem_config_t5d,
 	.tcon_axi_mem_secure = lcd_tcon_axi_mem_secure_t5,
+	.tcon_axi_mem_update = lcd_tcon_axi_rmem_update_t5d,
 	.tcon_gamma_pattern = lcd_tcon_gamma_pattern_t5,
 	.tcon_enable = lcd_tcon_enable_t5,
 	.tcon_disable = lcd_tcon_disable_t5,
@@ -1866,6 +2618,7 @@ int lcd_tcon_probe(struct aml_lcd_drv_s *lcd_drv)
 		}
 	}
 
+	spin_lock_init(&tcon_local_cfg.multi_list_lock);
 	INIT_DELAYED_WORK(&lcd_tcon_delayed_work, lcd_tcon_get_config_delayed);
 
 	key_init_flag = key_unify_get_init_flag();
@@ -1892,10 +2645,13 @@ int lcd_tcon_remove(struct aml_lcd_drv_s *lcd_drv)
 	kfree(tcon_mm_table.core_reg_table);
 	tcon_mm_table.core_reg_table = NULL;
 	if (tcon_mm_table.version) {
+		tcon_mm_table.data_init = NULL;
+		tcon_mm_table.valid_flag = 0;
+		tcon_mm_table.tcon_data_flag = 0;
+		tcon_mm_table.block_bit_flag = 0;
+		lcd_tcon_data_multi_remvoe(&tcon_mm_table);
 		if (tcon_mm_table.data_mem_vaddr) {
 			for (i = 0; i < tcon_mm_table.block_cnt; i++) {
-				if (!tcon_mm_table.data_mem_vaddr[i])
-					continue;
 				kfree(tcon_mm_table.data_mem_vaddr[i]);
 				tcon_mm_table.data_mem_vaddr[i] = NULL;
 			}

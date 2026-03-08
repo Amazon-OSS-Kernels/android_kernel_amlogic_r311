@@ -313,9 +313,18 @@ void vdin_close_fe(struct vdin_dev_s *devp)
 
 	pr_info("%s ok\n", __func__);
 }
+
+static bool vdin_need_game_mode(struct vdin_dev_s *devp)
+{
+	if (devp->fmt_info_p->scan_mode != TVIN_SCAN_MODE_INTERLACED)
+		return true;
+	else
+		return false;
+}
+
 static void vdin_game_mode_check(struct vdin_dev_s *devp)
 {
-	if ((game_mode == 1) && (!IS_TVAFE_ATV_SRC(devp->parm.port))) {
+	if (game_mode == 1 && vdin_need_game_mode(devp)) {
 		if (devp->h_active > 720 && ((devp->parm.info.fps == 50) ||
 			(devp->parm.info.fps == 60))) {
 			if (cpu_after_eq(MESON_CPU_MAJOR_ID_TL1) && (panel_reverse == 0)) {

@@ -48,6 +48,9 @@
 #define SECUESTORAGE_HEAD_SIZE		(256)
 #define SECUESTORAGE_WHOLE_SIZE		(0x40000)
 
+#ifdef CONFIG_UNIFYKEY_RELOAD
+#define SECURESTORAGE_HEAD_SIZE		(256)
+#endif
 #define OTHER_METHOD_CALL
 
 #undef pr_fmt
@@ -129,7 +132,13 @@ int32_t amlkey_init_gen(uint8_t *seed, uint32_t len, int encrypt_type)
 	pr_info("%s() enter!\n", __func__);
 	if (storagekey_info.buffer != NULL) {
 		pr_err("%s() %d: already init!\n", __func__, __LINE__);
+#ifdef CONFIG_UNIFYKEY_RELOAD
+		memset(storagekey_info.buffer, 0,
+				SECURESTORAGE_HEAD_SIZE);
+		pr_err("%s() %d: init again!\n", __func__, __LINE__);
+#else
 		goto _out;
+#endif
 	}
 
 	/* get buffer from bl31 */
@@ -172,6 +181,11 @@ int32_t amlkey_init_gen(uint8_t *seed, uint32_t len, int encrypt_type)
 		__func__,
 		storagekey_info.buffer,
 		storagekey_info.size);
+#ifdef CONFIG_UNIFYKEY_RELOAD
+	secure_storage_notifier_ex(storagekey_info.size);
+	storagekey_info.buffer =
+		secure_storage_getbuffer(&storagekey_info.size);
+#endif
 
 _out:
 	return ret;
@@ -194,7 +208,14 @@ int32_t amlkey_init_m8b(uint8_t *seed, uint32_t len, int encrypt_type)
 	pr_info("%s() enter!\n", __func__);
 	if (storagekey_info.buffer != NULL) {
 		pr_err("%s() %d: already init!\n", __func__, __LINE__);
+#ifdef CONFIG_UNIFYKEY_RELOAD
+		memset(storagekey_info.buffer, 0,
+				SECURESTORAGE_HEAD_SIZE);
+		//goto _out;
+		pr_err("%s() %d: init again!\n", __func__, __LINE__);
+#else
 		goto _out;
+#endif
 	}
 
 	if ((void *)kallsyms_lookup_name("nand_key_read")
