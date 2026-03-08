@@ -1463,9 +1463,17 @@ void wlanSchedWDevLockWorkQueue(struct work_struct *work)
 			if (prParamWDevLock->pFrameBuf) {
 				DBGLOG(REQ, TRACE, "Free pFrameBuf 0x%x\n",
 						prParamWDevLock->pFrameBuf);
-				kalMemFree(prParamWDevLock->pFrameBuf,
-							VIR_MEM_TYPE,
-							prParamWDevLock->u4InfoBufLen);
+
+				if (prParamWDevLock->fgIsInterruptContext) {
+					kalMemFree(prParamWDevLock->pFrameBuf,
+								PHY_MEM_TYPE,
+								prParamWDevLock->u4InfoBufLen);
+				} else {
+					kalMemFree(prParamWDevLock->pFrameBuf,
+								VIR_MEM_TYPE,
+								prParamWDevLock->u4InfoBufLen);
+				}
+
 				prParamWDevLock->pFrameBuf = NULL;
 			}
 
@@ -1477,9 +1485,16 @@ void wlanSchedWDevLockWorkQueue(struct work_struct *work)
 
 			DBGLOG(REQ, TRACE, "Free prParamWDevLock- 0x%x\n",
 					prParamWDevLock);
-			kalMemFree(prParamWDevLock,
-						VIR_MEM_TYPE,
-						sizeof(PARAM_WDEV_LOCK_THREAD));
+
+			if (prParamWDevLock->fgIsInterruptContext) {
+				kalMemFree(prParamWDevLock,
+							PHY_MEM_TYPE,
+							sizeof(PARAM_WDEV_LOCK_THREAD));
+			} else {
+				kalMemFree(prParamWDevLock,
+							VIR_MEM_TYPE,
+							sizeof(PARAM_WDEV_LOCK_THREAD));
+			}
 		}
 	}
 
@@ -3530,6 +3545,7 @@ static int32_t wlanProbe(void *pvData, void *pvDriverData)
 		ADAPTER_START_FAIL,
 		NET_REGISTER_FAIL,
 		PROC_INIT_FAIL,
+		PROC_P2P_NET_REGISTER_FAIL,
 		FAIL_MET_INIT_PROCFS,
 		FAIL_REASON_NUM
 	} eFailReason;
@@ -3938,7 +3954,7 @@ static int32_t wlanProbe(void *pvData, void *pvDriverData)
 					__func__);
 
 				i4Status = -ENXIO;
-				eFailReason = PROC_INIT_FAIL;
+				eFailReason = PROC_P2P_NET_REGISTER_FAIL;
 				break;
 			}
 		}
@@ -4076,6 +4092,11 @@ static int32_t wlanProbe(void *pvData, void *pvDriverData)
 			kalMetRemoveProcfs();
 			/* FALLTHRU */
 #endif
+		case PROC_P2P_NET_REGISTER_FAIL:
+#if WLAN_INCLUDE_PROC
+			procRemoveProcfs();
+#endif
+			/* FALLTHRU */
 		case PROC_INIT_FAIL:
 			wlanNetUnregister(prWdev);
 			/* FALLTHRU */

@@ -1595,8 +1595,11 @@ struct ADAPTER {
 #if CFG_WOW_SUPPORT
 	struct WOW_CTRL	rWowCtrl;
 	uint8_t mdns_offload_enable;
-	uint8_t mdns_wow_pattern_len;
-	uint8_t mdns_wow_pattern[WLAN_CFG_VALUE_LEN_MAX];
+
+#define  MDNS_MAX_PATTERNS     4
+#define  MDNS_PATTERN_MAX_LEN  8
+	uint8_t		mdns_wow_patterns_no;
+	uint8_t		mdns_wow_patterns[MDNS_MAX_PATTERNS][MDNS_PATTERN_MAX_LEN];
 #endif
 
 #if CFG_SUPPORT_WOW_EINT

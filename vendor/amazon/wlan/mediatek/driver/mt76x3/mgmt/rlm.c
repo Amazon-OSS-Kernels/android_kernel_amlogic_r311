@@ -2588,10 +2588,9 @@ static uint8_t rlmRecIeInfoForClient(struct ADAPTER *prAdapter,
 #endif
 
 #if CFG_DFS_NEWCH_DFS_FORCE_DISCONNECT
-			i = rlmDomainGetActiveChannelCount(KAL_BAND_2GHZ);
 			max_count = rlmDomainGetActiveChannelCount(KAL_BAND_5GHZ) +
 							rlmDomainGetActiveChannelCount(KAL_BAND_2GHZ);
-			for (; i < max_count; i++) {
+			for (i = 0; i < max_count; i++) {
 				Channel = rlmDomainGetActiveChannels() + i;
 
 				if (Channel->chNum != prCSAIE->ucNewChannelNum) {
@@ -2606,8 +2605,10 @@ static uint8_t rlmRecIeInfoForClient(struct ADAPTER *prAdapter,
 			if ((Channel) && (Channel->flags & IEEE80211_CHAN_RADAR)) {
 				prCSAParams->fgBeaconNewChannelIsDFS = TRUE;
 				DBGLOG(RLM, INFO, "[DFS][CSA][CLIENT] New channel is DFS channel!");
-			}
-			else
+			} else if (!Channel) {
+				prCSAParams->fgNewChannelIsDisabled = TRUE;
+				DBGLOG(RLM, INFO, "[DFS][CSA][CLIENT] New channel is un-supported channel!");
+			} else
 				DBGLOG(RLM, INFO, "[DFS][CSA][CLIENT] New channel is non-DFS channel!");
 #endif
 
@@ -4636,10 +4637,9 @@ void rlmProcessSpecMgtAction(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 				}
 
 #if CFG_DFS_NEWCH_DFS_FORCE_DISCONNECT
-				i = rlmDomainGetActiveChannelCount(KAL_BAND_2GHZ);
 				max_count = rlmDomainGetActiveChannelCount(KAL_BAND_5GHZ) +
 								rlmDomainGetActiveChannelCount(KAL_BAND_2GHZ);
-				for (; i < max_count; i++) {
+				for (i = 0; i < max_count; i++) {
 					Channel = rlmDomainGetActiveChannels() + i;
 
 					if (Channel->chNum != prChannelSwitchAnnounceIE->ucNewChannelNum) {
@@ -4654,8 +4654,10 @@ void rlmProcessSpecMgtAction(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 				if ((Channel) && (Channel->flags & IEEE80211_CHAN_RADAR)) {
 					prCSAParams->fgActionNewChannelIsDFS = TRUE;
 					DBGLOG(RLM, INFO, "[DFS][CSA][CLIENT] New channel is DFS channel!");
-				}
-				else
+				} else if (!Channel) {
+					prCSAParams->fgNewChannelIsDisabled = TRUE;
+					DBGLOG(RLM, INFO, "[DFS][CSA][CLIENT] New channel is un-supported channel!");
+				} else
 					DBGLOG(RLM, INFO, "[DFS][CSA][CLIENT] New channel is non-DFS channel!");
 #endif
 				break;
@@ -4716,6 +4718,7 @@ void rlmResetCSAParams(struct BSS_INFO *prBssInfo)
 	prCSAParams->ucCsaCount = MAX_CSA_COUNT;
 	prCSAParams->fgBeaconNewChannelIsDFS = FALSE;
 	prCSAParams->fgActionNewChannelIsDFS = FALSE;
+	prCSAParams->fgNewChannelIsDisabled = FALSE;
 	DBGLOG(RLM, INFO, "Reset CSA count to %u for BSS%d",
 	       prCSAParams->ucCsaCount, prBssInfo->ucBssIndex);
 	prBssInfo->fgHasStopTx = FALSE;
@@ -4745,6 +4748,19 @@ void rlmCsaTimeout(IN struct ADAPTER *prAdapter,
 	}
 
 	prCSAParams = &prBssInfo->CSAParams;
+
+	DBGLOG(RLM, EVENT, "[CSA] CSA timeout and prepare to switch to new channel(%d)\n",
+		prCSAParams->ucCsaNewCh);
+
+	if (prCSAParams->fgNewChannelIsDisabled) {
+		prCSAParams->fgNewChannelIsDisabled = FALSE;
+		/* do aisBSSlinkdown directly here without sending CSA notification */
+		DBGLOG(RLM, EVENT, "[CSA] Disconnect with the AP due to the new channel is un-supported\n");
+		aisBssLinkDown(prAdapter);
+		rlmResetCSAParams(prBssInfo);
+		return;
+	}
+
 	prBssInfo->ucPrimaryChannel = prCSAParams->ucCsaNewCh;
 	prBssInfo->eBand = (prCSAParams->ucCsaNewCh <= 14) ? BAND_2G4 : BAND_5G;
 

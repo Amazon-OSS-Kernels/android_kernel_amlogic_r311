@@ -291,6 +291,7 @@ struct SUB_ELEMENT_LIST {
 struct SWITCH_CH_AND_BAND_PARAMS {
 	u_int8_t fgBeaconNewChannelIsDFS;
 	u_int8_t fgActionNewChannelIsDFS;
+	u_int8_t fgNewChannelIsDisabled;
 	uint8_t ucCsaNewCh;
 	uint8_t ucCsaCount;
 	uint8_t ucVhtS1;

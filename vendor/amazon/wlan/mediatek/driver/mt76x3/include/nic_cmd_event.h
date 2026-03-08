@@ -797,6 +797,9 @@ struct CMD_WAKE_HIF {
 	uint8_t		aucResv2[4];
 };
 
+#define  MDNS_MAX_PATTERNS     4
+#define  MDNS_PATTERN_MAX_LEN  8
+
 struct CMD_WOWLAN_PARAM {
 	uint8_t		ucCmd;
 	uint8_t		ucDetectType;
@@ -805,10 +808,10 @@ struct CMD_WOWLAN_PARAM {
 	uint8_t		ucScenarioID; /* WOW/WOBLE/Proximity */
 	uint8_t		ucBlockCount;
 	uint8_t		ucBssid;
-	uint8_t		mdns_wow_pattern_len;
+	uint8_t		mdns_wow_patterns_no;
 	struct CMD_WAKE_HIF astWakeHif[2];
 	struct WOW_PORT	stWowPort;
-	uint8_t		mdns_wow_pattern[MDNS_NAME_MAX_LEN];
+	uint8_t		mdns_wow_patterns[MDNS_MAX_PATTERNS][MDNS_PATTERN_MAX_LEN];
 };
 
 struct EVENT_WOWLAN_NOTIFY {
@@ -878,6 +881,7 @@ enum ENUM_WOW_WAKEUP_REASON {
 	ENUM_PF_CMD_TYPE_IPV6_ICMP                     = 14,
 	ENUM_PF_CMD_TYPE_ANY_UC2M                      = 15,
 	ENUM_PF_CMD_TYPE_FFS                           = 16,
+	ENUM_PF_CMD_TYPE_MDNS_WOW                      = 17,
 	ENUM_PF_CMD_TYPE_UNDEFINED                     = 255,
 };
 

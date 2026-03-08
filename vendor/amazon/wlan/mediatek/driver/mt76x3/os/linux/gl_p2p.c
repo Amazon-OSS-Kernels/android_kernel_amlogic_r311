@@ -852,7 +852,7 @@ u_int8_t p2pNetRegister(struct GLUE_INFO *prGlueInfo,
 
 	/* register for net device */
 	if (register_netdev(prGlueInfo->prP2PInfo[0]->prDevHandler) < 0) {
-		DBGLOG(INIT, WARN, "unable to register netdevice for p2p\n");
+		DBGLOG(INIT, WARN, "unable to register netdevice for p2p0\n");
 		/* free dev in glUnregisterP2P() */
 		/* free_netdev(prGlueInfo->prP2PInfo[0]->prDevHandler); */
 		ret = FALSE;
@@ -877,9 +877,10 @@ u_int8_t p2pNetRegister(struct GLUE_INFO *prGlueInfo,
 			prGlueInfo->prP2PInfo[1]->prDevHandler) < 0) {
 
 			DBGLOG(INIT, WARN,
-				"unable to register netdevice for p2p\n");
+				"unable to register netdevice for p2p1\n");
 
-			free_netdev(prGlueInfo->prP2PInfo[1]->prDevHandler);
+			/* free dev in glUnregisterP2P() */
+			/* free_netdev(prGlueInfo->prP2PInfo[1]->prDevHandler); */
 
 			ret = FALSE;
 		} else {

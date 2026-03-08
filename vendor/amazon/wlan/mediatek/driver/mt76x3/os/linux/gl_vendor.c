@@ -92,9 +92,6 @@
  *                            P U B L I C   D A T A
  *******************************************************************************
  */
-uint8_t g_GetResultsBufferedCnt;
-uint8_t g_GetResultsCmdCnt;
-
 static struct nla_policy nla_parse_wifi_policy[
 		 WIFI_ATTRIBUTE_ROAMING_STATE + 1] = {
 	[WIFI_ATTRIBUTE_BAND] = {.type = NLA_U32},
@@ -525,7 +522,6 @@ int mtk_cfg80211_vendor_config_roaming(struct wiphy *wiphy,
 	ASSERT(wdev);
 	if ((data == NULL) || (data_len == 0))
 		return -EINVAL;
-
 	prGlueInfo = (struct GLUE_INFO *) wiphy_priv(wiphy);
 	if (!prGlueInfo)
 		return -EINVAL;
@@ -614,7 +610,8 @@ int mtk_cfg80211_vendor_enable_roaming(struct wiphy *wiphy,
 
 	ASSERT(wiphy);	/* change to if (wiphy == NULL) then return? */
 	ASSERT(wdev);	/* change to if (wiphy == NULL) then return? */
-
+	if((data== NULL) || (data_len == 0))
+		return -EINVAL;
 	prGlueInfo = (struct GLUE_INFO *) wiphy_priv(wiphy);
 	if (!prGlueInfo)
 		return -EFAULT;

@@ -2254,11 +2254,9 @@ priv_get_ndis(IN struct net_device *prNetDev,
  * \brief The routine handles ATE set operation.
  *
  * \param[in] pDev Net device requested.
- * \param[in] ndisReq Ndis request OID information copy from user.
- * \param[out] outputLen_p If the call is successful, returns the number of
- *                         bytes written into the query buffer. If the
- *                         call failed due to invalid length of the query
- *                         buffer, returns the amount of storage needed..
+ * \param[in] prIwReqInfo pointer to iwreq structure.
+ * \param[in] prIwReqData The ioctl data structure, use the field of sub-command.
+ * \param[in] pcExtra the buffer with input value.
  *
  * \retval 0 On success.
  * \retval -EOPNOTSUPP If cmd is not supported.
@@ -3008,13 +3006,13 @@ reqExtSetAcpiDevicePowerState(IN struct GLUE_INFO
 #define CMD_SET_WOW_PAR		"SET_WOW_PAR"
 #define CMD_SET_WOW_UDP		"SET_WOW_UDP"
 #define CMD_SET_WOW_TCP		"SET_WOW_TCP"
-#define CMD_SET_WOW_MDNS_IPV6   "SET_WOW_MDNS_IPV6"
 #define CMD_GET_WOW_PORT	"GET_WOW_PORT"
 #define CMD_GET_WOW_REASON	"GET_WOW_REASON"
 #define CMD_SET_SUSP_CMD	"sET_SUSP_CMD"
 #define CMD_SET_MDNS_OFFLOAD_ENABLE	    "ENABLE_MDNS_OFFLOADING"
 #define CMD_SET_SHOW_CACHE    "SHOW_MDNS_CACHE"
-
+#define CMD_SET_MDNS_PATTERNS "SET_MDNS_PATTERNS"
+#define CMD_GET_MDNS_PATTERNS "GET_MDNS_PATTERNS"
 
 #endif
 #define CMD_SET_ADV_PWS		"SET_ADV_PWS"
@@ -7692,6 +7690,12 @@ static int32_t priv_driver_get_txpower_info(IN struct net_device *prNetDev,
 
 	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	if (i4Argc == 0)
+	{
+		DBGLOG(REQ, ERROR, "%s: invalid argc=0\n", __func__);
+		return -1;
+	}
+
 	DBGLOG(REQ, LOUD, "argc is %d, apcArgv[0] = %s\n\n", i4Argc, *apcArgv);
 
 	this_char = kalStrStr(*apcArgv, "=");
@@ -9512,6 +9516,11 @@ int priv_driver_set_fixed_rate(IN struct net_device *prNetDev,
 
 	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	if (i4Argc == 0)
+	{
+		DBGLOG(REQ, ERROR, "%s: invalid argc=0\n", __func__);
+		return -1;
+	}
 	DBGLOG(REQ, LOUD, "argc is %d, apcArgv[0] = %s\n\n", i4Argc, *apcArgv);
 
 	this_char = kalStrStr(*apcArgv, "=");
@@ -10337,6 +10346,11 @@ int priv_driver_set_country(IN struct net_device *prNetDev,
 
 	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	if (i4Argc < 2)
+	{
+		DBGLOG(REQ, WARN, "%s: argc is %d, need >=2\n", __func__, i4Argc);
+		return -1;
+	}
 	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
 
 	if (regd_is_single_sku_en()) {
@@ -11441,7 +11455,7 @@ priv_set_ap(IN struct net_device *prNetDev,
 			return -EFAULT;
 		}
 
-		if (copy_from_user(&pcExtra,
+		if (copy_from_user(aucOidBuf,
 			prIwReqData->data.pointer,
 			prIwReqData->data.length)) {
 			DBGLOG(REQ, INFO,
@@ -11454,7 +11468,7 @@ priv_set_ap(IN struct net_device *prNetDev,
 		//pcExtra[prIwReqData->data.length - 1] = 0;
 	}
 
-	DBGLOG(REQ, INFO, "%s pcExtra %s\n", __func__, pcExtra);
+	DBGLOG(REQ, INFO, "%s aucOidBuf %s\n", __func__, aucOidBuf);
 
 	if (!pcExtra)
 		goto exit;
@@ -11465,28 +11479,28 @@ priv_set_ap(IN struct net_device *prNetDev,
 	i4BytesWritten =
 		priv_driver_set_ap_get_sta_list(
 		prNetDev,
-		pcExtra,
+		aucOidBuf,
 		i4TotalFixLen);
 		break;
 	case IOC_AP_SET_MAC_FLTR:
 	i4BytesWritten =
 		priv_driver_set_ap_set_mac_acl(
 		prNetDev,
-		pcExtra,
+		aucOidBuf,
 		i4TotalFixLen);
 	  break;
 	case IOC_AP_SET_CFG:
 	i4BytesWritten =
 		priv_driver_set_ap_set_cfg(
 		prNetDev,
-		pcExtra,
+		aucOidBuf,
 		i4TotalFixLen);
 	  break;
 	case IOC_AP_STA_DISASSOC:
 	i4BytesWritten =
 		priv_driver_set_ap_sta_disassoc(
 		prNetDev,
-		pcExtra,
+		aucOidBuf,
 		i4TotalFixLen);
 	  break;
 	default:
@@ -12185,39 +12199,6 @@ static int priv_driver_set_wow_tcpport(IN struct net_device *prNetDev,
 
 }
 
-static int priv_driver_set_wow_mdns_ipv6(IN struct net_device *prNetDev,
-				         IN char *pcCommand, IN int i4TotalLen)
-{
-	struct GLUE_INFO *prGlueInfo = NULL;
-	int32_t i4Argc = 0;
-	int8_t *apcArgv[WLAN_CFG_ARGV_MAX] = { 0 };
-	int32_t ucCount;
-
-	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
-
-	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
-	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
-
-	/* example: set_wow_mdns_ipv6 _matterc */
-	if (i4Argc != 2) {
-		DBGLOG(REQ, ERROR, "wrong parameters\n");
-		return -1;
-	}
-
-	ucCount = kalStrnLen(apcArgv[1], MDNS_NAME_MAX_LEN);
-	if (ucCount >= MDNS_NAME_MAX_LEN) {
-		DBGLOG(REQ, ERROR, "pattern too long\n");
-		return -1;
-	}
-
-	prGlueInfo->prAdapter->mdns_wow_pattern_len = ucCount;
-
-	kalStrnCpy(prGlueInfo->prAdapter->mdns_wow_pattern,
-		   apcArgv[1], ucCount);
-
-	return 0;
-}
-
 static int priv_driver_get_wow_port(IN struct net_device *prNetDev,
 				    IN char *pcCommand, IN int i4TotalLen)
 {
@@ -12343,6 +12324,12 @@ static int priv_driver_set_suspend_cmd(IN struct net_device *prNetDev,
 
 	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+
+	if (i4Argc < 2)
+	{
+		DBGLOG(REQ, WARN, "%s: argc is %d, need >=2\n", __func__, i4Argc);
+		return -1;
+	}
 	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
 
 	u4Ret = kalkStrtou32(apcArgv[1], 0, &Enable);
@@ -12353,6 +12340,86 @@ static int priv_driver_set_suspend_cmd(IN struct net_device *prNetDev,
 	wlanSetSuspendMode(prGlueInfo, Enable);
 
 	return 0;
+}
+
+static int priv_driver_set_mdns_wow_patterns(IN struct net_device *prNetDev,
+		IN char *pcCommand, IN int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	int32_t i4Argc = 0, i4BytesWritten = 0;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX] = { 0 };
+	int      index = 0;
+
+	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
+
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
+
+	if (i4Argc < 2 || i4Argc > 5)
+	{
+		DBGLOG(PF, WARN, "wrong patterns number %d.\n", i4Argc-1);
+		i4BytesWritten =
+				snprintf(pcCommand, i4TotalLen,
+					 "set mdns wow 1~4 patterns.\n");
+		return i4BytesWritten;
+	}
+
+	prGlueInfo->prAdapter->mdns_wow_patterns_no = i4Argc-1;
+
+	for (index = 0; index < i4Argc-1; index++)
+	{
+		uint8_t   *pattern = prGlueInfo->prAdapter->mdns_wow_patterns[index];
+		kalStrnCpy(pattern, apcArgv[index+1], MDNS_PATTERN_MAX_LEN);
+		pattern[MDNS_PATTERN_MAX_LEN-1] = '\0';
+	}
+
+	DBGLOG(PF, STATE, "set mdns wow %d patterns.\n", index);
+
+	i4BytesWritten = snprintf(pcCommand, i4TotalLen,
+				"set mdns wow patterns ok.\n");
+	return i4BytesWritten;
+}
+
+static int priv_driver_get_mdns_wow_patterns(IN struct net_device *prNetDev,
+		IN char *pcCommand, IN int i4TotalLen)
+{
+
+	struct GLUE_INFO *prGlueInfo = NULL;
+	int32_t i4Argc = 0, i4BytesWritten = 0;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX] = { 0 };
+	int      index = 0, total = 0;
+
+	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
+
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
+
+	total = prGlueInfo->prAdapter->mdns_wow_patterns_no;
+	if (total == 0)
+	{
+		i4BytesWritten =
+				snprintf(pcCommand, i4TotalLen,
+					 "no mdns pattern\n");
+		return i4BytesWritten;
+	}
+
+	for (index = 0; index < total; index++)
+	{
+		uint8_t   *pattern = prGlueInfo->prAdapter->mdns_wow_patterns[index];
+
+		i4BytesWritten += kalScnprintf(pcCommand + i4BytesWritten,
+				                       i4TotalLen - i4BytesWritten,
+				                       pattern
+									  );
+		i4BytesWritten += kalScnprintf(pcCommand + i4BytesWritten,
+				                       i4TotalLen - i4BytesWritten,
+				                       " "
+									  );
+	}
+
+	return i4BytesWritten;
 }
 
 static int priv_driver_set_mdns_offload_enable(IN struct net_device *prNetDev,
@@ -12368,6 +12435,12 @@ static int priv_driver_set_mdns_offload_enable(IN struct net_device *prNetDev,
 
 	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+
+	if (i4Argc < 2)
+	{
+		DBGLOG(REQ, WARN, "%s: argc is %d, need >=2\n", __func__, i4Argc);
+		return -1;
+	}
 	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
 
 	u4Ret = kalkStrtou8(apcArgv[1], 0, &ucEnable);
@@ -17218,10 +17291,6 @@ int32_t priv_driver_cmds(IN struct net_device *prNetDev, IN int8_t *pcCommand,
 			 strlen(CMD_GET_WOW_PORT)) == 0)
 			i4BytesWritten = priv_driver_get_wow_port(prNetDev,
 							pcCommand, i4TotalLen);
-		else if (strnicmp(pcCommand, CMD_SET_WOW_MDNS_IPV6,
-			 strlen(CMD_SET_WOW_MDNS_IPV6)) == 0)
-			i4BytesWritten = priv_driver_set_wow_mdns_ipv6(prNetDev,
-							pcCommand, i4TotalLen);
 		else if (strnicmp(pcCommand, CMD_GET_WOW_REASON,
 			 strlen(CMD_GET_WOW_PORT)) == 0)
 			i4BytesWritten = priv_driver_get_wow_reason(prNetDev,
@@ -17233,6 +17302,14 @@ int32_t priv_driver_cmds(IN struct net_device *prNetDev, IN int8_t *pcCommand,
 		else if (strnicmp(pcCommand, CMD_SET_MDNS_OFFLOAD_ENABLE,
 				strlen(CMD_SET_MDNS_OFFLOAD_ENABLE)) == 0)
 			i4BytesWritten = priv_driver_set_mdns_offload_enable(
+					prNetDev, pcCommand, i4TotalLen);
+		else if (strnicmp(pcCommand, CMD_SET_MDNS_PATTERNS,
+				strlen(CMD_SET_MDNS_PATTERNS)) == 0)
+			i4BytesWritten = priv_driver_set_mdns_wow_patterns(
+					prNetDev, pcCommand, i4TotalLen);
+		else if (strnicmp(pcCommand, CMD_GET_MDNS_PATTERNS,
+				strlen(CMD_GET_MDNS_PATTERNS)) == 0)
+			i4BytesWritten = priv_driver_get_mdns_wow_patterns(
 					prNetDev, pcCommand, i4TotalLen);
 		else if (strnicmp(pcCommand, CMD_SET_SHOW_CACHE,
 				strlen(CMD_SET_SHOW_CACHE)) == 0)
@@ -17705,7 +17782,7 @@ int32_t priv_driver_cmds(IN struct net_device *prNetDev, IN int8_t *pcCommand,
 				 FALSE, &i4BytesWritten);
 		} else if (!strnicmp(pcCommand, CMD_FW_EVENT, 9)) {
 			kalIoctl(prGlueInfo, wlanoidFwEventIT,
-				 (void *)(pcCommand + 9), i4TotalLen, FALSE,
+				 (void *)(pcCommand + 9), i4TotalLen - 9, FALSE,
 				 FALSE, FALSE, &i4BytesWritten);
 		} else if (!strnicmp(pcCommand, CMD_DUMP_UAPSD,
 				     strlen(CMD_DUMP_UAPSD))) {
@@ -17829,7 +17906,7 @@ int android_private_support_driver_cmd(IN struct net_device *prNetDev,
 	if (copy_from_user(&priv_cmd, prReq->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
 	/* total_len is controlled by the user. need check length */
-	if (priv_cmd.total_len <= 0)
+	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > PRIV_CMD_SIZE)
 		return -EINVAL;
 
 	command = kzalloc(priv_cmd.total_len, GFP_KERNEL);
@@ -17838,7 +17915,7 @@ int android_private_support_driver_cmd(IN struct net_device *prNetDev,
 		return -ENOMEM;
 	}
 
-	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
+	if (kalMemCopy(command, priv_cmd.buf, priv_cmd.total_len)) {
 		ret = -EFAULT;
 		goto FREE;
 	}
@@ -17863,7 +17940,7 @@ int android_private_support_driver_cmd(IN struct net_device *prNetDev,
 
 		priv_cmd.used_len = bytes_written;
 
-		if (copy_to_user(priv_cmd.buf, command, bytes_written))
+		if (kalMemCopy(priv_cmd.buf, command, bytes_written))
 			ret = -EFAULT;
 	} else
 		ret = bytes_written;

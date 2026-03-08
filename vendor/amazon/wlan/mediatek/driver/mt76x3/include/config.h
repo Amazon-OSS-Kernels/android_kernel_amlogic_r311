@@ -1102,6 +1102,14 @@
 
 #define CFG_SUPPORT_EASY_DEBUG               1
 
+/*------------------------------------------------------------------------------
+ * Flags of driver to send only one cfg to fw
+ *------------------------------------------------------------------------------
+ */
+
+#ifndef CFG_SUPPORT_SEND_ONLY_ONE_CFG
+#define CFG_SUPPORT_SEND_ONLY_ONE_CFG        1
+#endif
 
 /*------------------------------------------------------------------------------
  * Flags of driver delay calibration atfer efuse buffer mode CMD

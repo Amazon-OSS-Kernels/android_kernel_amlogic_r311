@@ -1391,7 +1391,7 @@ kalIndicateStatusAndComplete(IN struct GLUE_INFO
 			CFG80211_BSS_FTYPE_PRESP,
 			arBssid,
 			0, /* TSF */
-			WLAN_CAPABILITY_ESS,
+			prBssDesc->u2CapInfo,
 			prBssDesc->u2BeaconInterval, /* beacon interval */
 			prBssDesc->aucIEBuf, /* IE */
 			prBssDesc->u2IELength, /* IE Length */
@@ -1403,7 +1403,7 @@ kalIndicateStatusAndComplete(IN struct GLUE_INFO
 			prChannel,
 			arBssid,
 			0, /* TSF */
-			WLAN_CAPABILITY_ESS,
+			prBssDesc->u2CapInfo,
 			prBssDesc->u2BeaconInterval, /* beacon interval */
 			prBssDesc->aucIEBuf, /* IE */
 			prBssDesc->u2IELength, /* IE Length */
@@ -1721,7 +1721,8 @@ kalIndicateStatusAndComplete(IN struct GLUE_INFO
 					NULL,
 					0,
 					prConnSettings->bss,
-					0);
+					0,
+					FALSE);
 
 #else
 	#if (KERNEL_VERSION(4, 4, 41) <= CFG80211_VERSION_CODE)
@@ -1795,8 +1796,18 @@ kalIndicateStatusAndComplete(IN struct GLUE_INFO
 		if (prConnSettings->bss) {
 #if CFG_WDEV_LOCK_THREAD_SUPPORT
 			uint8_t *pFrameBuf = NULL;
+			uint8_t fgIsInterruptContext = FALSE;
 
-			pFrameBuf = kalMemAlloc(u4BufLen, VIR_MEM_TYPE);
+			if (in_interrupt()) {
+				pFrameBuf = kalMemAlloc(u4BufLen, PHY_MEM_TYPE);
+				fgIsInterruptContext = TRUE;
+			} else {
+				pFrameBuf = kalMemAlloc(u4BufLen, VIR_MEM_TYPE);
+				fgIsInterruptContext = FALSE;
+			}
+
+			if (!pFrameBuf)
+				DBGLOG(INIT, ERROR, "Alloc buffer for frame failed\n");
 
 			if (pFrameBuf) {
 				kalMemCopy((void *)pFrameBuf,
@@ -1809,7 +1820,8 @@ kalIndicateStatusAndComplete(IN struct GLUE_INFO
 						pFrameBuf,
 						u4BufLen,
 						prConnSettings->bss,
-						0);
+						0,
+						fgIsInterruptContext);
 			}
 			else {
 				/* 20210505 frog:
@@ -1822,7 +1834,8 @@ kalIndicateStatusAndComplete(IN struct GLUE_INFO
 						NULL,
 						0,
 						prConnSettings->bss,
-						0);
+						0,
+						fgIsInterruptContext);
 			}
 #else
 #if (KERNEL_VERSION(5, 1, 0) <= CFG80211_VERSION_CODE)
@@ -5820,7 +5833,8 @@ void kalWDevLockThread(IN struct GLUE_INFO* prGlueInfo,
 	IN uint8_t *pFrameBuf,
 	IN size_t frameLen,
 	IN struct cfg80211_bss *pBss,
-	IN int32_t uapsd_queues)
+	IN int32_t uapsd_queues,
+	IN uint8_t fgIsInterruptContext)
 {
 	struct PARAM_WDEV_LOCK_THREAD* pParamWDevLock = NULL;
 	GLUE_SPIN_LOCK_DECLARATION();
@@ -5829,9 +5843,20 @@ void kalWDevLockThread(IN struct GLUE_INFO* prGlueInfo,
 
 	DBGLOG(REQ, INFO, "kalWDevLockThread\n");
 
-	pParamWDevLock = (struct PARAM_WDEV_LOCK_THREAD*) kalMemAlloc(
-							sizeof(struct PARAM_WDEV_LOCK_THREAD),
-							VIR_MEM_TYPE);
+	if (in_interrupt() && fgIsInterruptContext) {
+		DBGLOG(REQ, STATE,
+			"pParamWDevLock is allocated as PHY_MEM_TYPE in intr context\n");
+		pParamWDevLock =
+			(struct PARAM_WDEV_LOCK_THREAD*)kalMemAlloc(
+					sizeof(struct PARAM_WDEV_LOCK_THREAD),
+					PHY_MEM_TYPE);
+	} else {
+		pParamWDevLock =
+			(struct PARAM_WDEV_LOCK_THREAD*)kalMemAlloc(
+					sizeof(struct PARAM_WDEV_LOCK_THREAD),
+					VIR_MEM_TYPE);
+	}
+
 	DBGLOG(REQ, TRACE, "Alloc pParamWDevLock 0x%x\n", pParamWDevLock);
 
 	if (pParamWDevLock == NULL) {
@@ -5843,6 +5868,7 @@ void kalWDevLockThread(IN struct GLUE_INFO* prGlueInfo,
 	pParamWDevLock->fn = fn;
 	pParamWDevLock->pFrameBuf = pFrameBuf;
 	pParamWDevLock->frameLen = frameLen;
+	pParamWDevLock->fgIsInterruptContext = fgIsInterruptContext;
 	if (pBss) {
 		cfg80211_ref_bss(priv_to_wiphy(prGlueInfo),
 						pBss);
@@ -6294,11 +6320,13 @@ static ssize_t kalMetWriteProcfs(struct file *file,
 	int u8MetProfEnable;
 
 	IN struct GLUE_INFO *prGlueInfo;
-	ssize_t result;
 
 	u4CopySize = (count < (sizeof(acBuf) - 1)) ? count :
 		     (sizeof(acBuf) - 1);
-	result = copy_from_user(acBuf, buffer, u4CopySize);
+	if (copy_from_user(acBuf, buffer, u4CopySize)) {
+		DBGLOG(INIT, ERROR, "error of copy from user\n");
+		return -EFAULT;
+	}
 	acBuf[u4CopySize] = '\0';
 
 	if (sscanf(acBuf, " %d %d", &u8MetProfEnable,
@@ -6320,13 +6348,15 @@ static ssize_t kalMetCtrlWriteProcfs(struct file *file,
 	char acBuf[128 + 1];	/* + 1 for "\0" */
 	uint32_t u4CopySize;
 	int u8MetProfEnable;
-	ssize_t result;
 
 	IN struct GLUE_INFO *prGlueInfo;
 
 	u4CopySize = (count < (sizeof(acBuf) - 1)) ? count :
 		     (sizeof(acBuf) - 1);
-	result = copy_from_user(acBuf, buffer, u4CopySize);
+	if (copy_from_user(acBuf, buffer, u4CopySize)) {
+		DBGLOG(INIT, ERROR, "error of copy from user\n");
+		return -EFAULT;
+	}
 	acBuf[u4CopySize] = '\0';
 
 	if (sscanf(acBuf, " %d", &u8MetProfEnable) == 1)
@@ -6345,13 +6375,15 @@ static ssize_t kalMetPortWriteProcfs(struct file *file,
 	char acBuf[128 + 1];	/* + 1 for "\0" */
 	uint32_t u4CopySize;
 	int u16MetUdpPort;
-	ssize_t result;
 
 	IN struct GLUE_INFO *prGlueInfo;
 
 	u4CopySize = (count < (sizeof(acBuf) - 1)) ? count :
 		     (sizeof(acBuf) - 1);
-	result = copy_from_user(acBuf, buffer, u4CopySize);
+	if (copy_from_user(acBuf, buffer, u4CopySize)) {
+		DBGLOG(INIT, ERROR, "error of copy from user\n");
+		return -EFAULT;
+	}
 	acBuf[u4CopySize] = '\0';
 
 	if (sscanf(acBuf, " %d", &u16MetUdpPort) == 1)
@@ -6596,20 +6628,23 @@ void kalWowProcess(IN struct GLUE_INFO *prGlueInfo,
 		kalSendAddMdnsCacheToFw(prGlueInfo);
 	}
 
-	/* add mDNS wow */
-	if (enable && prGlueInfo->prAdapter->mdns_wow_pattern_len > 0) {
-		rCmdWowlanParam.mdns_wow_pattern_len =
-			prGlueInfo->prAdapter->mdns_wow_pattern_len;
-		kalStrnCpy(rCmdWowlanParam.mdns_wow_pattern,
-			   prGlueInfo->prAdapter->mdns_wow_pattern,
-			   prGlueInfo->prAdapter->mdns_wow_pattern_len);
-		DBGLOG(PF, INFO, "mDNS wow pattern:%s len=%d\n",
-			rCmdWowlanParam.mdns_wow_pattern,
-			rCmdWowlanParam.mdns_wow_pattern_len);
+	/* add mdns wow patterns */
+	if (enable && prGlueInfo->prAdapter->mdns_wow_patterns_no) {
+
+		rCmdWowlanParam.mdns_wow_patterns_no =
+			     prGlueInfo->prAdapter->mdns_wow_patterns_no;
+
+		kalMemCopy(rCmdWowlanParam.mdns_wow_patterns,
+			       prGlueInfo->prAdapter->mdns_wow_patterns,
+				   sizeof(rCmdWowlanParam.mdns_wow_patterns)
+				  );
+		DBGLOG(PF, STATE, "mDNS wow enabled %d patterns\n",
+				          rCmdWowlanParam.mdns_wow_patterns_no
+		                  );
 	}
 	else {
-		rCmdWowlanParam.mdns_wow_pattern_len = 0;
-		DBGLOG(PF, INFO, "mDNS wow disabled.\n");
+		rCmdWowlanParam.mdns_wow_patterns_no = 0;
+		DBGLOG(PF, STATE, "mDNS wow disabled\n");
 	}
 
 	DBGLOG(PF, INFO,

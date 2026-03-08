@@ -75,14 +75,6 @@
 extern void wlanUpdateChannelTable(struct GLUE_INFO
 				   *prGlueInfo);
 
-#if CFG_SUPPORT_WAPI
-extern uint8_t
-keyStructBuf[1024];	/* add/remove key shared buffer */
-#else
-extern uint8_t
-keyStructBuf[100];	/* add/remove key shared buffer */
-#endif
-
 /* for IE Searching */
 extern u_int8_t
 wextSrchDesiredWPAIE(IN uint8_t *pucIEStart,
