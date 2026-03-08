@@ -2362,6 +2362,7 @@ WLAN_STATUS wlanKeepFullPwr(IN P_ADAPTER_T prAdapter, IN BOOLEAN fgEnable)
 {
 	struct CMD_KEEP_FULL_PWR_T rCmdKeepFullPwr;
 
+	kalMemZero(&rCmdKeepFullPwr, sizeof(struct CMD_KEEP_FULL_PWR_T));
 	ASSERT(prAdapter);
 
 	rCmdKeepFullPwr.ucEnable = fgEnable;
@@ -5210,6 +5211,7 @@ WLAN_STATUS wlanLoadManufactureData_5G(IN P_ADAPTER_T prAdapter, IN P_REG_INFO_T
 	/* 1. set band edge tx power if available */
 	if (pr5GBandEdge->uc5GBandEdgePwrUsed != 0) {
 		CMD_EDGE_TXPWR_LIMIT_T rCmdEdgeTxPwrLimit;
+		kalMemZero(&rCmdEdgeTxPwrLimit, sizeof(CMD_EDGE_TXPWR_LIMIT_T));
 
 		rCmdEdgeTxPwrLimit.cBandEdgeMaxPwrCCK = 0;
 		rCmdEdgeTxPwrLimit.cBandEdgeMaxPwrOFDM20 = pr5GBandEdge->c5GBandEdgeMaxPwrOFDM20;
@@ -5283,6 +5285,7 @@ WLAN_STATUS wlanLoadManufactureData(IN P_ADAPTER_T prAdapter, IN P_REG_INFO_T pr
 #endif
 	CMD_NVRAM_SETTING_T rCmdNvramSettings;
 
+	kalMemZero(&rCmdNvramSettings, sizeof(CMD_NVRAM_SETTING_T));
 	ASSERT(prAdapter);
 
 	/* 1. Version Check */
@@ -5339,6 +5342,7 @@ WLAN_STATUS wlanLoadManufactureData(IN P_ADAPTER_T prAdapter, IN P_REG_INFO_T pr
 			CMD_POWER_OFFSET_T rCmdPowerOffset;
 			UINT_8 i;
 
+			kalMemZero(&rCmdPowerOffset, sizeof(CMD_POWER_OFFSET_T));
 			rCmdPowerOffset.ucBand = BAND_2G4;
 			for (i = 0; i < 3; i++)
 				rCmdPowerOffset.ucSubBandOffset[i] = prRegInfo->prOldEfuseMapping->aucChOffset[i];
@@ -5365,6 +5369,7 @@ WLAN_STATUS wlanLoadManufactureData(IN P_ADAPTER_T prAdapter, IN P_REG_INFO_T pr
 	/*RSSI path compasation */
 	if (prRegInfo->ucRssiPathCompasationUsed) {
 		CMD_RSSI_PATH_COMPASATION_T rCmdRssiPathCompasation;
+		kalMemZero(&rCmdRssiPathCompasation, sizeof(CMD_RSSI_PATH_COMPASATION_T));
 
 		rCmdRssiPathCompasation.c2GRssiCompensation = prRegInfo->rRssiPathCompasation.c2GRssiCompensation;
 		rCmdRssiPathCompasation.c5GRssiCompensation = prRegInfo->rRssiPathCompasation.c5GRssiCompensation;
@@ -5411,6 +5416,7 @@ WLAN_STATUS wlanLoadManufactureData(IN P_ADAPTER_T prAdapter, IN P_REG_INFO_T pr
 	/* 7. set band edge tx power if available */
 	if (prRegInfo->fg2G4BandEdgePwrUsed) {
 		CMD_EDGE_TXPWR_LIMIT_T rCmdEdgeTxPwrLimit;
+		kalMemZero(&rCmdEdgeTxPwrLimit, sizeof(CMD_EDGE_TXPWR_LIMIT_T));
 
 		rCmdEdgeTxPwrLimit.cBandEdgeMaxPwrCCK = prRegInfo->cBandEdgeMaxPwrCCK;
 		rCmdEdgeTxPwrLimit.cBandEdgeMaxPwrOFDM20 = prRegInfo->cBandEdgeMaxPwrOFDM20;
@@ -5429,6 +5435,7 @@ WLAN_STATUS wlanLoadManufactureData(IN P_ADAPTER_T prAdapter, IN P_REG_INFO_T pr
 
 		CMD_TX_AC_PWR_T rCmdAcPwr;
 
+		kalMemZero(&rCmdAcPwr, sizeof(CMD_TX_AC_PWR_T));
 		kalMemCopy(&rCmdAcPwr.rAcPwr, &prRegInfo->prOldEfuseMapping->r11AcTxPwr2G,
 			   sizeof(AC_PWR_SETTING_STRUCT));
 		rCmdAcPwr.ucBand = BAND_2G4;
@@ -6269,6 +6276,7 @@ wlanoidQueryStaStatistics(IN P_ADAPTER_T prAdapter,
 	UINT_8 ucIdx;
 	ENUM_WMM_ACI_T eAci;
 
+	kalMemZero(&rQueryCmdStaStatistics, sizeof(CMD_GET_STA_STATISTICS_T));
 	DEBUGFUNC("wlanoidQueryStaStatistics");
 
 	if (prAdapter == NULL)
@@ -9227,6 +9235,8 @@ wlanNotifyFwSuspend(P_GLUE_INFO_T prGlueInfo, struct net_device *prDev, BOOLEAN 
 	P_NETDEV_PRIVATE_GLUE_INFO prNetDevPrivate = (P_NETDEV_PRIVATE_GLUE_INFO) NULL;
 	CMD_SUSPEND_MODE_SETTING_T rSuspendCmd;
 
+	kalMemZero(&rSuspendCmd, sizeof(CMD_SUSPEND_MODE_SETTING_T));
+
 	prNetDevPrivate = (P_NETDEV_PRIVATE_GLUE_INFO) netdev_priv(prDev);
 
 	if (prNetDevPrivate->prGlueInfo != prGlueInfo)
@@ -9311,6 +9321,8 @@ wlanoidQueryLteSafeChannel(IN P_ADAPTER_T prAdapter,
 {
 	WLAN_STATUS rResult = WLAN_STATUS_FAILURE;
 	CMD_GET_LTE_SAFE_CHN_T rQuery_LTE_SAFE_CHN;
+
+	kalMemZero(&rQuery_LTE_SAFE_CHN, sizeof(CMD_GET_LTE_SAFE_CHN_T));
 
 	do {
 		/* Sanity test */

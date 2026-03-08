@@ -851,6 +851,8 @@ WLAN_STATUS bowCmdShortRangeMode(IN P_ADAPTER_T prAdapter, IN P_AMPC_COMMAND prC
 	P_BOW_SHORT_RANGE_MODE prBowShortRangeMode;
 	CMD_TX_PWR_T rTxPwrParam;
 
+	kalMemZero(&rTxPwrParam, sizeof(CMD_TX_PWR_T));
+
 	ASSERT(prAdapter);
 
 	DBGLOG(BOW, EVENT, "bowCmdShortRangeMode.\n");

@@ -1910,11 +1910,9 @@ priv_get_ndis(IN struct net_device *prNetDev, IN NDIS_TRANSPORT_STRUCT * prNdisR
 * \brief The routine handles ATE set operation.
 *
 * \param[in] pDev Net device requested.
-* \param[in] ndisReq Ndis request OID information copy from user.
-* \param[out] outputLen_p If the call is successful, returns the number of
-*                         bytes written into the query buffer. If the
-*                         call failed due to invalid length of the query
-*                         buffer, returns the amount of storage needed..
+* \param[in] prIwReqInfo pointer to iwreq structure.
+* \param[in] prIwReqData The ioctl data structure, use the field of sub-command.
+* \param[in] pcExtra the buffer with input value.
 *
 * \retval 0 On success.
 * \retval -EOPNOTSUPP If cmd is not supported.
@@ -3413,6 +3411,7 @@ static int priv_driver_get_wtbl_info(IN struct net_device *prNetDev, IN char *pc
 	prHwWlanInfo = (P_PARAM_HW_WLAN_INFO_T)kalMemAlloc(sizeof(PARAM_HW_WLAN_INFO_T), VIR_MEM_TYPE);
 	if (!prHwWlanInfo)
 		return -1;
+	kalMemZero(prHwWlanInfo, sizeof(PARAM_HW_WLAN_INFO_T));
 
 	if (i4Argc >= 2) {
 		u4Ret = kalkStrtou32(apcArgv[1], 0, &prHwWlanInfo->u4Index);
@@ -3509,6 +3508,7 @@ static int priv_driver_get_sta_info(IN struct net_device *prNetDev, IN char *pcC
 		i4BytesWritten = -1;
 		goto out;
 	}
+	kalMemZero(prHwWlanInfo, sizeof(PARAM_HW_WLAN_INFO_T));
 	prHwWlanInfo->u4Index = ucWlanIndex;
 
 	DBGLOG(REQ, INFO, "MT6632 : index = %d i4TotalLen = %d\n", prHwWlanInfo->u4Index, i4TotalLen);
@@ -3604,6 +3604,7 @@ static int priv_driver_get_mib_info(IN struct net_device *prNetDev, IN char *pcC
 	prHwMibInfo = (P_PARAM_HW_MIB_INFO_T)kalMemAlloc(sizeof(PARAM_HW_MIB_INFO_T), VIR_MEM_TYPE);
 	if (!prHwMibInfo)
 		return -1;
+	kalMemZero(prHwMibInfo, sizeof(PARAM_HW_MIB_INFO_T));
 
 	if (i4Argc == 1)
 		prHwMibInfo->u4Index = 0;
@@ -3932,6 +3933,7 @@ static int priv_driver_set_fw_log(IN struct net_device *prNetDev, IN char *pcCom
 		i4BytesWritten = -1;
 		goto out;
 	}
+	kalMemZero(prFwLog2HostCtrl, sizeof(CMD_FW_LOG_2_HOST_CTRL_T));
 
 #if CFG_SUPPORT_FW_DBG_LEVEL_CTRL
 	if ((i4Argc != 3) && (i4Argc != 4)) {
@@ -5487,6 +5489,7 @@ static int priv_driver_get_sta_stat(IN struct net_device *prNetDev, IN char *pcC
 		i4BytesWritten = -1;
 		goto out;
 	}
+	kalMemZero(prHwWlanInfo, sizeof(PARAM_HW_WLAN_INFO_T));
 
 	prHwWlanInfo->u4Index = ucWlanIndex;
 	if (fgRxCCSel == TRUE)
@@ -6303,6 +6306,7 @@ static int priv_driver_get_sta_curr_ar_rate(IN struct net_device *prNetDev, IN c
 	prHwWlanInfo = (P_PARAM_HW_WLAN_INFO_T)kalMemAlloc(sizeof(PARAM_HW_WLAN_INFO_T), VIR_MEM_TYPE);
 	if (!prHwWlanInfo)
 		return -ENOMEM;
+	kalMemZero(prHwWlanInfo, sizeof(PARAM_HW_WLAN_INFO_T));
 	prHwWlanInfo->u4Index = ucWlanIndex;
 	rStatus = kalIoctl(prGlueInfo,
 					wlanoidQueryWlanInfo,
@@ -10951,6 +10955,7 @@ static int priv_driver_get_mcs_info(IN struct net_device *prNetDev, IN char *pcC
 	prHwWlanInfo = (P_PARAM_HW_WLAN_INFO_T)kalMemAlloc(sizeof(PARAM_HW_WLAN_INFO_T), VIR_MEM_TYPE);
 	if (!prHwWlanInfo)
 		return -1;
+	kalMemZero(prHwWlanInfo, sizeof(PARAM_HW_WLAN_INFO_T));
 
 	/* TODO: frog 20180518: Glue layer no need to know HW wlan idx information. 
          *       Glue layer only know AIS network.
@@ -14085,6 +14090,7 @@ static int priv_driver_set_csi(IN struct net_device *prNetDev, IN char *pcComman
 		i4BytesWritten = -1;
 		goto out;
 	}
+	kalMemZero(prCSICtrl, sizeof(struct CMD_CSI_CONTROL_T));
 
 	if (i4Argc != 2 && i4Argc != 5) {
 		DBGLOG(REQ, ERROR, "argc %i is invalid\n", i4Argc);
@@ -14475,6 +14481,7 @@ static int priv_driver_ant_diversity_config(IN struct net_device *prNetDev,
 		return -EFAULT;
 
 	DBGLOG(REQ, INFO, "priv_driver_ant_diversity_config()\n");
+	kalMemZero(&rAntDivInfo, sizeof(struct CMD_ANT_DIV_CTRL));
 
 	rAntDivInfo.ucAction = 0;
 	rAntDivInfo.ucAntId = 0;
@@ -15827,7 +15834,7 @@ int android_private_support_driver_cmd(IN struct net_device *prNetDev,
 	if (copy_from_user(&priv_cmd, prReq->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
 
-	if (priv_cmd.total_len <= 0)
+	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > PRIV_CMD_SIZE)
 		return -EINVAL;
 
 	command = kzalloc(priv_cmd.total_len, GFP_KERNEL);

@@ -1439,6 +1439,7 @@ VOID halUSBPreSuspendCmd(IN P_ADAPTER_T prAdapter)
 {
 	CMD_HIF_CTRL_T rCmdHifCtrl;
 	WLAN_STATUS rStatus;
+	kalMemZero(&rCmdHifCtrl, sizeof(CMD_HIF_CTRL_T));
 
 	rCmdHifCtrl.ucHifType = ENUM_HIF_TYPE_USB;
 	rCmdHifCtrl.ucHifDirection = ENUM_HIF_TX;

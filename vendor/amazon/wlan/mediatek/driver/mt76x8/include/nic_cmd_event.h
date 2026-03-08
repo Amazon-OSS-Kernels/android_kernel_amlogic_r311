@@ -171,6 +171,8 @@
 #define ICAP_CONTENT_FIIQ		0x48
 #define ICAP_CONTENT_FDIQ		0x49
 
+#define MAX_MEMORY_DUMP_SIZE 4096  /* Same setting as MT7668 FW: hemFsmEventCmdDumpMem() */
+
 #if CFG_SUPPORT_BUFFER_MODE
 
 typedef struct _CMD_EFUSE_BUFFER_MODE_T {
