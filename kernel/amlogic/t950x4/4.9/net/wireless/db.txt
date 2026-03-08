@@ -1,0 +1,72 @@
+# This is the world regulatory domain
+country 00:
+	(2402 - 2472 @ 40), (N/A, 20)
+	# Channel 12 - 13.
+	(2457 - 2482 @ 20), (N/A, 20), PASSIVE-SCAN
+	# Channel 36 - 48
+	(5170 - 5250 @ 80), (N/A, 20)
+	# Channel 149 - 165
+	(5735 - 5835 @ 80), (N/A, 20), PASSIVE-SCAN
+
+country US: DFS-FCC
+	(2402 - 2472 @ 40), (N/A, 30)
+	# 5.15 ~ 5.25 GHz: 30 dBm for master mode, 23 dBm for clients
+	(5170 - 5250 @ 80), (N/A, 23)
+	# (5250 - 5330 @ 80), (N/A, 23), DFS
+	# (5490 - 5730 @ 160), (N/A, 23), DFS
+	(5735 - 5835 @ 80), (N/A, 30)
+	# 60g band
+	# reference: http://cfr.regstoday.com/47cfr15.aspx#47_CFR_15p255
+	# channels 1,2,3, EIRP=40dBm(43dBm peak)
+	# (57240 - 63720 @ 2160), (N/A, 40)
+
+# Source:
+# https://www.ic.gc.ca/eic/site/smt-gst.nsf/vwapj/rss-247-i2-e.pdf/$file/rss-247-i2-e.pdf
+country CA: DFS-FCC
+        (2402 - 2472 @ 40), (N/A, 30)
+        (5150 - 5250 @ 80), (N/A, 23), NO-OUTDOOR
+        # (5250 - 5350 @ 80), (N/A, 24), DFS
+        # (5470 - 5600 @ 80), (N/A, 24), DFS
+        # (5650 - 5730 @ 80), (N/A, 24), DFS
+        (5735 - 5835 @ 80), (N/A, 30)
+
+country DE: DFS-ETSI
+	(2400 - 2483.5 @ 40), (N/A, 100 mW)
+	(5150 - 5250 @ 80), (N/A, 100 mW), NO-OUTDOOR
+	# (5250 - 5350 @ 80), (N/A, 100 mW), NO-OUTDOOR, DFS
+	# (5470 - 5725 @ 160), (N/A, 500 mW), DFS
+	# 60 GHz band channels 1-4 (ETSI EN 302 567)
+	# (57000 - 66000 @ 2160), (N/A, 40)
+
+country UK: DFS-ETSI
+	(2400 - 2483.5 @ 40), (N/A, 100 mW)
+	(5150 - 5250 @ 80), (N/A, 100 mW), NO-OUTDOOR
+	# (5250 - 5350 @ 80), (N/A, 100 mW), NO-OUTDOOR, DFS
+	# (5470 - 5725 @ 160), (N/A, 500 mW), DFS
+	# 60 GHz band channels 1-4 (ETSI EN 302 567)
+	# (57000 - 66000 @ 2160), (N/A, 40)
+
+country GB: DFS-ETSI
+        (2402 - 2482 @ 40), (20)
+        (5170 - 5250 @ 80), (20), AUTO-BW
+        # (5250 - 5330 @ 80), (20), DFS, AUTO-BW
+        # (5490 - 5710 @ 160), (27), DFS
+        (5735 - 5835 @ 80), (20)
+        # 60 GHz band channels 1-4, ref: Etsi En 302 567
+        # (57000 - 66000 @ 2160), (40)
+
+country IN:
+        (2402 - 2482 @ 40), (20)
+        (5170 - 5250 @ 80), (23)
+        # (5250 - 5330 @ 80), (20), DFS
+        # (5490 - 5730 @ 80), (20), DFS
+        (5735 - 5835 @ 80), (20)
+
+country JP: DFS-JP
+	(2402 - 2482 @ 40), (N/A, 20)
+	# (4910 - 4990 @ 40), (N/A, 23)
+	# (5030 - 5090 @ 40), (N/A, 23)
+	(5170 - 5250 @ 80), (N/A, 20)
+	# (5250 - 5330 @ 80), (N/A, 20), DFS
+	# (5490 - 5710 @ 160), (N/A, 23), DFS
+

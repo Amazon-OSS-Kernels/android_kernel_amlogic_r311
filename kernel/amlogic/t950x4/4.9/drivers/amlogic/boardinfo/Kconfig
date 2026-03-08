@@ -1,0 +1,13 @@
+#
+# board info configuration
+#
+
+menuconfig AMLOGIC_VENDOR_BOARD_INFO
+	tristate "Print Board Info"
+	default n
+	help
+	  Say Y here to get to see options for board info.
+	  This option alone does not add any kernel code.
+	  If you say N, all options in this submenu will be
+	  skipped and disabled.
+

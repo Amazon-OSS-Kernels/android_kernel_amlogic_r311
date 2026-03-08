@@ -1,0 +1,6 @@
+obj-$(CONFIG_AMLOGIC_MEDIA_TVIN)	+=	tvin/
+ifdef CONFIG_AMLOGIC_DTV_DEMOD_V3
+obj-$(CONFIG_AMLOGIC_MEDIA_ADC)	+=	adc_v3/
+else
+obj-$(CONFIG_AMLOGIC_MEDIA_ADC)	+=	adc/
+endif

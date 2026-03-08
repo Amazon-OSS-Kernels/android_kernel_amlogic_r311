@@ -1,0 +1,1 @@
+obj-$(CONFIG_AMLOGIC_VENDOR_BOARD_INFO)	+= boardinfo.o

@@ -1,0 +1,13 @@
+#
+#   AMLOGIC bl30msg configuration
+#
+menu "AMLOGIC BL30MSG process"
+
+config AMLOGIC_BL30MSG
+	bool "MESON based bl30 log show"
+	default n
+	help
+		This driver show logs of bl30 and bl301 stored
+		in a ring buffer shared between kernel and bl30
+
+endmenu

@@ -1,0 +1,17 @@
+#
+# DTV driver configuration
+#
+
+menu "Amlogic DTV driver"
+
+config AMLOGIC_DTV_DEMOD_V3
+	tristate "Amlogic DTVDEMOD V3 device driver"
+	default n
+	help
+		DTVDEMOD device driver.
+		Y: enable
+		N: disable
+		M: build as module
+
+endmenu
+

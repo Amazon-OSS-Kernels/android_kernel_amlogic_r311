@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config AML_DDR_PMU
+	depends on PERF_EVENTS && (ARM || ARM64)
+	bool "AMLOGIC DDR PMU"
+	default y
+	help
+	  Say y if you want to use amlogic DDR pmu.
