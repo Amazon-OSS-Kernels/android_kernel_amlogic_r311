@@ -577,6 +577,10 @@ wlanoidSetBssidListScan(IN P_ADAPTER_T prAdapter,
 			return WLAN_STATUS_FAILURE;
 	}
 
+	cnmTimerStartTimer(prAdapter,
+		&prAdapter->rWifiVar.rAisFsmInfo.rScanDoneTimer,
+		SEC_TO_MSEC(AIS_SCN_DONE_TIMEOUT_SEC));
+
 	return WLAN_STATUS_SUCCESS;
 }				/* wlanoidSetBssidListScan */
 
@@ -1485,6 +1489,12 @@ wlanoidQueryAuthMode(IN P_ADAPTER_T prAdapter,
 		DBGLOG(REQ, INFO, "Current auth mode: WPA2 PSK\n");
 		break;
 
+#if CFG_SUPPORT_CFG80211_AUTH
+	case AUTH_MODE_WPA2_SAE:
+		DBGLOG(RSN, INFO, "Current auth mode: SAE\n");
+		break;
+#endif
+
 	default:
 		DBGLOG(REQ, INFO, "Current auth mode: %d\n", *(P_ENUM_PARAM_AUTH_MODE_T) pvQueryBuffer);
 		break;
@@ -2370,6 +2380,13 @@ wlanoidSetAddKey(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer, IN UINT_32 u4Se
 
 					prAisSpecBssInfo = &prAdapter->rWifiVar.rAisSpecificBssInfo;
 					prAisSpecBssInfo->fgBipKeyInstalled = TRUE;
+					DBGLOG(RSN, INFO,
+						"Change BIP BC keyId from %d to 3\n",
+						prCmdKey->ucKeyId);
+					/* Set IGTK WTBL keyid 3 for WTBL,
+					 * so hw can search GTK correctly.
+					 */
+					prCmdKey->ucKeyId = 3;
 				}
 			}
 #endif
@@ -2504,6 +2521,9 @@ wlanoidSetAddKey(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer, IN UINT_32 u4Se
 					     prBssInfo->prStaRecOfAP->aucMacAddr,
 					     prBssInfo->prStaRecOfAP->ucIndex,
 					     prCmdKey->ucAlgorithmId, prCmdKey->ucKeyId);
+				kalMemCopy(prCmdKey->aucPeerAddr,
+					prBssInfo->prStaRecOfAP->aucMacAddr,
+					MAC_ADDR_LEN);
 			}
 
 			DBGLOG(RSN, INFO, "BIP BC wtbl index:%d\n", prCmdKey->ucWlanIndex);
@@ -3101,6 +3121,13 @@ wlanoidSetEncryptionStatus(IN P_ADAPTER_T prAdapter,
 				  CIPHER_FLAG_WEP104 | CIPHER_FLAG_WEP128 | CIPHER_FLAG_TKIP | CIPHER_FLAG_CCMP);
 		DBGLOG(RSN, INFO, "Enable Encryption3\n");
 		break;
+
+#if CFG_SUPPORT_SUITB
+	case ENUM_ENCRYPTION4_ENABLED: /* Eanble GCMP256 */
+		secSetCipherSuite(prAdapter, CIPHER_FLAG_GCMP256);
+		DBGLOG(RSN, INFO, "Enable Encryption4\n");
+		break;
+#endif
 
 	default:
 		DBGLOG(RSN, INFO, "Unacceptible encryption status: %d\n",
@@ -7764,6 +7791,7 @@ wlanoidSetDisassociate(IN P_ADAPTER_T prAdapter,
 		       IN PVOID pvSetBuffer, IN UINT_32 u4SetBufferLen, OUT PUINT_32 pu4SetInfoLen)
 {
 	P_MSG_AIS_ABORT_T prAisAbortMsg;
+	int ret;
 
 	DEBUGFUNC("wlanoidSetDisassociate");
 
@@ -7796,13 +7824,17 @@ wlanoidSetDisassociate(IN P_ADAPTER_T prAdapter,
 	mboxSendMsg(prAdapter, MBOX_ID_0, (P_MSG_HDR_T) prAisAbortMsg, MSG_SEND_METHOD_BUF);
 
 	/* indicate for disconnection */
-	if (kalGetMediaStateIndicated(prAdapter->prGlueInfo) == PARAM_MEDIA_STATE_CONNECTED)
-		kalIndicateStatusAndComplete(prAdapter->prGlueInfo, WLAN_STATUS_MEDIA_DISCONNECT_LOCALLY, NULL, 0);
-#if !defined(LINUX)
-	prAdapter->fgIsRadioOff = TRUE;
-#endif
+	if (kalGetMediaStateIndicated(prAdapter->prGlueInfo)
+			== PARAM_MEDIA_STATE_CONNECTED) {
+		kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
+			WLAN_STATUS_MEDIA_DISCONNECT_LOCALLY, NULL, 0);
+		ret = WLAN_STATUS_SUCCESS;
+	}
+	else {
+		ret = WLAN_STATUS_NOT_ACCEPTED;
+	}
 
-	return WLAN_STATUS_SUCCESS;
+	return ret;
 }				/* wlanoidSetDisassociate */
 
 /*----------------------------------------------------------------------------*/

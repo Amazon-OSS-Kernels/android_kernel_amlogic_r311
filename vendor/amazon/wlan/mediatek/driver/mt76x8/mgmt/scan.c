@@ -85,7 +85,7 @@
 
 #define ROAMING_NO_SWING_RCPI_STEP              (10)
 
-
+#define ROAMING_5G_RCPI_WEIGHT                  (40)
 
 /*******************************************************************************
 *                             D A T A   T Y P E S
@@ -331,6 +331,49 @@ scanSearchBssDescByBssidAndSsid(IN P_ADAPTER_T prAdapter,
 	return prDstBssDesc;
 
 }				/* end of scanSearchBssDescByBssid() */
+
+#if CFG_SUPPORT_CFG80211_AUTH
+/*----------------------------------------------------------------------------*/
+/*!
+* @brief Find the corresponding BSS Descriptor
+*        according to given BSSID & ChanNum
+*
+* @param[in] prAdapter          Pointer to the Adapter structure.
+* @param[in] aucBSSID           Given BSSID.
+* @param[in] fgCheckChanNum     Need to check ChanNum or not.
+* @param[in] ucChannelNum       Specified Channel Num
+*
+* @return   Pointer to BSS Descriptor, if found. NULL, if not found
+*/
+/*----------------------------------------------------------------------------*/
+P_BSS_DESC_T scanSearchBssDescByBssidAndChanNum(IN P_ADAPTER_T prAdapter,
+	IN UINT_8 aucBSSID[], IN BOOLEAN fgCheckChanNum, IN UINT_8 ucChannelNum)
+{
+	P_SCAN_INFO_T prScanInfo;
+	P_LINK_T prBSSDescList;
+	P_BSS_DESC_T prBssDesc = (P_BSS_DESC_T) NULL;
+
+	ASSERT(prAdapter);
+	ASSERT(aucBSSID);
+	ASSERT(ucChannelNum);
+
+	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
+
+	prBSSDescList = &prScanInfo->rBSSDescList;
+
+	/* Search BSS Desc from current SCAN result list. */
+	LINK_FOR_EACH_ENTRY(prBssDesc, prBSSDescList, rLinkEntry, BSS_DESC_T) {
+		if (!(EQUAL_MAC_ADDR(prBssDesc->aucBSSID, aucBSSID)))
+			continue;
+		if (fgCheckChanNum == FALSE || ucChannelNum == 0)
+			return prBssDesc;
+		if (prBssDesc->ucChannelNum == ucChannelNum)
+			return prBssDesc;
+	}
+
+	return prBssDesc;
+}
+#endif
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -1335,15 +1378,23 @@ P_BSS_DESC_T scanAddToBssDesc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 		}
 	}
 #if 1
-	/* 2018/04/17 frog: always update IE is not a good choice. */
-	/* Because of not considering hidden BSS.                  */
-        /* Hidden BSS Beacon v.s. hidden BSS probe response.       */
-	if ((prBssDesc->u2RawLength == 0) || (fgIsValidSsid)) {
-		prBssDesc->u2RawLength = prSwRfb->u2PacketLen;
-		if (prBssDesc->u2RawLength > CFG_RAW_BUFFER_SIZE)
-			prBssDesc->u2RawLength = CFG_RAW_BUFFER_SIZE;
-		kalMemCopy(prBssDesc->aucRawBuf, prWlanBeaconFrame, prBssDesc->u2RawLength);
-		fgIsCopy = TRUE;
+	/* 2021/04/18 frog: Only update IE when in scan state. */
+	/* Driver would still RX BCN/Probe RSP under other state. */
+	/* It would cause driver cache some scan result till next scan done. */
+	if (scnFsmIsScanning(prAdapter)) {
+		/* 2018/04/17 frog: always update IE is not a good choice. */
+		/* Because of not considering hidden BSS.				   */
+		/* Hidden BSS Beacon v.s. hidden BSS probe response.	   */
+		if ((prBssDesc->u2RawLength == 0) || (fgIsValidSsid)) {
+			prBssDesc->u2RawLength = prSwRfb->u2PacketLen;
+			if (prBssDesc->u2RawLength > CFG_RAW_BUFFER_SIZE)
+				prBssDesc->u2RawLength = CFG_RAW_BUFFER_SIZE;
+			kalMemCopy(prBssDesc->aucRawBuf, prWlanBeaconFrame, prBssDesc->u2RawLength);
+			fgIsCopy = TRUE;
+		}
+	}
+	else {
+		prBssDesc->u2RawLength = 0;
 	}
 #endif
 
@@ -1998,7 +2049,14 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 	BOOLEAN fgIsFindFirst = (BOOLEAN) FALSE;
 
 	BOOLEAN fgIsFindBestRSSI = (BOOLEAN) FALSE;
+#if !CFG_SUPPORT_CFG80211_AUTH
 	BOOLEAN fgIsFindBestEncryptionLevel = (BOOLEAN) FALSE;
+#endif
+#if CFG_ROAMING_5G_PREFER
+	BOOLEAN fgPrimaryIs5G = (BOOLEAN) FALSE;
+	BOOLEAN fgCandidateIs5G = (BOOLEAN) FALSE;
+
+#endif
 	/* BOOLEAN fgIsFindMinChannelLoad = (BOOLEAN)FALSE; */
 
 	/* TODO(Kevin): Support Min Channel Load */
@@ -2318,6 +2376,13 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 					prPrimaryBssDesc = prBssDesc;
 
 					fgIsFindBestRSSI = TRUE;
+#if CFG_ROAMING_5G_PREFER
+					if (prPrimaryBssDesc->eBand == BAND_5G
+					    && prPrimaryBssDesc->ucRCPI >= RCPI_60)
+						fgPrimaryIs5G = TRUE;
+					else
+						fgPrimaryIs5G = FALSE;
+#endif
 				}
 
 			} else if (EQUAL_SSID(prBssDesc->aucSSID,
@@ -2326,6 +2391,13 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 				prPrimaryBssDesc = prBssDesc;
 
 				fgIsFindBestRSSI = TRUE;
+#if CFG_ROAMING_5G_PREFER
+				if (prPrimaryBssDesc->eBand == BAND_5G
+				    && prPrimaryBssDesc->ucRCPI >= RCPI_60)
+					fgPrimaryIs5G = TRUE;
+				else
+					fgPrimaryIs5G = FALSE;
+#endif
 				DBGLOG(SCN, LOUD, "SEARCH: Found BSS by SSID, [" MACSTR "], SSID:%s\n",
 					MAC2STR(prBssDesc->aucBSSID), prBssDesc->aucSSID);
 			}
@@ -2354,7 +2426,14 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 					 EQUAL_SSID(prBssDesc->aucSSID, prBssDesc->ucSSIDLen,
 								prConnSettings->aucSSID, prConnSettings->ucSSIDLen)) ||
 					prConnSettings->ucSSIDLen == 0)
+#if CFG_SUPPORT_CFG80211_AUTH
+					if (prBssDesc->ucChannelNum == prConnSettings->ucChannelNum) {
+						prPrimaryBssDesc = prBssDesc;
+						fgIsFindFirst = TRUE;
+					}
+#else
 					prPrimaryBssDesc = prBssDesc;
+#endif
 			}
 			break;
 
@@ -2367,6 +2446,7 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 			continue;
 		/* 4 <7> Check the Encryption Status. */
 		if (prPrimaryBssDesc->eBSSType == BSS_TYPE_INFRASTRUCTURE) {
+#if !CFG_SUPPORT_CFG80211_AUTH
 #if CFG_SUPPORT_WAPI
 			if (prAdapter->rWifiVar.rConnSettings.fgWapiMode) {
 				if (wapiPerformPolicySelection(prAdapter, prPrimaryBssDesc)) {
@@ -2394,6 +2474,7 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 				DBGLOG(RSN, INFO, "Ignore BSS can't pass Encryption Status Check\n");
 				continue;
 			}
+#endif
 		} else {
 			/* Todo:: P2P and BOW Policy Selection */
 		}
@@ -2450,9 +2531,30 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 				/* NOTE: To prevent SWING, we do roaming only if target AP
 				 * has at least 5dBm larger than us.
 				 */
+#if CFG_ROAMING_5G_PREFER
+				if (prCandidateBssDesc->eBand == BAND_5G
+				    && prCandidateBssDesc->ucRCPI >= RCPI_60)
+					fgCandidateIs5G = TRUE;
+				else
+					fgCandidateIs5G = FALSE;
+
+#endif
 				if (prCandidateBssDesc->fgIsConnected) {
-					if ((prCandidateBssDesc->ucRCPI + ROAMING_NO_SWING_RCPI_STEP <=
-					     prPrimaryBssDesc->ucRCPI)
+#if CFG_ROAMING_5G_PREFER
+					/* both RSSI < -80. keep current connected */
+					if (prCandidateBssDesc->ucRCPI < RCPI_60 && prPrimaryBssDesc->ucRCPI< RCPI_60)
+						continue;
+#endif
+					if ((prCandidateBssDesc->ucRCPI
+#if CFG_ROAMING_5G_PREFER
+					     + (fgCandidateIs5G * ROAMING_5G_RCPI_WEIGHT)
+#endif
+					     + ROAMING_NO_SWING_RCPI_STEP <=
+					     prPrimaryBssDesc->ucRCPI
+#if CFG_ROAMING_5G_PREFER
+					     + (fgPrimaryIs5G * ROAMING_5G_RCPI_WEIGHT)
+#endif
+					     )
 					    && prPrimaryBssDesc->ucJoinFailureCount <= SCN_BSS_JOIN_FAIL_THRESOLD) {
 
 						prCandidateBssDesc = prPrimaryBssDesc;
@@ -2460,8 +2562,24 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 						continue;
 					}
 				} else if (prPrimaryBssDesc->fgIsConnected) {
-					if ((prCandidateBssDesc->ucRCPI <
-					     prPrimaryBssDesc->ucRCPI + ROAMING_NO_SWING_RCPI_STEP)
+#if CFG_ROAMING_5G_PREFER
+					/* both RSSI < -80. keep current connected */
+					if (prCandidateBssDesc->ucRCPI < RCPI_60 && prPrimaryBssDesc->ucRCPI< RCPI_60) {
+						prCandidateBssDesc = prPrimaryBssDesc;
+						prCandidateStaRec = prPrimaryStaRec;
+						continue;
+					}
+#endif
+					if ((prCandidateBssDesc->ucRCPI
+#if CFG_ROAMING_5G_PREFER
+					     + (fgCandidateIs5G * ROAMING_5G_RCPI_WEIGHT)
+#endif
+					     <
+					     prPrimaryBssDesc->ucRCPI
+#if CFG_ROAMING_5G_PREFER
+					     + (fgPrimaryIs5G * ROAMING_5G_RCPI_WEIGHT)
+#endif
+					     + ROAMING_NO_SWING_RCPI_STEP)
 					    || (prCandidateBssDesc->ucJoinFailureCount > SCN_BSS_JOIN_FAIL_THRESOLD)) {
 
 						prCandidateBssDesc = prPrimaryBssDesc;
@@ -2471,7 +2589,15 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 				} else if (prPrimaryBssDesc->ucJoinFailureCount > SCN_BSS_JOIN_FAIL_THRESOLD)
 					continue;
 				else if (prCandidateBssDesc->ucJoinFailureCount > SCN_BSS_JOIN_FAIL_THRESOLD ||
-					 prCandidateBssDesc->ucRCPI < prPrimaryBssDesc->ucRCPI) {
+					 prCandidateBssDesc->ucRCPI
+#if CFG_ROAMING_5G_PREFER
+					 + (prCandidateBssDesc->eBand == BAND_5G ? ROAMING_5G_RCPI_WEIGHT : 0)
+#endif
+					 < prPrimaryBssDesc->ucRCPI
+#if CFG_ROAMING_5G_PREFER
+					 + (prPrimaryBssDesc->eBand == BAND_5G ? ROAMING_5G_RCPI_WEIGHT : 0)
+#endif
+					 ) {
 
 					prCandidateBssDesc = prPrimaryBssDesc;
 					prCandidateStaRec = prPrimaryStaRec;
@@ -2620,6 +2746,9 @@ VOID scanReportBss2Cfg80211(IN P_ADAPTER_T prAdapter, IN ENUM_BSS_TYPE_T eBSSTyp
 					}
 #endif
 				}
+			}
+			else {
+				prBssDesc->u2RawLength = 0;
 			}
 
 		}

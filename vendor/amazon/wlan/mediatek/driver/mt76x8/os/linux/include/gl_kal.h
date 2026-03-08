@@ -97,6 +97,12 @@ extern int g_u4HaltFlag;
 
 extern struct delayed_work sched_workq;
 
+#if CFG_SUPPORT_CFG80211_AUTH
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+extern struct delayed_work wdev_lock_workq;
+#endif
+#endif
+
 /*******************************************************************************
 *                              C O N S T A N T S
 ********************************************************************************
@@ -185,6 +191,11 @@ typedef enum _ENUM_SPIN_LOCK_CATEGORY_E {
 	SPIN_LOCK_TX_CMD_DONE_QUE,
 	SPIN_LOCK_TC_RESOURCE,
 	SPIN_LOCK_RX_TO_OS_QUE,
+#if CFG_SUPPORT_CFG80211_AUTH
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+	SPIN_LOCK_WDEV_LOCK,
+#endif
+#endif
 #endif
 
 	/* FIX ME */
@@ -837,6 +848,14 @@ VOID kalAcquireMutex(IN P_GLUE_INFO_T prGlueInfo, IN ENUM_MUTEX_CATEGORY_E rMute
 
 VOID kalReleaseMutex(IN P_GLUE_INFO_T prGlueInfo, IN ENUM_MUTEX_CATEGORY_E rMutexCategory);
 
+#if CFG_SUPPORT_CFG80211_AUTH
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+VOID kalAcquireWDevMutex(IN struct net_device *pDev);
+
+VOID kalReleaseWDevMutex(IN struct net_device *pDev);
+#endif
+#endif
+
 VOID kalPacketFree(IN P_GLUE_INFO_T prGlueInfo, IN PVOID pvPacket);
 
 PVOID kalPacketAlloc(IN P_GLUE_INFO_T prGlueInfo, IN UINT_32 u4Size, OUT PUINT_8 *ppucData);
@@ -1197,6 +1216,19 @@ BOOLEAN kalSetSdioTestPattern(IN P_GLUE_INFO_T prGlueInfo, IN BOOLEAN fgEn, IN B
 VOID kalSchedScanResults(IN P_GLUE_INFO_T prGlueInfo);
 
 VOID kalSchedScanStopped(IN P_GLUE_INFO_T prGlueInfo);
+
+#if CFG_SUPPORT_CFG80211_AUTH
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+VOID kalWDevLockThread(IN P_GLUE_INFO_T prGlueInfo,
+	IN struct net_device* pDev,
+	IN enum ENUM_CFG80211_WDEV_LOCK_FUNC fn,
+	IN PUINT_8 pFrameBuf,
+	IN size_t frameLen,
+	IN struct cfg80211_bss *pBss,
+	IN INT_32 uapsd_queues,
+	IN BOOLEAN fgIsInterruptContext);
+#endif
+#endif
 
 #if CFG_MULTI_ECOVER_SUPPORT
 

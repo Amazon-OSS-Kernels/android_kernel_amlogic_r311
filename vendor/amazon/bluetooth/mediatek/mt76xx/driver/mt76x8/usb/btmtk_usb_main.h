@@ -22,14 +22,12 @@
 #define BD_ADDRESS_SIZE 6
 
 #define HW_ERR_NONE			0x00
-#define HW_ERR_CODE_CHIP_RESET		0x01
-#define HW_ERR_CODE_LEGACY_WOBLE	0x02
-#define HW_ERR_CODE_USB_DISC		0x03
-#define HW_ERR_CODE_CORE_DUMP		0x04
-#define HW_ERR_CODE_POWER_ON		0x05
-#define HW_ERR_CODE_POWER_OFF		0x06
-#define HW_ERR_CODE_WOBLE		0x07
-#define HW_ERR_CODE_SET_SLEEP_CMD	0x08
+#define HW_ERR_CODE_BT_HOST		0xF0
+#define HW_ERR_CODE_LEGACY_WOBLE	0xF1
+#define HW_ERR_CODE_USB_DISC		0xF2
+#define HW_ERR_CODE_WIFI		0xF3
+#define HW_ERR_CODE_BT_FW		0xF4
+#define HW_ERR_CODE_BT_DRIVER		0xF5
 /* Please keep sync with btmtk_usb_set_state function */
 enum {
 	BTMTK_USB_STATE_UNKNOWN,

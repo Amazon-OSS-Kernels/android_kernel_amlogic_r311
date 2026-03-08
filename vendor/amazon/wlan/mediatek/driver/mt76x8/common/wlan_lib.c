@@ -340,6 +340,11 @@ WLAN_STATUS wlanAdapterStart(IN P_ADAPTER_T prAdapter, IN P_REG_INFO_T prRegInfo
 #if CFG_SUPPORT_MULTITHREAD
 	QUEUE_INITIALIZE(&prAdapter->rTxCmdQueue);
 	QUEUE_INITIALIZE(&prAdapter->rTxCmdDoneQueue);
+#if CFG_SUPPORT_CFG80211_AUTH
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+	QUEUE_INITIALIZE(&prAdapter->rWDevLockQueue);
+#endif
+#endif
 #if CFG_FIX_2_TX_PORT
 	QUEUE_INITIALIZE(&prAdapter->rTxP0Queue);
 	QUEUE_INITIALIZE(&prAdapter->rTxP1Queue);
@@ -1778,7 +1783,8 @@ VOID wlanReleasePendingOid(IN P_ADAPTER_T prAdapter, IN ULONG ulParamPtr)
 #if CFG_CHIP_RESET_SUPPORT
 			DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 						prAdapter->fgIsChipNoAck);
-			glResetTrigger(prAdapter);
+
+			GL_RESET_TRIGGER(prAdapter, RST_OID_TIMEOUT);
 #endif
 		}
 		set_bit(GLUE_FLAG_HIF_PRT_HIF_DBG_INFO_BIT, &(prAdapter->prGlueInfo->ulFlag));
@@ -2314,7 +2320,7 @@ WLAN_STATUS wlanSendNicPowerCtrlCmd(IN P_ADAPTER_T prAdapter, IN UINT_8 ucPowerM
 #if CFG_CHIP_RESET_SUPPORT
 				DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 						prAdapter->fgIsChipNoAck);
-				glResetTrigger(prAdapter);
+				GL_RESET_TRIGGER(prAdapter, RST_DRV_OWN_FAIL);
 #endif
 				break;
 			}
@@ -7083,6 +7089,12 @@ VOID wlanInitFeatureOption(IN P_ADAPTER_T prAdapter)
         prWifiVar->ucAwakePspPSInt = (uint8_t) wlanCfgGetUint32(
                 prAdapter, "AwakePspPSInt", AWAKE_PSP_PS_INT_DEFAULT);
 #endif
+
+#if CFG_SUPPORT_CFG80211_AUTH
+	prWifiVar->ucWaitConnect = (uint8_t) wlanCfgGetUint32(
+		prAdapter, "WaitConnect", WAIT_CONNECT_DEFAULT);
+#endif
+
 	prWifiVar->ucListenDtimInterval =
 		(UINT_8) wlanCfgGetUint32(prAdapter, "ListenDtimInt", DEFAULT_LISTEN_INTERVAL_BY_DTIM_PERIOD);
 	/* prWifiVar->ucEapolOffload = (UINT_8) wlanCfgGetUint32(prAdapter, "EapolOffload", FEATURE_ENABLED); */
@@ -7202,6 +7214,10 @@ VOID wlanInitFeatureOption(IN P_ADAPTER_T prAdapter)
 	prWifiVar->u4ReorderTimoutPerTid[5] = (UINT_32) wlanCfgGetUint32(prAdapter, "ReorderTimeoutTid5", 200);
 	prWifiVar->u4ReorderTimoutPerTid[6] = (UINT_32) wlanCfgGetUint32(prAdapter, "ReorderTimeoutTid6", 200);
 	prWifiVar->u4ReorderTimoutPerTid[7] = (UINT_32) wlanCfgGetUint32(prAdapter, "ReorderTimeoutTid7", 200);
+#endif
+
+#if CFG_KEY_ERROR_STATISTIC_RECOVERY
+	prWifiVar->u4BmcKeyErrorTh = (INT_32) wlanCfgGetInt32(prAdapter, "BmcKeyErrorTh", 0);
 #endif
 }
 

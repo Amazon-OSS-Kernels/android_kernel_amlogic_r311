@@ -163,6 +163,10 @@ VOID secInit(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIndex)
 	prAdapter->rMib.dot11RSNAConfigPairwiseCiphersTable[5].dot11RSNAConfigPairwiseCipher = RSN_CIPHER_SUITE_TKIP;
 	prAdapter->rMib.dot11RSNAConfigPairwiseCiphersTable[6].dot11RSNAConfigPairwiseCipher = RSN_CIPHER_SUITE_CCMP;
 	prAdapter->rMib.dot11RSNAConfigPairwiseCiphersTable[7].dot11RSNAConfigPairwiseCipher = RSN_CIPHER_SUITE_WEP104;
+#if CFG_SUPPORT_CFG80211_AUTH
+	prAdapter->rMib.dot11RSNAConfigPairwiseCiphersTable[8].dot11RSNAConfigPairwiseCipher = RSN_CIPHER_SUITE_GROUP_NOT_USED;
+	prAdapter->rMib.dot11RSNAConfigPairwiseCiphersTable[9].dot11RSNAConfigPairwiseCipher = RSN_CIPHER_SUITE_GCMP_256;
+#endif
 
 	for (i = 0; i < MAX_NUM_SUPPORTED_CIPHER_SUITES; i++)
 		prAdapter->rMib.dot11RSNAConfigPairwiseCiphersTable[i].dot11RSNAConfigPairwiseCipherEnabled = FALSE;
@@ -185,6 +189,16 @@ VOID secInit(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIndex)
 	    RSN_AKM_SUITE_802_1X_SHA256;
 	prAdapter->rMib.dot11RSNAConfigAuthenticationSuitesTable[7].dot11RSNAConfigAuthenticationSuite =
 	    RSN_AKM_SUITE_PSK_SHA256;
+#endif
+#if CFG_SUPPORT_CFG80211_AUTH
+	prAdapter->rMib.dot11RSNAConfigAuthenticationSuitesTable[8].dot11RSNAConfigAuthenticationSuite =
+		RSN_AKM_SUITE_8021X_SUITE_B;
+	prAdapter->rMib.dot11RSNAConfigAuthenticationSuitesTable[9].dot11RSNAConfigAuthenticationSuite =
+		RSN_AKM_SUITE_8021X_SUITE_B_192;
+	prAdapter->rMib.dot11RSNAConfigAuthenticationSuitesTable[10].dot11RSNAConfigAuthenticationSuite =
+		RSN_AKM_SUITE_SAE;
+	prAdapter->rMib.dot11RSNAConfigAuthenticationSuitesTable[11].dot11RSNAConfigAuthenticationSuite =
+		RSN_AKM_SUITE_OWE;
 #endif
 
 	for (i = 0; i < MAX_NUM_SUPPORTED_AKM_SUITES; i++) {
@@ -472,6 +486,14 @@ VOID secSetCipherSuite(IN P_ADAPTER_T prAdapter, IN UINT_32 u4CipherSuitesFlags)
 		prEntry = &prMib->dot11RSNAConfigPairwiseCiphersTable[i];
 
 		switch (prEntry->dot11RSNAConfigPairwiseCipher) {
+#if CFG_SUPPORT_SUITB
+		case RSN_CIPHER_SUITE_GCMP_256:
+			if (u4CipherSuitesFlags & CIPHER_FLAG_GCMP256)
+				prEntry->dot11RSNAConfigPairwiseCipherEnabled = TRUE;
+			else
+				prEntry->dot11RSNAConfigPairwiseCipherEnabled = FALSE;
+			break;
+#endif
 		case WPA_CIPHER_SUITE_WEP40:
 		case RSN_CIPHER_SUITE_WEP40:
 			if (u4CipherSuitesFlags & CIPHER_FLAG_WEP40)
@@ -517,6 +539,12 @@ VOID secSetCipherSuite(IN P_ADAPTER_T prAdapter, IN UINT_32 u4CipherSuitesFlags)
 		prMib->dot11RSNAConfigGroupCipher = WPA_CIPHER_SUITE_WEP104;
 	else if (rsnSearchSupportedCipher(prAdapter, WPA_CIPHER_SUITE_WEP40, &i))
 		prMib->dot11RSNAConfigGroupCipher = WPA_CIPHER_SUITE_WEP40;
+#if CFG_SUPPORT_SUITB
+	else if (rsnSearchSupportedCipher(prAdapter, RSN_CIPHER_SUITE_GROUP_NOT_USED, &i))
+		prMib->dot11RSNAConfigGroupCipher = RSN_CIPHER_SUITE_GROUP_NOT_USED;
+	else if (rsnSearchSupportedCipher(prAdapter, RSN_CIPHER_SUITE_GCMP_256, &i))
+		prMib->dot11RSNAConfigGroupCipher = RSN_CIPHER_SUITE_GCMP_256;
+#endif
 	else
 		prMib->dot11RSNAConfigGroupCipher = WPA_CIPHER_SUITE_NONE;
 
@@ -558,21 +586,21 @@ BOOLEAN secEnabledInAis(IN P_ADAPTER_T prAdapter)
 {
 	DEBUGFUNC("secEnabledInAis");
 
-	ASSERT(prAdapter->rWifiVar.rConnSettings.eEncStatus < ENUM_ENCRYPTION3_KEY_ABSENT);
+	ASSERT(prAdapter->rWifiVar.rConnSettings.eEncStatus < ENUM_ENCRYPTION_NUM);
 
-	switch (prAdapter->rWifiVar.rConnSettings.eEncStatus) {
-	case ENUM_ENCRYPTION_DISABLED:
-		return FALSE;
-	case ENUM_ENCRYPTION1_ENABLED:
-	case ENUM_ENCRYPTION2_ENABLED:
-	case ENUM_ENCRYPTION3_ENABLED:
+	if ((prAdapter->rWifiVar.rConnSettings.eEncStatus == ENUM_ENCRYPTION1_ENABLED)
+		|| (prAdapter->rWifiVar.rConnSettings.eEncStatus == ENUM_ENCRYPTION2_ENABLED)
+		|| (prAdapter->rWifiVar.rConnSettings.eEncStatus == ENUM_ENCRYPTION3_ENABLED)
+#if CFG_SUPPORT_SUITB
+		|| (prAdapter->rWifiVar.rConnSettings.eEncStatus == ENUM_ENCRYPTION4_ENABLED)
+#endif
+		)
 		return TRUE;
-	default:
-		DBGLOG(RSN, TRACE, "Unknown encryption setting %d\n", prAdapter->rWifiVar.rConnSettings.eEncStatus);
-		break;
-	}
-	return FALSE;
+	else if ((prAdapter->rWifiVar.rConnSettings.eEncStatus == ENUM_ENCRYPTION_DISABLED))
+		DBGLOG(RSN, TRACE, "Unknown encryption setting %d\n",
+			prAdapter->rWifiVar.rConnSettings.eEncStatus);
 
+	return FALSE;
 }				/* secEnabledInAis */
 
 BOOLEAN secIsProtected1xFrame(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_T prStaRec)

@@ -115,6 +115,11 @@ typedef struct _WLANDEV_INFO_T {
 	struct net_device *prDev;
 } WLANDEV_INFO_T, *P_WLANDEV_INFO_T;
 
+#if CFG_SUPPORT_CFG80211_AUTH
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+struct delayed_work wdev_lock_workq;
+#endif
+#endif
 /*******************************************************************************
 *                            P U B L I C   D A T A
 ********************************************************************************
@@ -382,6 +387,10 @@ static struct cfg80211_ops mtk_wlan_ops = {
 #endif
 	.scan = mtk_cfg80211_scan,
 	.connect = mtk_cfg80211_connect,
+#if CFG_SUPPORT_CFG80211_AUTH
+	.deauth = mtk_cfg80211_deauth,
+	.disassoc = mtk_cfg80211_disassoc,
+#endif
 	.disconnect = mtk_cfg80211_disconnect,
 	.join_ibss = mtk_cfg80211_join_ibss,
 	.leave_ibss = mtk_cfg80211_leave_ibss,
@@ -394,7 +403,9 @@ static struct cfg80211_ops mtk_wlan_ops = {
 #endif
 	.suspend = mtk_cfg80211_suspend,
 	.resume = CFG80211_Resume,
-
+#if CFG_SUPPORT_CFG80211_AUTH
+	.auth = mtk_cfg80211_auth,
+#endif
 	.assoc = mtk_cfg80211_assoc,
 
 	/* Action Frame TX/RX */
@@ -1025,6 +1036,146 @@ VOID wlanSchedScanStoppedWorkQueue(struct work_struct *work)
 
 }
 
+
+#if CFG_SUPPORT_CFG80211_AUTH
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+VOID wlanSchedWDevLockWorkQueue(struct work_struct *work)
+{
+	P_GLUE_INFO_T prGlueInfo = NULL;
+	struct net_device *prDev = gPrDev;
+	P_PARAM_WDEV_LOCK_THREAD_T prParamWDevLock = NULL;
+	QUE_T rTempQue;
+	P_QUE_T prTempQue = &rTempQue;
+
+	GLUE_SPIN_LOCK_DECLARATION();
+
+	QUEUE_INITIALIZE(prTempQue);
+
+	DBGLOG(REQ, INFO, "wlanSchedWDevLockWorkQueue\n");
+	prGlueInfo = (prDev != NULL) ?
+					*((P_GLUE_INFO_T *) netdev_priv(prDev)) : NULL;
+	if (!prGlueInfo) {
+		DBGLOG(REQ, ERROR, "prGlueInfo == NULL unexpected\n");
+		return;
+	}
+
+	if (prGlueInfo->u4ReadyFlag == 0) {
+		DBGLOG(REQ, ERROR, "Adapter is not ready\n");
+		return;
+	}
+
+	while (QUEUE_IS_NOT_EMPTY(&prGlueInfo->prAdapter->rWDevLockQueue)) {
+		GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_WDEV_LOCK);
+		QUEUE_MOVE_ALL(prTempQue, &prGlueInfo->prAdapter->rWDevLockQueue);
+		GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_WDEV_LOCK);
+
+		while (QUEUE_IS_NOT_EMPTY(prTempQue)) {
+			QUEUE_REMOVE_HEAD(prTempQue,
+								prParamWDevLock,
+								P_PARAM_WDEV_LOCK_THREAD_T);
+
+			if (prParamWDevLock == NULL)
+				break;
+
+			kalAcquireWDevMutex(prParamWDevLock->pDev);
+			switch(prParamWDevLock->fn) {
+				case CFG80211_RX_ASSOC_RESP:
+#if (KERNEL_VERSION(3, 18, 0) <= CFG80211_VERSION_CODE)
+					cfg80211_rx_assoc_resp(prParamWDevLock->pDev,
+								prParamWDevLock->pBss,
+								prParamWDevLock->pFrameBuf,
+								prParamWDevLock->frameLen,
+								prParamWDevLock->uapsd_queues);
+#elif (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
+					cfg80211_rx_assoc_resp(prParamWDevLock->pDev,
+								prParamWDevLock->pBss,
+								prParamWDevLock->pFrameBuf,
+								prParamWDevLock->frameLen);
+#else
+					cfg80211_send_rx_assoc(prParamWDevLock->pDev,
+								prParamWDevLock->pBss,
+								prParamWDevLock->pFrameBuf,
+								prParamWDevLock->frameLen);
+#endif
+					break;
+
+				case CFG80211_RX_MLME_MGMT:
+					cfg80211_rx_mlme_mgmt(prParamWDevLock->pDev,
+								prParamWDevLock->pFrameBuf,
+								prParamWDevLock->frameLen);
+					break;
+
+				case CFG80211_TX_MLME_MGMT:
+					cfg80211_tx_mlme_mgmt(prParamWDevLock->pDev,
+								prParamWDevLock->pFrameBuf,
+								prParamWDevLock->frameLen);
+					break;
+				case CFG80211_ABANDON_ASSOC:
+#if (KERNEL_VERSION(4, 4, 41) <= CFG80211_VERSION_CODE)
+					cfg80211_abandon_assoc(prParamWDevLock->pDev,
+								prParamWDevLock->pBss);
+					break;
+#endif
+				/* For kernel < 4.4.41,
+				 * fall through to use assoc timeout
+				 */
+				case CFG80211_ASSOC_TIMEOUT:
+#if (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
+					cfg80211_assoc_timeout(prParamWDevLock->pDev,
+								prParamWDevLock->pBss);
+#else
+					cfg80211_send_assoc_timeout(prParamWDevLock->pDev,
+								prParamWDevLock->pBss->bssid);
+#endif
+
+					break;
+			}
+			kalReleaseWDevMutex(prParamWDevLock->pDev);
+
+			if (prParamWDevLock->pFrameBuf) {
+				DBGLOG(REQ, TRACE, "Free pFrameBuf 0x%x\n",
+						prParamWDevLock->pFrameBuf);
+				if (prParamWDevLock->fgIsInterruptContext) {
+					kalMemFree(prParamWDevLock->pFrameBuf,
+								PHY_MEM_TYPE,
+								prParamWDevLock->u4InfoBufLen);
+				} else {
+					kalMemFree(prParamWDevLock->pFrameBuf,
+								VIR_MEM_TYPE,
+								prParamWDevLock->u4InfoBufLen);
+				}
+
+				prParamWDevLock->pFrameBuf = NULL;
+			}
+
+			DBGLOG(REQ, TRACE, "Release cfg80211_bss\n");
+			if (prParamWDevLock->pBss) {
+				cfg80211_put_bss(priv_to_wiphy(prGlueInfo),
+								prParamWDevLock->pBss);
+			}
+
+			DBGLOG(REQ, TRACE, "Free prParamWDevLock- 0x%x\n",
+					prParamWDevLock);
+
+		if (prParamWDevLock->fgIsInterruptContext) {
+			kalMemFree(prParamWDevLock,
+						PHY_MEM_TYPE,
+						sizeof(PARAM_WDEV_LOCK_THREAD));
+		} else {
+			kalMemFree(prParamWDevLock,
+						VIR_MEM_TYPE,
+						sizeof(PARAM_WDEV_LOCK_THREAD));
+		}
+
+		}
+	}
+
+	return;
+}
+#endif
+#endif
+
+
 /* FIXME: Since we cannot sleep in the wlanSetMulticastList, we arrange
  * another workqueue for sleeping. We don't want to block
  * main_thread, so we can't let tx_thread to do this
@@ -1180,7 +1331,7 @@ WLAN_STATUS wlanGetDebugLevel(IN UINT_32 u4DbgIdx, OUT PUINT_32 pu4DbgMask)
 *
 * \param[in] prDev      Pointer to struct net_device.
 *
-* \retval 0         The execution of wlanInit succeeds.
+* \retval 0         The execution of succeeds.
 * \retval -ENXIO    No such device.
 */
 /*----------------------------------------------------------------------------*/
@@ -1193,6 +1344,11 @@ static int wlanInit(struct net_device *prDev)
 
 	prGlueInfo = *((P_GLUE_INFO_T *) netdev_priv(prDev));
 	INIT_DELAYED_WORK(&workq, wlanSetMulticastListWorkQueue);
+#if CFG_SUPPORT_CFG80211_AUTH
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+	INIT_DELAYED_WORK(&wdev_lock_workq, wlanSchedWDevLockWorkQueue);
+#endif
+#endif
 
 /* 20150205 work queue for sched_scan */
 	INIT_DELAYED_WORK(&sched_workq, wlanSchedScanStoppedWorkQueue);
@@ -1567,6 +1723,9 @@ static void wlanCreateWirelessDevice(void)
 	prWiphy->flags |= WIPHY_FLAG_HAS_CHANNEL_SWITCH;
 #endif /* CFG_SUPPORT_DFS_MASTER */
 #endif
+#if (CFG_SUPPORT_SAE == 1)
+	prWiphy->features |= NL80211_FEATURE_SAE;
+#endif /* CFG_SUPPORT_DFS_MASTER */
 
 	cfg80211_regd_set_wiphy(prWiphy);
 
@@ -2782,7 +2941,7 @@ INT_32 wlanProbe(PVOID pvData, PVOID pvDriverData)
 		if (g_u4ProbeChipResetTimes < PROBE_CHIP_RESET_LIMIT) {
 			DBGLOG(INIT, ERROR, "wlanProbe: trigger whole reset\n");
 			g_u4ProbeChipResetTimes++;
-			glResetTrigger(prGlueInfo->prAdapter);
+			GL_RESET_TRIGGER(prAdapter, RST_PROBE_FAIL);
 		}
 #endif
 	}
@@ -2882,6 +3041,11 @@ VOID wlanRemove(VOID)
 	}
 
 	flush_delayed_work(&workq);
+#if CFG_SUPPORT_CFG80211_AUTH
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+	flush_delayed_work(&wdev_lock_workq);
+#endif
+#endif
 
 /* 20150205 work queue for sched_scan */
 

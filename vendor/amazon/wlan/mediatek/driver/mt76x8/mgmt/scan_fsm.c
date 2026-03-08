@@ -1058,3 +1058,13 @@ BOOLEAN scnFsmSchedScanStopRequest(IN P_ADAPTER_T prAdapter)
 	else
 		return FALSE;
 }
+
+BOOLEAN scnFsmIsScanning(IN P_ADAPTER_T prAdapter)
+{
+	P_SCAN_INFO_T prScanInfo;
+
+	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
+
+	return (prScanInfo->eCurrentState == SCAN_STATE_SCANNING)?TRUE:FALSE;
+}
+

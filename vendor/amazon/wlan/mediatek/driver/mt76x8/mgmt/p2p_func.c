@@ -2710,6 +2710,7 @@ p2pFuncParseBeaconContent(IN P_ADAPTER_T prAdapter,
 					prP2pBssInfo->u4RsnSelectedPairwiseCipher = RSN_CIPHER_SUITE_CCMP;
 					prP2pBssInfo->u4RsnSelectedAKMSuite = RSN_AKM_SUITE_PSK;
 					prP2pBssInfo->u2RsnSelectedCapInfo = rRsnIe.u2RsnCap;
+					prAdapter->prGlueInfo->rWpaInfo.ucRsneLen = rRsnIe.ucRsneLen;
 					DBGLOG(RSN, TRACE, "RsnIe CAP:0x%x\n", rRsnIe.u2RsnCap);
 				}
 
