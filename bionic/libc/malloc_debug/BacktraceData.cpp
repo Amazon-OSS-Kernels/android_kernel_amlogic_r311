@@ -27,15 +27,11 @@
  */
 
 /*
- * BacktraceData.cpp
+ * Portions of this file are copyright (c) 2021 - 2023 Amazon.com, Inc. or its affiliates.  All rights reserved.
  *
- * Copyright (c) 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * PORTIONS OF THIS FILE ARE AMAZON PROPRIETARY/CONFIDENTIAL.  USE IS SUBJECT TO LICENSE TERMS.
  *
- * PROPRIETARY/CONFIDENTIAL
- *
- * Use is subject to license terms.
- * Changes introduced by Amazon.com, Inc. or its affiliates are indicated by
- * fosmod_* comments.
+ * Amazon modifications are indicated by [fosmod_* comments].
  */
 
 #include <thread>
@@ -61,6 +57,8 @@
 
 /* fosmod_memleak_debug begin */
 #if defined(FOSMOD_MEMLEAK_DEBUG)
+#include <semaphore.h>
+sem_t dump;
 /* heapdump lock */
 std::mutex heapdump_lock;
 
@@ -71,6 +69,7 @@ static void heapdump_func() {
   std::unique_lock<std::mutex> lck(heapdump_lock);
   while (true) {
     heapdump_cond.wait(lck);
+    sem_post(&dump);
     dumpMemleakProcessHeap(gMemleakDumpHeapFile, gMemleakDumpFileIndex);
     gMemleakDumpFileIndex++;
   }
@@ -86,6 +85,8 @@ static void EnableToggle(int, siginfo_t*, void*) {
     if (gMemleakDumpFileIndex) {
       std::unique_lock<std::mutex> lck(heapdump_lock);
       heapdump_cond.notify_one();
+      lck.unlock();
+      sem_wait(&dump);
       info_log("%s: DumpHeap: in file %s%d",
                   getprogname(), gMemleakDumpHeapFile, gMemleakDumpFileIndex);
       info_log("%s: Run: 'kill -45 %d' to enable backtracing.",
@@ -109,6 +110,7 @@ bool BacktraceData::Initialize(const Config& config) {
   /* fosmod_memleak_debug begin */
 #if defined(FOSMOD_MEMLEAK_DEBUG)
   if (gMemleakDumpFileIndex) {
+    sem_init(&dump, 0, 1);
     /* heapdump thread */
     static std::thread heapdumpThread(heapdump_func);
   }
