@@ -220,6 +220,7 @@ extern UINT_8 empty_mac[];
 */
 #if DBG_DISABLE_ALL_LOG
 #define DBGLOG(_Module, _Class, _Fmt)
+#define DBGLOG_RATELIMIT(_Module, _Class, _Fmt, ...)
 #define DBGLOG_MEM8(_Module, _Class, _StartAddr, _Length)
 #define DBGLOG_MEM32(_Module, _Class, _StartAddr, _Length)
 #else
@@ -229,6 +230,15 @@ extern UINT_8 empty_mac[];
 			break; \
 		LOG_FUNC("[%u]%s:(" #_Module " " #_Class ") " _Fmt, KAL_GET_CURRENT_THREAD_ID(), \
 			 __func__, ##__VA_ARGS__); \
+	} while (0)
+#define DBGLOG_RATELIMIT(_Module, _Class, _Fmt, ...) \
+	do { \
+		if ((aucDebugModule[DBG_##_Module##_IDX] & DBG_CLASS_##_Class) == 0) \
+			break; \
+		if (!kalPrintRateCtrl()) \
+			break; \
+		LOG_FUNC("[%u]%s:(" #_Module " " #_Class ") " _Fmt, KAL_GET_CURRENT_THREAD_ID(), \
+			__func__, ##__VA_ARGS__); \
 	} while (0)
 #define TOOL_PRINTLOG(_Module, _Class, _Fmt, ...) \
 	do { \
