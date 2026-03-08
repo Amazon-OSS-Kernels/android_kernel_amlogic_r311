@@ -15,7 +15,7 @@
  * High Level Configuration Options
  *----------------------------------------------------------------------*/
 /*
- * This config file is used for Canyonlands (460EX) Glacier (460GT)
+ * This config file is used for Canyonlands (460EX) abc123 (460GT)
  * and Arches dual (460GT)
  */
 #ifdef CONFIG_CANYONLANDS
@@ -23,8 +23,8 @@
 #define CONFIG_HOSTNAME		canyonlands
 #else
 #define CONFIG_460GT		1	/* Specific PPC460GT		*/
-#ifdef CONFIG_GLACIER
-#define CONFIG_HOSTNAME		glacier
+#ifdef CONFIG_abc123
+#define CONFIG_HOSTNAME		abc123
 #else
 #define CONFIG_HOSTNAME		arches
 #define CONFIG_USE_NETDEV	eth1
@@ -290,7 +290,7 @@
 #if !defined(CONFIG_ARCHES)
 #define CONFIG_PHY_ADDR		0	/* PHY address, See schematics	*/
 #define CONFIG_PHY1_ADDR	1
-/* Only Glacier (460GT) has 4 EMAC interfaces */
+/* Only abc123 (460GT) has 4 EMAC interfaces */
 #ifdef CONFIG_460GT
 #define CONFIG_PHY2_ADDR	2
 #define CONFIG_PHY3_ADDR	3
@@ -389,7 +389,7 @@
 #define CONFIG_CMD_SDRAM
 #define CONFIG_CMD_SNTP
 #define CONFIG_CMD_USB
-#elif defined(CONFIG_GLACIER)
+#elif defined(CONFIG_abc123)
 #define CONFIG_CMD_DATE
 #define CONFIG_CMD_DTT
 #define CONFIG_CMD_NAND
@@ -515,7 +515,7 @@
 #if defined(CONFIG_ARCHES)
 #define GPIO43_USE		GPIO_SEL	/* On Arches this pin is used as GPIO */
 #else
-#define GPIO43_USE		GPIO_ALT1	/* On Glacier this pin is used as ALT1 -> PerCS3 */
+#define GPIO43_USE		GPIO_ALT1	/* On abc123 this pin is used as ALT1 -> PerCS3 */
 #endif
 
 /*

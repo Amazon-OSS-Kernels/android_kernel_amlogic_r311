@@ -37,7 +37,7 @@ DECLARE_GLOBAL_DATA_PTR;
 	#define TE(...)
 #endif
 
-#if defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC)
+#if defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_DAHLIA) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC123)
 static u32 fb_width;
 static u32 fb_height;
 static u32 display_bpp;
@@ -254,7 +254,7 @@ void main_loop(void)
 #ifdef CONFIG_IDME
 	bootmode = idme_boot_mode();
 	is_diag_bootmode = (bootmode == IDME_BOOTMODE_DIAG);
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_DAHLIA) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC123)
 	is_transition_bootmode = ((bootmode == IDME_BOOTMODE_TRANSITION) || (bootmode == IDME_BOOTMODE_STANDBY_LOGO_POST_SHIPPING_SW_SWITCH));
 #else
 	is_transition_bootmode = (bootmode == IDME_BOOTMODE_TRANSITION);
@@ -271,7 +271,7 @@ void main_loop(void)
 		if (!is_transition_done) {
 			ret = 0;
 			idme_get_var_external("oem_data", oem_data, sizeof(oem_data));
-			if (strstr(oem_data, "ABC") != NULL || strstr(oem_data, "ABC-tm") != NULL) {
+			if (strstr(oem_data, "ABC123") != NULL || strstr(oem_data, "ABC-tm") != NULL) {
 				ret += run_command("amlmmc erase dfs", 0);
 				ret += run_command("amlmmc erase dkernel", 0);
 				ret += run_command("amlmmc erase diag_userdata", 0);
@@ -302,7 +302,7 @@ void main_loop(void)
 				printf("Transition from Diag to FOS failed\n");
 			} else {
 				printf("Transition from Diag to FOS succeed\n");
-				if (strstr(oem_data, "almond") != NULL || strstr(oem_data, "ABC-jt") != NULL || strstr(oem_data, "ABC") != NULL) {
+				if (strstr(oem_data, "almond") != NULL || strstr(oem_data, "ABC-jt") != NULL || strstr(oem_data, "dahlia") != NULL) {
 					if (bootmode == IDME_BOOTMODE_TRANSITION) {
 						run_command("reboot", 0);
 					} else {
@@ -322,7 +322,7 @@ void main_loop(void)
 					while (1)
 						udelay(1000*1000);
 					}
-				} else if (strstr(oem_data, "ABC") != NULL || strstr(oem_data, "ABC-tm")) {
+				} else if (strstr(oem_data, "ABC123") != NULL || strstr(oem_data, "ABC-tm")) {
 					ret = 0;
 					ret += run_command("osd open", 0);
 					ret += run_command("osd clear", 0);
@@ -380,7 +380,7 @@ void main_loop(void)
 			printf("Force selinux permissive mode\n");
 			setenv("EnableSelinux", "permissive");
 		}
-#if (defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC)) && defined(UFBL_FEATURE_FASTBOOT_LOCKDOWN)
+#if (defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_DAHLIA) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC123)) && defined(UFBL_FEATURE_FASTBOOT_LOCKDOWN)
 		if ((dev_flags & DEV_FLAGS_ENABLE_FACTORY_TEST ) == DEV_FLAGS_ENABLE_FACTORY_TEST
 				&& bootmode == IDME_BOOTMODE_NORMAL && is_locked_production_device()) {
 			printf("factory test mode and arb enabled, switch to diag bootmode\n");

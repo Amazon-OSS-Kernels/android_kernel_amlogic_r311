@@ -65,6 +65,9 @@
 #define CMD_TEST                0x6
 #define CMD_LED_INFO            0xF7
 #define CMD_WOL_POWER           0xF8
+#ifdef CONFIG_DEVICE_PRODUCT_SHINE
+#define CMD_WOL_GPIO            0xF9
+#endif
 /*******************************************************************************
  * Mssage Comopsition
  ******************************************************************************/

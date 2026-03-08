@@ -5,4 +5,4 @@ F:	board/amcc/canyonlands/
 F:	include/configs/canyonlands.h
 F:	configs/arches_defconfig
 F:	configs/canyonlands_defconfig
-F:	configs/glacier_defconfig
+F:	configs/abc123_defconfig
