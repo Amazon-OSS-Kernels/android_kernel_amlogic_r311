@@ -77,6 +77,14 @@
  *	  friends.
  */
 
+/*
+ * Portions of this file are copyright (c) 2024 Amazon.com, Inc. or its affiliates.  All rights reserved.
+ *
+ * PORTIONS OF THIS FILE ARE AMAZON PROPRIETARY/CONFIDENTIAL.  USE IS SUBJECT TO LICENSE TERMS.
+ *
+ * Amazon modifications are indicated by [fosmod_* comments].
+ */
+
 #include <fcntl.h>
 #include <sys/cdefs.h>
 #include <sys/types.h>
@@ -1421,7 +1429,7 @@ getanswer(const querybuf *answer, int anslen, const char *qname, int qtype,
 			}
 		} else if (type != qtype) {
 			if (type != T_KEY && type != T_SIG)
-				syslog(LOG_NOTICE|LOG_AUTH,
+				syslog(LOG_DEBUG|LOG_AUTH, // fosmod_wifi_bug_fix oneline
 	       "gethostby*.getanswer: asked for \"%s %s %s\", got type \"%s\"",
 				       qname, p_class(C_IN), p_type(qtype),
 				       p_type(type));
@@ -1432,7 +1440,7 @@ getanswer(const querybuf *answer, int anslen, const char *qname, int qtype,
 		case T_A:
 		case T_AAAA:
 			if (strcasecmp(canonname, bp) != 0) {
-				syslog(LOG_NOTICE|LOG_AUTH,
+				syslog(LOG_DEBUG|LOG_AUTH, // fosmod_wifi_bug_fix oneline
 				       AskedForGot, canonname, bp);
 				cp += n;
 				continue;	/* XXX - had_error++ ? */
