@@ -1286,8 +1286,6 @@ struct MSDU_INFO *qmEnqueueTxPackets(IN struct ADAPTER *prAdapter,
 		/* 4 <4> Enqueue the packet */
 		QUEUE_INSERT_TAIL(prTxQue,
 			(struct QUE_ENTRY *) prCurrentMsduInfo);
-		wlanFillTimestamp(prAdapter, prCurrentMsduInfo->prPacket,
-				  PHASE_ENQ_QM);
 		/*
 		 * Record how many packages enqueue
 		 * to TX during statistic intervals
@@ -1664,14 +1662,14 @@ qmDequeueTxPacketsFromPerStaQueues(IN struct ADAPTER *prAdapter,
 				}
 #if CFG_SUPPORT_SOFT_ACM
 				if (fgAcmFlowCtrl) {
-					uint32_t u4PktTxTime = 0;
+					uint64_t u8PktTxTime = 0;
 
-					u4PktTxTime = wmmCalculatePktUsedTime(
+					u8PktTxTime = wmmCalculatePktUsedTime(
 						prBssInfo, prStaRec,
 						prDequeuedPkt->u2FrameLength -
 							ETH_HLEN);
 					if (!wmmAcmCanDequeue(prAdapter, ucAc,
-							      u4PktTxTime))
+						u8PktTxTime))
 						break;
 				}
 #endif

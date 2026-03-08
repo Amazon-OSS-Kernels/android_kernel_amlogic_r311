@@ -4723,7 +4723,7 @@ struct iw_statistics *wext_get_wireless_stats(
 	uint32_t rStatus = WLAN_STATUS_FAILURE;
 	struct GLUE_INFO *prGlueInfo = NULL;
 	struct iw_statistics *pStats = NULL;
-	int32_t i4Rssi = 0;
+	int32_t i4Rssi = PARAM_WHQL_RSSI_MIN_DBM;
 	uint32_t bufLen = 0;
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prDev));

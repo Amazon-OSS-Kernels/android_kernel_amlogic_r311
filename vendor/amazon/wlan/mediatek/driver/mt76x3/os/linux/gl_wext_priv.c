@@ -12478,7 +12478,7 @@ static int priv_driver_get_wow_port(IN struct net_device *prNetDev,
 	int32_t i4Argc = 0;
 	int8_t *apcArgv[WLAN_CFG_ARGV_MAX] = { 0 };
 	int32_t u4Ret = 0, ii;
-	uint8_t	ucVer = 0, ucProto = 0;
+	uint8_t ucVer, ucProto;
 	uint16_t ucCount;
 	uint16_t *pausPortArry;
 	int8_t *aucIp[2] = {"IPv4", "IPv6"};
@@ -12499,15 +12499,19 @@ static int priv_driver_get_wow_port(IN struct net_device *prNetDev,
 
 		/* 0=IPv4, 1=IPv6 */
 		u4Ret = kalkStrtou8(apcArgv[1], 0, &ucVer);
-		if (u4Ret)
-			DBGLOG(REQ, LOUD, "parse argc[1] error u4Ret=%d\n",
+		if (u4Ret) {
+			DBGLOG(REQ, ERROR, "parse argc[1] error u4Ret=%d\n",
 			       u4Ret);
+			return -1;
+		}
 
 		/* 0=UDP, 1=TCP */
 		u4Ret = kalkStrtou8(apcArgv[2], 0, &ucProto);
-		if (u4Ret)
-			DBGLOG(REQ, LOUD, "parse argc[2] error u4Ret=%d\n",
+		if (u4Ret) {
+			DBGLOG(REQ, ERROR, "parse argc[2] error u4Ret=%d\n",
 			       u4Ret);
+			return -1;
+		}
 
 		if (ucVer > 1)
 			ucVer = 0;

@@ -2141,6 +2141,11 @@ struct BSS_INFO *cnmGetBssInfoAndInit(struct ADAPTER *prAdapter,
 			(PFN_MGMT_TIMEOUT_FUNC) rlmCsaTimeout,
 			(unsigned long)ucBssIndex);
 
+		cnmTimerInitTimer(prAdapter,
+			&prBssInfo->rChnlSwitchDoneTimer,
+			(PFN_MGMT_TIMEOUT_FUNC) rlmChnlSwitchDone,
+			(unsigned long)ucBssIndex);
+
 		rlmResetCSAParams(prBssInfo);
 	}
 #endif

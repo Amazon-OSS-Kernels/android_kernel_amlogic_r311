@@ -278,33 +278,6 @@ uint32_t halDumpHifStatus(IN struct ADAPTER *prAdapter,
 
 /*----------------------------------------------------------------------------*/
 /*!
- * @brief Compare two struct timeval
- *
- * @param prTs1          a pointer to timeval
- * @param prTs2          a pointer to timeval
- *
- *
- * @retval 0             two time value is equal
- * @retval 1             prTs1 value > prTs2 value
- * @retval -1            prTs1 value < prTs2 value
- */
-/*----------------------------------------------------------------------------*/
-int halTimeCompare(struct timeval *prTs1, struct timeval *prTs2)
-{
-	if (prTs1->tv_sec > prTs2->tv_sec)
-		return 1;
-	else if (prTs1->tv_sec < prTs2->tv_sec)
-		return -1;
-	/* sec part is equal */
-	else if (prTs1->tv_usec > prTs2->tv_usec)
-		return 1;
-	else if (prTs1->tv_usec < prTs2->tv_usec)
-		return -1;
-	return 0;
-}
-
-/*----------------------------------------------------------------------------*/
-/*!
  * @brief Checking tx hang
  *
  * @param prAdapter      a pointer to adapter private data structure.
@@ -316,7 +289,7 @@ static bool halIsTxHang(struct ADAPTER *prAdapter)
 {
 	struct MSDU_TOKEN_INFO *prTokenInfo;
 	struct MSDU_TOKEN_ENTRY *prToken;
-	struct timeval rNowTs, rTime, rLongest, rTimeout;
+	uint64_t u8Now, u8Longest, u8Timeout, u8DeltaTime;
 	uint32_t u4Idx = 0, u4TokenId = 0;
 	bool fgIsTimeout = false;
 
@@ -325,43 +298,32 @@ static bool halIsTxHang(struct ADAPTER *prAdapter)
 
 	prTokenInfo = &prAdapter->prGlueInfo->rHifInfo.rTokenInfo;
 
-	rTimeout.tv_sec = HIF_MSDU_REPORT_DUMP_TIMEOUT;
-	rTimeout.tv_usec = 0;
-	rLongest.tv_sec = 0;
-	rLongest.tv_usec = 0;
-	do_gettimeofday(&rNowTs);
+	u8Timeout = SEC_TO_USEC(prWifiVar->ucMsduReportTimeout);
+	u8Longest = 0;
+	u8Now = kalGetBootTime();
 
 	for (u4Idx = 0; u4Idx < HIF_TX_MSDU_TOKEN_NUM; u4Idx++) {
 		prToken = &prTokenInfo->arToken[u4Idx];
 		if (!prToken->fgInUsed)
 			continue;
 
-		/* Ignore now time < token time */
-		if (halTimeCompare(&rNowTs, &prToken->rTs) < 0)
-			continue;
+		if (CHECK_FOR_TIMEOUT64(u8Now, prToken->u8Tm, u8Timeout)) {
+			fgIsTimeout = TRUE;
 
-		rTime.tv_sec = rNowTs.tv_sec - prToken->rTs.tv_sec;
-		rTime.tv_usec = rNowTs.tv_usec;
-		if (prToken->rTs.tv_usec > rNowTs.tv_usec) {
-			rTime.tv_sec -= 1;
-			rTime.tv_usec += SEC_TO_USEC(1);
-		}
-		rTime.tv_usec -= prToken->rTs.tv_usec;
-
-		if (halTimeCompare(&rTime, &rTimeout) >= 0)
-			fgIsTimeout = true;
-
-		/* rTime > rLongest */
-		if (halTimeCompare(&rTime, &rLongest) > 0) {
-			rLongest.tv_sec = rTime.tv_sec;
-			rLongest.tv_usec = rTime.tv_usec;
-			u4TokenId = u4Idx;
+			/* u8DeltaTime > u8Longest */
+			u8DeltaTime = TIME_ABS_DIFF64(u8Now, prToken->u8Tm);
+			if (u8DeltaTime > u8Longest) {
+				u8Longest = u8DeltaTime;
+				u4TokenId = u4Idx;
+			}
 		}
 	}
 
 	if (fgIsTimeout) {
-		DBGLOG(HAL, INFO, "TokenId[%u] timeout[sec:%u, usec:%u]\n",
-		       u4TokenId, rLongest.tv_sec, rLongest.tv_usec);
+		DBGLOG(HAL, INFO,
+			"TokenId[%u] timeout[sec:%lld, usec:%06lld]\n",
+			u4TokenId, USEC_TO_SEC(u8Longest),
+			USEC_REM_TO_SEC(u8Longest));
 		prToken = &prTokenInfo->arToken[u4TokenId];
 		if (prToken->prPacket)
 			DBGLOG_MEM32(HAL, INFO, prToken->prPacket, 64);

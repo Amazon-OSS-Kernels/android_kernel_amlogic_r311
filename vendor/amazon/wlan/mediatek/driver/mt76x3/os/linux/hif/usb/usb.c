@@ -427,6 +427,8 @@ static int mtk_usb_reset_resume(struct usb_interface *intf)
 *         non-zero   if fail, the return value of usb_control_msg()
 */
 /*----------------------------------------------------------------------------*/
+extern atomic_t g_wlanRemoving;
+
 u_int8_t mtk_usb_vendor_request(IN struct GLUE_INFO *prGlueInfo, IN uint8_t uEndpointAddress, IN uint8_t RequestType,
 			    IN uint8_t Request, IN uint16_t Value, IN uint16_t Index, IN void *TransferBuffer,
 			    IN uint32_t TransferBufferLength)
@@ -474,8 +476,13 @@ u_int8_t mtk_usb_vendor_request(IN struct GLUE_INFO *prGlueInfo, IN uint8_t uEnd
 
 #if CFG_FTV_BUZZARD_135_PATCH
 	if (ret != TransferBufferLength) {
-		DBGLOG(REQ, ERROR, "USB bus failure, trigger chip reset\n");
-		GL_RESET_TRIGGER(prGlueInfo->prAdapter, RST_FLAG_CHIP_RESET, RST_HIF_FAIL);
+		if(atomic_read(&g_wlanRemoving)) {
+			DBGLOG(REQ, WARN,
+				"wlanRemove in proccess, skip RESET_TRIGGER!\n");
+		} else {
+			DBGLOG(REQ, ERROR, "USB bus failure, trigger chip reset\n");
+			GL_RESET_TRIGGER(prGlueInfo->prAdapter, RST_FLAG_CHIP_RESET, RST_HIF_FAIL);
+		}
 	}
 #endif
 

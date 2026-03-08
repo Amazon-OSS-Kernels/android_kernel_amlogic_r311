@@ -137,12 +137,8 @@ void StatsEnvRxTime2Host(IN struct ADAPTER *prAdapter, struct sk_buff *prSkb)
 	uint64_t u8IntTime = 0;
 	uint64_t u8RxTime = 0;
 	uint32_t u4Delay = 0;
-#if KERNEL_VERSION(5, 0, 0) <= LINUX_VERSION_CODE
-	struct timespec64 tval;
-#else
-	struct timeval tval;
-#endif
-	struct rtc_time tm;
+	OS_SYSTIME rCurrentTime;
+	uint32_t rCurrentSec;
 
 	if ((g_ucTxRxFlag & BIT(1)) == 0)
 		return;
@@ -164,16 +160,8 @@ void StatsEnvRxTime2Host(IN struct ADAPTER *prAdapter, struct sk_buff *prSkb)
 	u8IntTime = GLUE_RX_GET_PKT_INT_TIME(prSkb);
 	u4Delay = ((uint32_t)(sched_clock() - u8IntTime))/NSEC_PER_USEC;
 	u8RxTime = GLUE_RX_GET_PKT_RX_TIME(prSkb);
-#if KERNEL_VERSION(5, 0, 0) <= LINUX_VERSION_CODE
-	ktime_get_real_ts64(&tval);
-#else
-	do_gettimeofday(&tval);
-#endif
-#if KERNEL_VERSION(5, 7, 0) <= LINUX_VERSION_CODE
-	rtc_time64_to_tm(tval.tv_sec, &tm);
-#else
-	rtc_time_to_tm(tval.tv_sec, &tm);
-#endif
+	rCurrentTime = kalGetTimeTick();
+	rCurrentSec = SYSTIME_TO_SEC(rCurrentTime);
 
 	switch (ucIpProto) {
 	case IP_PRO_TCP:
@@ -196,11 +184,10 @@ void StatsEnvRxTime2Host(IN struct ADAPTER *prAdapter, struct sk_buff *prSkb)
 			u4Delay,
 			((uint32_t)(u8RxTime - u8IntTime))/NSEC_PER_USEC,
 			u8IntTime, u4NoDelayRx, u4TotalRx,
-#if KERNEL_VERSION(5, 0, 0) <= LINUX_VERSION_CODE
-			tm.tm_hour, tm.tm_min, tm.tm_sec, tval.tv_nsec/1000);
-#else
-			tm.tm_hour, tm.tm_min, tm.tm_sec, tval.tv_usec);
-#endif
+			SEC_TO_TIME_HOUR(rCurrentSec),
+			SEC_TO_TIME_MINUTE(rCurrentSec),
+			SEC_TO_TIME_SECOND(rCurrentSec),
+			SYSTIME_TO_USEC(rCurrentTime) % USEC_PER_SEC);
 		break;
 	default:
 		break;

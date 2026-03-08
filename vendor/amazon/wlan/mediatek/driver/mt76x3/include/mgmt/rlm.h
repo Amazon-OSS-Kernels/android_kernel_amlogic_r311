@@ -498,8 +498,12 @@ void rlmProcessVhtAction(struct ADAPTER *prAdapter,
 void rlmFillSyncCmdParam(struct CMD_SET_BSS_RLM_PARAM
 			 *prCmdBody, struct BSS_INFO *prBssInfo);
 
+void rlmUpdateBssRlmParamsDoneHandler(struct ADAPTER *prAdapter,
+	struct CMD_INFO *prCmdInfo, uint8_t *pucEventBuf, uint32_t u4EventBufLen);
+
 void rlmSyncOperationParams(struct ADAPTER *prAdapter,
-			    struct BSS_INFO *prBssInfo);
+			    struct BSS_INFO *prBssInfo,
+			    uint8_t fgNeedRsp);
 
 void rlmBssInitForAPandIbss(struct ADAPTER *prAdapter,
 			    struct BSS_INFO *prBssInfo);
@@ -560,6 +564,9 @@ void rlmProcessSpecMgtAction(struct ADAPTER *prAdapter,
 void rlmResetCSAParams(struct BSS_INFO *prBssInfo);
 
 void rlmCsaTimeout(IN struct ADAPTER *prAdapter,
+				unsigned long ulParamPtr);
+
+void rlmChnlSwitchDone(IN struct ADAPTER *prAdapter,
 				unsigned long ulParamPtr);
 #endif
 

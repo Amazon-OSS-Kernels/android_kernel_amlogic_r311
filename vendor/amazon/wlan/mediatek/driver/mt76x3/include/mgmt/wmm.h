@@ -117,9 +117,9 @@ struct ACTIVE_RM_TSM_REQ {
 
 #if CFG_SUPPORT_SOFT_ACM
 struct SOFT_ACM_CTRL {
-	uint32_t u4RemainTime;
-	uint32_t u4AdmittedTime;
-	uint32_t u4IntervalEndSec;
+	uint64_t u8RemainTime;
+	uint64_t u8AdmittedTime;
+	uint64_t u8IntervalEndSec;
 	uint16_t u2DeqNum;
 };
 #endif
@@ -193,7 +193,7 @@ uint32_t wmmDumpActiveTspecs(struct ADAPTER *prAdapter, uint8_t *pucBuffer,
 			     uint16_t u2BufferLen);
 #if CFG_SUPPORT_SOFT_ACM
 u_int8_t wmmAcmCanDequeue(struct ADAPTER *prAdapter, uint8_t ucAc,
-			  uint32_t u4PktTxTime);
+			  uint64_t u8PktTxTime);
 void wmmAcmTxStatistic(struct ADAPTER *prAdapter, uint8_t ucAc,
 		       uint32_t u4Remain, uint16_t u2DeqNum);
 

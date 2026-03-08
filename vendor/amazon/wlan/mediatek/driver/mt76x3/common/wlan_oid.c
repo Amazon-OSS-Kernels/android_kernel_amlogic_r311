@@ -7448,11 +7448,6 @@ wlanoidSetSwCtrlWrite(IN struct ADAPTER *prAdapter,
 #endif
 	case 0x1003: /* for debug switches */
 		switch (u2SubId) {
-		case 1:
-			DBGLOG(OID, INFO,
-			       "Enable VoE 5.7 Packet Jitter test\n");
-			prAdapter->rDebugInfo.fgVoE5_7Test = !!u4Data;
-			break;
 		case 0x0002:
 		{
 			struct CMD_TX_AMPDU rTxAmpdu;
@@ -10959,6 +10954,7 @@ wlanoidSetWapiKey(IN struct ADAPTER *prAdapter,
 	uint8_t ucCmdSeqNum;
 	struct STA_RECORD *prStaRec;
 	struct BSS_INFO *prBssInfo;
+	uint32_t u4Ret = 0;
 
 	DEBUGFUNC("wlanoidSetWapiKey");
 	DBGLOG(REQ, LOUD, "\r\n");
@@ -11082,7 +11078,12 @@ wlanoidSetWapiKey(IN struct ADAPTER *prAdapter,
 	     prCmdKey->aucPeerAddr[5]) == 0xFF) {
 		prStaRec = cnmGetStaRecByAddress(prAdapter,
 				prBssInfo->ucBssIndex, prBssInfo->aucBSSID);
-		ASSERT(prStaRec);	/* AIS RSN Group key, addr is BC addr */
+		if (prStaRec == NULL) {
+			DBGLOG(INIT, ERROR, "prStaRec == NULL return failure.\n");
+			u4Ret = WLAN_STATUS_FAILURE;
+			goto Error;
+		}
+		/* AIS RSN Group key, addr is BC addr */
 		kalMemCopy(prCmdKey->aucPeerAddr, prStaRec->aucMacAddr,
 			   MAC_ADDR_LEN);
 	} else {
@@ -11115,7 +11116,9 @@ wlanoidSetWapiKey(IN struct ADAPTER *prAdapter,
 				prStaRec->fgTransmitKeyExist =
 					TRUE;	/* wait for CMD Done ? */
 			} else {
-				ASSERT(FALSE);
+				DBGLOG(INIT, ERROR, "Wrong key type.\n");
+				u4Ret = WLAN_STATUS_INVALID_DATA;
+				goto Error;
 			}
 		}
 #if 0
@@ -11170,7 +11173,9 @@ wlanoidSetWapiKey(IN struct ADAPTER *prAdapter,
 							prCmdKey->ucKeyId);
 				prStaRec->ucWlanIndex = prCmdKey->ucWlanIndex;
 			} else {	/* Exist this case ? */
-				ASSERT(FALSE);
+				DBGLOG(INIT, ERROR, "prStaRec == NULL return failure.\n");
+				u4Ret = WLAN_STATUS_FAILURE;
+				goto Error;
 				/* prCmdKey->ucWlanIndex = */
 				/* secPrivacySeekForBcEntry(prAdapter, */
 				/* prBssInfo->ucBssIndex, */
@@ -11190,6 +11195,11 @@ wlanoidSetWapiKey(IN struct ADAPTER *prAdapter,
 	GLUE_SET_EVENT(prGlueInfo);
 
 	return WLAN_STATUS_PENDING;
+
+Error:
+	if (prCmdInfo)
+		cmdBufFreeCmdInfo(prAdapter, prCmdInfo);
+	return u4Ret;
 }				/* wlanoidSetAddKey */
 #endif
 

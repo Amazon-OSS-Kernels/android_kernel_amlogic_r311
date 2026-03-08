@@ -9148,6 +9148,7 @@ wlanPktTxDone(IN struct ADAPTER *prAdapter,
 
 	if ((prMsduInfo->ucPktType == ENUM_PKT_1X) ||
 			(prMsduInfo->ucPktType == ENUM_PKT_PROTECTED_1X) ||
+			(prMsduInfo->ucPktType == ENUM_PKT_DHCP) ||
 			(prMsduInfo->ucPktType == ENUM_PKT_NON_PROTECTED_1X)) {
 		DBGLOG(TX, EVENT,
 			"TX DONE, Type[%s] Tag[0x%08x] WIDX:PID[%u:%u] Status[%u], SeqNo: %d\n",

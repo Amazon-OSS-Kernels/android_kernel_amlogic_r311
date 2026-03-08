@@ -970,6 +970,51 @@ rlmDomainGetChnlList(struct ADAPTER *prAdapter,
  * \return none
  */
 /*----------------------------------------------------------------------------*/
+void rlmDomainGetDfsChnls_V2(struct ADAPTER *prAdapter,
+			  uint8_t ucMaxChannelNum, uint8_t *pucNumOfChannel,
+			  struct RF_CHANNEL_INFO *paucChannelList)
+{
+#if (CFG_SUPPORT_SINGLE_SKU == 1)
+	uint8_t idx, start_idx, end_idx, ucNum;
+	struct channel *prCh;
+
+	/* 5G band */
+	start_idx = rlmDomainGetActiveChannelCount(KAL_BAND_2GHZ);
+	end_idx = rlmDomainGetActiveChannelCount(KAL_BAND_2GHZ) +
+			rlmDomainGetActiveChannelCount(KAL_BAND_5GHZ);
+
+	ucNum = 0;
+	for (idx = start_idx; idx < end_idx; idx++) {
+		prCh = rlmDomainGetActiveChannels() + idx;
+		if (!((prCh->flags & IEEE80211_CHAN_RADAR)
+				== IEEE80211_CHAN_RADAR))
+			continue;
+
+		paucChannelList[ucNum].eBand = BAND_5G;
+		paucChannelList[ucNum].ucChannelNum = prCh->chNum;
+
+		ucNum++;
+		if (ucMaxChannelNum == ucNum)
+			break;
+	}
+
+	*pucNumOfChannel = ucNum;
+#else
+	*pucNumOfChannel = 0;
+#endif /* CFG_SUPPORT_SINGLE_SKU */
+}
+
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief Retrieve DFS channels from 5G band
+ *
+ * \param[in/out] ucMaxChannelNum: max array size
+ *                pucNumOfChannel: pointer to returned channel number
+ *                paucChannelList: pointer to returned channel list array
+ *
+ * \return none
+ */
+/*----------------------------------------------------------------------------*/
 void rlmDomainGetDfsChnls(struct ADAPTER *prAdapter,
 			  uint8_t ucMaxChannelNum, uint8_t *pucNumOfChannel,
 			  struct RF_CHANNEL_INFO *paucChannelList)
@@ -981,6 +1026,10 @@ void rlmDomainGetDfsChnls(struct ADAPTER *prAdapter,
 	ASSERT(prAdapter);
 	ASSERT(paucChannelList);
 	ASSERT(pucNumOfChannel);
+
+	if (regd_is_single_sku_en())
+		return rlmDomainGetDfsChnls_V2(prAdapter, ucMaxChannelNum,
+				pucNumOfChannel, paucChannelList);
 
 	prDomainInfo = rlmDomainGetDomainInfo(prAdapter);
 	ASSERT(prDomainInfo);

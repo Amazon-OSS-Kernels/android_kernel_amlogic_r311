@@ -76,6 +76,9 @@
 
 /* Retry limit of sending operation notification frame */
 #define OPERATION_NOTICATION_TX_LIMIT	2
+#if CFG_SUPPORT_DFS
+#define CHNL_SWITCH_DONE_MAX_WAIT_TIME 5000
+#endif
 
 /*******************************************************************************
  *                             D A T A   T Y P E S
@@ -2218,7 +2221,7 @@ static uint8_t rlmRecIeInfoForClient(struct ADAPTER *prAdapter,
 	struct BSS_DESC *prBssDesc = NULL;
 	u_int8_t fgHasWideBandIE = FALSE;
 	u_int8_t fgHasChannelSwitchIE = FALSE;
-	struct IE_CHANNEL_SWITCH *prCSAIE = NULL;
+	struct IE_CHANNEL_SWITCH *prCSAIE;
 	struct SWITCH_CH_AND_BAND_PARAMS *prCSAParams = NULL;
 	uint8_t ucCurrentCsaCount = 0;
 	struct IE_SECONDARY_OFFSET *prSecondaryOffsetIE = NULL;
@@ -3415,7 +3418,7 @@ void rlmProcessBcn(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb,
 
 			/* Appy new parameters if necessary */
 			if (fgNewParameter) {
-				rlmSyncOperationParams(prAdapter, prBssInfo);
+				rlmSyncOperationParams(prAdapter, prBssInfo, FALSE);
 				fgNewParameter = FALSE;
 			}
 		} /* end of IS_BSS_ACTIVE() */
@@ -3568,7 +3571,7 @@ void rlmProcessHtAction(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 			}
 
 			/* 3. Update OP BW to FW */
-			rlmSyncOperationParams(prAdapter, prBssInfo);
+			rlmSyncOperationParams(prAdapter, prBssInfo, FALSE);
 		}
 		break;
 		/* Support SM power save */ /* TH3_Huang */
@@ -3760,7 +3763,7 @@ void rlmProcessVhtAction(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 
 				/* 4.3 Update BSS OP BW to FW for STA mode only
 				 */
-				rlmSyncOperationParams(prAdapter, prBssInfo);
+				rlmSyncOperationParams(prAdapter, prBssInfo, FALSE);
 			}
 		}
 		break;
@@ -3823,6 +3826,50 @@ void rlmFillSyncCmdParam(struct CMD_SET_BSS_RLM_PARAM *prCmdBody,
 
 /*----------------------------------------------------------------------------*/
 /*!
+ * \brief
+ *
+ * \param[in]
+ *
+ * \return none
+ */
+/*----------------------------------------------------------------------------*/
+void rlmUpdateBssRlmParamsDoneHandler(struct ADAPTER *prAdapter,
+			    struct CMD_INFO *prCmdInfo,
+			    uint8_t *pucEventBuf,
+			    uint32_t u4EventBufLen)
+{
+	struct EVENT_UPDATE_BSS_RLM_PARAM_DONE *prEventContent;
+	struct STA_RECORD *prStaRec;
+	struct BSS_INFO *prBssInfo;
+	uint8_t ucBssIndex;
+
+	prEventContent = (struct EVENT_UPDATE_BSS_RLM_PARAM_DONE *) pucEventBuf;
+	ucBssIndex = prEventContent->ucBssIndex;
+
+	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
+	if (!prBssInfo) {
+		DBGLOG(RLM, WARN, "No prBssInfo\n");
+		return;
+	}
+
+	prStaRec = prBssInfo->prStaRecOfAP;
+	if (!prStaRec) {
+		DBGLOG(RLM, WARN, "prStaRec is NULL\n");
+		return;
+	}
+
+#if CFG_SUPPORT_DFS
+	if (prBssInfo->fgWaitChannelSwitchDone) {
+		if (timerPendingTimer(&prBssInfo->rChnlSwitchDoneTimer))
+			cnmTimerStopTimer(prAdapter, &prBssInfo->rChnlSwitchDoneTimer);
+		rlmChnlSwitchDone(prAdapter, (unsigned long)ucBssIndex);
+	}
+#endif
+}
+
+
+/*----------------------------------------------------------------------------*/
+/*!
  * \brief This function will operation parameters based on situations of
  *        concurrent networks. Channel, bandwidth, protection mode, supported
  *        rate will be modified.
@@ -3833,7 +3880,8 @@ void rlmFillSyncCmdParam(struct CMD_SET_BSS_RLM_PARAM *prCmdBody,
  */
 /*----------------------------------------------------------------------------*/
 void rlmSyncOperationParams(struct ADAPTER *prAdapter,
-			    struct BSS_INFO *prBssInfo)
+			    struct BSS_INFO *prBssInfo,
+			    uint8_t fgNeedRsp)
 {
 	struct CMD_SET_BSS_RLM_PARAM *prCmdBody;
 	uint32_t rStatus;
@@ -3854,13 +3902,18 @@ void rlmSyncOperationParams(struct ADAPTER *prAdapter,
 
 	rlmFillSyncCmdParam(prCmdBody, prBssInfo);
 
+	if (fgNeedRsp)
+		prCmdBody->ucNeedRsp = TRUE;
+	else
+		prCmdBody->ucNeedRsp = FALSE;
+
 	rStatus = wlanSendSetQueryCmd(
 		prAdapter,			      /* prAdapter */
 		CMD_ID_SET_BSS_RLM_PARAM,	     /* ucCID */
 		TRUE,				      /* fgSetQuery */
-		FALSE,				      /* fgNeedResp */
+		fgNeedRsp,				      /* fgNeedResp */
 		FALSE,				      /* fgIsOid */
-		NULL,				      /* pfCmdDoneHandler */
+		fgNeedRsp ? rlmUpdateBssRlmParamsDoneHandler : NULL,	/* pfCmdDoneHandler */
 		NULL,				      /* pfCmdTimeoutHandler */
 		sizeof(struct CMD_SET_BSS_RLM_PARAM), /* u4SetQueryInfoLen */
 		(uint8_t *)prCmdBody,		      /* pucInfoBuffer */
@@ -4601,18 +4654,12 @@ void rlmProcessSpecMgtAction(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 	struct IE_TPC_REPORT *prTpcRepIE;
 	struct IE_MEASUREMENT_REQ *prMeasurementReqIE;
 	struct IE_MEASUREMENT_REPORT *prMeasurementRepIE;
-	struct ACTION_SM_REQ_FRAME *prRxFrame;
+	struct WLAN_ACTION_FRAME *prActFrame;
+	u_int8_t ucAction;
 
 	DBGLOG(RLM, INFO, "[Mgt Action]rlmProcessSpecMgtAction\n");
 	ASSERT(prAdapter);
 	ASSERT(prSwRfb);
-
-	u2IELength =
-		prSwRfb->u2PacketLen -
-		(uint16_t)OFFSET_OF(struct ACTION_SM_REQ_FRAME, aucInfoElem[0]);
-
-	prRxFrame = (struct ACTION_SM_REQ_FRAME *)prSwRfb->pvHeader;
-	pucIE = prRxFrame->aucInfoElem;
 
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
 	if (!prStaRec)
@@ -4621,13 +4668,35 @@ void rlmProcessSpecMgtAction(struct ADAPTER *prAdapter, struct SW_RFB *prSwRfb)
 	if (prStaRec->ucBssIndex > prAdapter->ucHwBssIdNum)
 		return;
 
+	prActFrame = (struct WLAN_ACTION_FRAME *) prSwRfb->pvHeader;
+	if (prActFrame->ucAction == ACTION_CHNL_SWITCH) {
+		struct ACTION_CHANNEL_SWITCH_FRAME *prRxFrame;
+
+		u2IELength = prSwRfb->u2PacketLen -
+			(uint16_t)OFFSET_OF(struct ACTION_CHANNEL_SWITCH_FRAME,
+					aucInfoElem[0]);
+		prRxFrame =
+			(struct ACTION_CHANNEL_SWITCH_FRAME *)prSwRfb->pvHeader;
+		pucIE = prRxFrame->aucInfoElem;
+		ucAction = prRxFrame->ucAction;
+	} else {
+		struct ACTION_SM_REQ_FRAME *prRxFrame;
+
+		u2IELength = prSwRfb->u2PacketLen -
+			(uint16_t)OFFSET_OF(struct ACTION_SM_REQ_FRAME,
+					aucInfoElem[0]);
+		prRxFrame =
+			(struct ACTION_SM_REQ_FRAME *)prSwRfb->pvHeader;
+		pucIE = prRxFrame->aucInfoElem;
+		ucAction = prRxFrame->ucAction;
+		prStaRec->ucSmDialogToken = prRxFrame->ucDialogToken;
+	}
+
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prStaRec->ucBssIndex);
 	prBssDesc = prAdapter->rWifiVar.rAisFsmInfo.prTargetBssDesc;
 
-	prStaRec->ucSmDialogToken = prRxFrame->ucDialogToken;
-
 	DBGLOG_MEM8(RLM, INFO, pucIE, u2IELength);
-	switch (prRxFrame->ucAction) {
+	switch (ucAction) {
 	case ACTION_MEASUREMENT_REQ:
 		DBGLOG(RLM, INFO, "[Mgt Action] Measure Request\n");
 		prMeasurementReqIE = SM_MEASUREMENT_REQ_IE(pucIE);
@@ -4836,6 +4905,7 @@ void rlmResetCSAParams(struct BSS_INFO *prBssInfo)
 	DBGLOG(RLM, INFO, "Reset CSA count to %u for BSS%d",
 	       prCSAParams->ucCsaCount, prBssInfo->ucBssIndex);
 	prBssInfo->fgHasStopTx = FALSE;
+	prBssInfo->fgWaitChannelSwitchDone = FALSE;
 }
 
 void rlmCsaTimeout(IN struct ADAPTER *prAdapter,
@@ -4847,6 +4917,7 @@ void rlmCsaTimeout(IN struct ADAPTER *prAdapter,
 	struct PARAM_SSID rSsid = {0};
 	struct BSS_DESC *prBssDesc;
 	struct STA_RECORD *prStaRec;
+	uint8_t fgWaitRsp = FALSE;
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
 	if (!prBssInfo) {
@@ -4959,25 +5030,88 @@ void rlmCsaTimeout(IN struct ADAPTER *prAdapter,
 
 	}
 
-	rlmSyncOperationParams(prAdapter, prBssInfo);
+#if !CFG_SUPPORT_CSA_CH_SWITCH_SYNC
+	rlmSyncOperationParams(prAdapter, prBssInfo, fgWaitRsp);
+#endif
 
-	/* After Channel Switch */
 #if CFG_DFS_NEWCH_DFS_FORCE_DISCONNECT
+	/* DFS channel switch case */
 	if (prCSAParams->fgBeaconNewChannelIsDFS || prCSAParams->fgActionNewChannelIsDFS) {
 		prCSAParams->fgBeaconNewChannelIsDFS = FALSE;
 		prCSAParams->fgActionNewChannelIsDFS = FALSE;
 		aisBssLinkDown(prAdapter);
+		rlmResetCSAParams(prBssInfo);
 	}
+	/* Non-DFS channel switch case */
 	else
 #endif
 	{
+#if CFG_SUPPORT_CSA_CH_SWITCH_SYNC
+		/* Check CSA mode
+		   Mode = 1, enable TxAllowed until RLM update is done in FW
+		   Mode = 0, directly enable (update) TxAllowed */
+		if (prBssInfo->fgHasStopTx) {
+			prBssInfo->fgWaitChannelSwitchDone = TRUE;
+			fgWaitRsp = TRUE;
+			cnmTimerStopTimer(prAdapter, &prBssInfo->rChnlSwitchDoneTimer);
+			cnmTimerStartTimer(prAdapter, &prBssInfo->rChnlSwitchDoneTimer,
+				CHNL_SWITCH_DONE_MAX_WAIT_TIME);
+			rlmSyncOperationParams(prAdapter, prBssInfo, fgWaitRsp);
+		} else {
+			rlmSyncOperationParams(prAdapter, prBssInfo, fgWaitRsp);
+			rlmChnlSwitchDone(prAdapter, (unsigned long)ucBssIndex);
+		}
+#else
 		qmUpdateStaRec(prAdapter, prStaRec);
 		DBGLOG(RLM, EVENT, "[CSA] TxAllowed = %d\n", prStaRec->fgIsTxAllowed);
+		rlmResetCSAParams(prBssInfo);
+#endif
 	}
+}
+
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief
+ *
+ * \param[in]
+ *
+ * \return none
+ */
+/*----------------------------------------------------------------------------*/
+void rlmChnlSwitchDone(IN struct ADAPTER * prAdapter,
+					unsigned long ulParamPtr)
+{
+	uint8_t ucBssIndex = (uint8_t) ulParamPtr;
+	struct STA_RECORD *prStaRec;
+	struct BSS_INFO *prBssInfo;
+	struct WLAN_INFO *prWlanInfo;
+
+	prWlanInfo = &prAdapter->rWlanInfo;
+
+	if (ucBssIndex >= prAdapter->ucHwBssIdNum) {
+		DBGLOG(RLM, WARN, "ucBssIndex is invalid\n");
+		return;
+	}
+
+	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
+	if (!prBssInfo) {
+		DBGLOG(RLM, WARN, "No prBssInfo\n");
+		return;
+	}
+
+	prStaRec = prBssInfo->prStaRecOfAP;
+	if (!prStaRec) {
+		DBGLOG(RLM, WARN, "prStaRec is NULL\n");
+		return;
+	}
+
+	/* Restore TxAllowed */
+	qmUpdateStaRec(prAdapter, prStaRec);
+	DBGLOG(RLM, EVENT, "[CSA] BssInfo update TxAllowed = %d\n", prStaRec->fgIsTxAllowed);
 
 	rlmResetCSAParams(prBssInfo);
 }
-#endif /* CFG_SUPPORT_DFS */
+#endif
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -5834,7 +5968,7 @@ static void rlmCompleteOpModeChange(struct ADAPTER *prAdapter,
 		rlmChangeOwnOpInfo(prAdapter, prBssInfo);
 
 		/* <2> Update OP BW/Nss to FW */
-		rlmSyncOperationParams(prAdapter, prBssInfo);
+		rlmSyncOperationParams(prAdapter, prBssInfo, FALSE);
 
 		/* <3> Update BCN/Probe Resp IE to notify peers our OP info is
 		 * changed (AP mode)

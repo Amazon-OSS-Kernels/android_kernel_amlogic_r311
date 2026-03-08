@@ -4222,8 +4222,12 @@ void nicUpdateLinkQuality(IN struct ADAPTER *prAdapter,
 	uint16_t u2AdjustRssi = 10;
 
 	ASSERT(prAdapter);
-	ASSERT(ucBssIndex <= prAdapter->ucHwBssIdNum);
 	ASSERT(prEventLinkQuality);
+
+	if (ucBssIndex > prAdapter->ucHwBssIdNum) {
+		DBGLOG(NIC, ERROR, "Invalid ucBssIndex [%d].\n", ucBssIndex);
+		return;
+	}
 
 	switch (GET_BSS_INFO_BY_INDEX(prAdapter,
 				      ucBssIndex)->eNetworkType) {

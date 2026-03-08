@@ -1165,6 +1165,17 @@ int wlanDoIOCTL(struct net_device *prDev,
 	return ret;
 }				/* end of wlanDoIOCTL() */
 
+#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
+int wlanDoPrivIOCTL(struct net_device *prDev, struct ifreq *prIfReq,
+		void __user *prData, int i4Cmd)
+{
+	if (!prIfReq->ifr_data && prData) {
+		prIfReq->ifr_data = prData;
+	}
+	return wlanDoIOCTL(prDev, prIfReq, i4Cmd);
+}
+#endif
+
 /*----------------------------------------------------------------------------*/
 /*!
  * \brief Export wlan GLUE_INFO_T pointer to p2p module
@@ -2164,6 +2175,9 @@ static const struct net_device_ops wlan_netdev_ops = {
 	.ndo_set_rx_mode = wlanSetMulticastList,
 	.ndo_get_stats = wlanGetStats,
 	.ndo_do_ioctl = wlanDoIOCTL,
+#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
+	.ndo_siocdevprivate = wlanDoPrivIOCTL,
+#endif
 	.ndo_start_xmit = wlanHardStartXmit,
 	.ndo_init = wlanInit,
 	.ndo_uninit = wlanUninit,
@@ -2540,6 +2554,22 @@ static struct wireless_dev *wlanNetCreate(void *pvData,
 		goto netcreate_err;
 	}
 
+	/* init_completion MUST before prGlueInfo->prAdapter = prAdapter;
+	* beacuse glResetTrigger use completion after check if adapter is NULL or not
+	*/
+	init_completion(&prGlueInfo->rScanComp);
+	init_completion(&prGlueInfo->rHaltComp);
+	init_completion(&prGlueInfo->rPendComp);
+
+#if CFG_SUPPORT_MULTITHREAD
+	init_completion(&prGlueInfo->rHifHaltComp);
+	init_completion(&prGlueInfo->rRxHaltComp);
+#endif
+
+#if CFG_SUPPORT_NCHO
+	init_completion(&prGlueInfo->rAisChGrntComp);
+#endif
+
 	prChipInfo = ((struct mt66xx_hif_driver_data *)
 		      pvDriverData)->chip_info;
 	prAdapter->chip_info = prChipInfo;
@@ -2639,19 +2669,6 @@ static struct wireless_dev *wlanNetCreate(void *pvData,
 	kalMemZero(prGlueInfo->aucDADipv4, 4);
 	kalMemZero(prGlueInfo->aucDADipv6, 16);
 #endif /* CFG_SUPPORT_PASSPOINT */
-
-	init_completion(&prGlueInfo->rScanComp);
-	init_completion(&prGlueInfo->rHaltComp);
-	init_completion(&prGlueInfo->rPendComp);
-
-#if CFG_SUPPORT_MULTITHREAD
-	init_completion(&prGlueInfo->rHifHaltComp);
-	init_completion(&prGlueInfo->rRxHaltComp);
-#endif
-
-#if CFG_SUPPORT_NCHO
-	init_completion(&prGlueInfo->rAisChGrntComp);
-#endif
 
 	/* initialize timer for OID timeout checker */
 	kalOsTimerInitialize(prGlueInfo, kalTimeoutHandler);
@@ -4340,6 +4357,11 @@ static void wlanRemove(void)
 		p2pRemove(prGlueInfo);
 	}
 #endif
+
+	//	Let the kernel stops sending data packet to wlan
+	//	Try to avoid the netdev_pick_tx crash
+
+	netif_tx_stop_all_queues(prDev);
 
 	/* to avoid that wpa_supplicant/hostapd triogger new cfg80211 command */
 	prGlueInfo->u4ReadyFlag = 0;

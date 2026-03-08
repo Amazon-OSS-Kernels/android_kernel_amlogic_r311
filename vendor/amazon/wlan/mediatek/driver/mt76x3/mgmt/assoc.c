@@ -428,7 +428,7 @@ static __KAL_INLINE__ uint32_t assocBuildReAssocReqFrameCommonIEs(
 		 * which contains 11b rate
 		 */
 
-		rateGetDataRatesFromRateSet(u2SupportedRateSet, 0,
+		rateGetDataRatesFromRateSet(u2SupportedRateSet, prStaRec->u2BSSBasicRateSet,
 					    aucAllSupportedRates,
 					    &ucAllSupportedRatesLen);
 

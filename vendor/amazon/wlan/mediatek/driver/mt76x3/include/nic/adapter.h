@@ -606,8 +606,10 @@ struct BSS_INFO {
 
 #if CFG_SUPPORT_DFS
 	struct TIMER rCsaTimer;
+	struct TIMER rChnlSwitchDoneTimer;
 	struct SWITCH_CH_AND_BAND_PARAMS CSAParams;
 	uint8_t fgHasStopTx;
+	uint8_t fgWaitChannelSwitchDone;
 #endif
 
 #if CFG_STR_DHCP_RENEW_OFFLOAD
@@ -1671,8 +1673,6 @@ struct ADAPTER {
 #if CFG_SUPPORT_OSHARE
 	bool fgEnOshareMode;
 #endif
-
-	struct WLAN_DEBUG_INFO rDebugInfo;
 
 	bool fgIsStartApDone;
 	bool fgIsStopApDone;

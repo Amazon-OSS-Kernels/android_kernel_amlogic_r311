@@ -593,15 +593,22 @@ void wnmRecvBTMRequest(IN struct ADAPTER *prAdapter, IN struct SW_RFB *prSwRfb)
 	if (ucRequestMode & BTM_REQ_MODE_DISC_IMM)
 		eTransType = BSS_TRANSITION_REQ_ROAMING;
 	if (ucRequestMode & BTM_REQ_MODE_BSS_TERM_INCLUDE) {
-		struct SUB_IE_BSS_TERM_DURATION *prBssTermDuration =
-			(struct SUB_IE_BSS_TERM_DURATION *)pucOptInfo;
+		if (prSwRfb->u2PacketLen < u2TmpLen
+			+ sizeof(struct SUB_IE_BSS_TERM_DURATION)) {
+			DBGLOG(WNM, WARN,
+				"BTM: BSS termination IE length is invalid\n");
+		} else {
+			struct SUB_IE_BSS_TERM_DURATION *prBssTermDuration =
+				(struct SUB_IE_BSS_TERM_DURATION *)pucOptInfo;
 
-		prBtmParam->u2TermDuration = prBssTermDuration->u2Duration;
-		kalMemCopy(prBtmParam->aucTermTsf,
-			   prBssTermDuration->aucTermTsf, 8);
-		pucOptInfo += sizeof(*prBssTermDuration);
-		u2TmpLen += sizeof(*prBssTermDuration);
-		eTransType = BSS_TRANSITION_REQ_ROAMING;
+			prBtmParam->u2TermDuration =
+				prBssTermDuration->u2Duration;
+			kalMemCopy(prBtmParam->aucTermTsf,
+				prBssTermDuration->aucTermTsf, 8);
+			pucOptInfo += sizeof(*prBssTermDuration);
+			u2TmpLen += sizeof(*prBssTermDuration);
+			eTransType = BSS_TRANSITION_REQ_ROAMING;
+		}
 	}
 	if (ucRequestMode & BTM_REQ_MODE_ESS_DISC_IMM) {
 		kalMemCopy(prBtmParam->aucSessionURL, &pucOptInfo[1],

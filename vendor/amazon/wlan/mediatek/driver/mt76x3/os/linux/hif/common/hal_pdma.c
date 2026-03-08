@@ -473,7 +473,7 @@ u_int8_t halSetDriverOwn(IN struct ADAPTER *prAdapter)
 
 	KAL_REC_TIME_END();
 	DBGLOG(INIT, INFO,
-		"DRIVER OWN Done[%lu us]\n", KAL_GET_TIME_INTERVAL());
+		"DRIVER OWN Done[%llu us]\n", KAL_GET_TIME_INTERVAL());
 
 	return fgStatus;
 }
@@ -738,7 +738,13 @@ struct MSDU_TOKEN_ENTRY *halAcquireMsduToken(IN struct ADAPTER *prAdapter)
 	spin_lock_irqsave(&prTokenInfo->rTokenLock, flags);
 
 	prToken = prTokenInfo->aprTokenStack[prTokenInfo->i4UsedCnt];
-	do_gettimeofday(&prToken->rTs);
+	if (!prToken) {
+		DBGLOG(HAL, ERROR, "Acquire MSDU token failed, Used[%u]\n",
+		prTokenInfo->u4UsedCnt);
+		spin_unlock_irqrestore(&prTokenInfo->rTokenLock, flags);
+		return NULL;
+	}
+	prToken->u8Tm = kalGetBootTime();
 	prToken->fgInUsed = TRUE;
 	prTokenInfo->i4UsedCnt++;
 
@@ -826,59 +832,6 @@ void halReturnMsduToken(IN struct ADAPTER *prAdapter, uint32_t u4TokenNum)
 	prTokenInfo->aprTokenStack[prTokenInfo->i4UsedCnt] = prToken;
 
 	spin_unlock_irqrestore(&prTokenInfo->rTokenLock, flags);
-}
-
-
-/*----------------------------------------------------------------------------*/
-/*!
- * @brief Return all timeout msdu token.
- *
- * @param prAdapter      a pointer to adapter private data structure.
- *
- */
-/*----------------------------------------------------------------------------*/
-void halReturnTimeoutMsduToken(struct ADAPTER *prAdapter)
-{
-	struct MSDU_TOKEN_INFO *prTokenInfo;
-	struct MSDU_TOKEN_ENTRY *prToken;
-	struct timeval rNowTs, rTime;
-	struct timeval rTimeout;
-	uint32_t u4Idx = 0;
-
-	ASSERT(prAdapter);
-	ASSERT(prAdapter->prGlueInfo);
-
-	prTokenInfo = &prAdapter->prGlueInfo->rHifInfo.rTokenInfo;
-
-	rTimeout.tv_sec = HIF_MSDU_REPORT_RETURN_TIMEOUT;
-	rTimeout.tv_usec = 0;
-	do_gettimeofday(&rNowTs);
-
-	for (u4Idx = 0; u4Idx < HIF_TX_MSDU_TOKEN_NUM; u4Idx++) {
-		prToken = &prTokenInfo->arToken[u4Idx];
-		if (!prToken->fgInUsed)
-			continue;
-
-		/* Ignore now time < token time */
-		if (halTimeCompare(&rNowTs, &prToken->rTs) < 0)
-			continue;
-
-		rTime.tv_sec = rNowTs.tv_sec - prToken->rTs.tv_sec;
-		rTime.tv_usec = rNowTs.tv_usec;
-		if (prToken->rTs.tv_usec > rNowTs.tv_usec) {
-			rTime.tv_sec -= 1;
-			rTime.tv_usec += SEC_TO_USEC(1);
-		}
-		rTime.tv_usec -= prToken->rTs.tv_usec;
-
-		/* Return token to free stack */
-		if (halTimeCompare(&rTime, &rTimeout) >= 0) {
-			DBGLOG(HAL, INFO,
-			       "Free TokenId[%u] timeout[sec:%u, usec:%u]\n",
-			       u4Idx, rTime.tv_sec, rTime.tv_usec);
-			halReturnMsduToken(prAdapter, u4Idx);
-		}
-	}
 }
 
 bool halHifSwInfoInit(IN struct ADAPTER *prAdapter)

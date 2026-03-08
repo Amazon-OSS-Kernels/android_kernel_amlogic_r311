@@ -154,6 +154,30 @@ static uint8_t aucDbModuleName[][PROC_DBG_LEVEL_MAX_DISPLAY_STR_LEN] = {
  * should not be used by other function
  */
 static int32_t g_NextDriverReadLen;
+
+enum ENUM_PROC_ENTRY_TYPE_T {
+	PROC_CORE_DUMP_ENTRY,
+	PROC_MCR_ACCESS_ENTRY,
+	PROC_DRIVER_CMD_ENTRY,
+	PROC_CFG_ENTRY,
+	PROC_EFUSE_DUMP_ENTRY,
+	PROC_GET_TXPWR_TBL_ENTRY,
+	PROC_PKT_DELAY_DBG_ENTRY,
+	PROC_SET_CAM_ENTRY,
+	PROC_ROAM_PARAM_ENTRY,
+	PROC_CSI_DATA_NAME_ENTRY,
+	PROC_COUNTRY_ENTRY,
+	PROC_MET_PROF_CTRL_ENTRY,
+	PROC_MET_PROF_PORT_ENTRY,
+	PROC_DBG_LEVEL_NAME_ENTRY,
+	PROC_AUTO_PERF_CFG_ENTRY,
+	PROC_GET_TEMPETATURE_ENTRY,
+	PROC_DISCONN_INFO_ENTRY,
+	PROC_ENTRY_NUM
+};
+
+struct proc_dir_entry *g_createdProcFsEntry[PROC_ENTRY_NUM] = {NULL};
+
 /*******************************************************************************
  *                                 M A C R O S
  *******************************************************************************
@@ -2793,41 +2817,130 @@ int32_t procUninitProcFs(void)
 /*----------------------------------------------------------------------------*/
 int32_t procRemoveProcfs(void)
 {
-	remove_proc_entry(PROC_MCR_ACCESS, gprProcRoot);
-	remove_proc_entry(PROC_DRIVER_CMD, gprProcRoot);
-	remove_proc_entry(PROC_CFG, gprProcRoot);
-	remove_proc_entry(PROC_EFUSE_DUMP, gprProcRoot);
-	remove_proc_entry(PROC_GET_TXPWR_TBL, gprProcRoot);
-	remove_proc_entry(PROC_PKT_DELAY_DBG, gprProcRoot);
-	remove_proc_entry(PROC_COUNTRY, gprProcRoot);
+	uint32_t i;
+	for(i=0; i<PROC_ENTRY_NUM ; i++) {
+		DBGLOG(INIT, INFO, "g_createdProcFsEntry[%d] %x\n", i,
+		g_createdProcFsEntry[i]);
+	}
+
+	if(g_createdProcFsEntry[PROC_MCR_ACCESS_ENTRY] != NULL) {
+		remove_proc_entry(PROC_MCR_ACCESS, gprProcRoot);
+		g_createdProcFsEntry[PROC_MCR_ACCESS_ENTRY] = NULL;
+	}
+	else {
+		DBGLOG(INIT, ERROR, "PROC_MCR_ACCESS does not exist\n");
+	}
+#if WLAN_INCLUDE_PROC
+#if	CFG_SUPPORT_EASY_DEBUG
+	if(g_createdProcFsEntry[PROC_DRIVER_CMD_ENTRY] != NULL) {
+		remove_proc_entry(PROC_DRIVER_CMD, gprProcRoot);
+		g_createdProcFsEntry[PROC_DRIVER_CMD_ENTRY] = NULL;
+	}
+	else {
+		DBGLOG(INIT, ERROR, "PROC_DRIVER_CMD does not exist\n");
+	}
+
+	if(g_createdProcFsEntry[PROC_CFG_ENTRY] != NULL) {
+		remove_proc_entry(PROC_CFG, gprProcRoot);
+		g_createdProcFsEntry[PROC_CFG_ENTRY] = NULL;
+	}
+	else {
+		DBGLOG(INIT, ERROR, "PROC_CFG does not exist\n");
+	}
+
+	if(g_createdProcFsEntry[PROC_EFUSE_DUMP_ENTRY] != NULL) {
+		remove_proc_entry(PROC_EFUSE_DUMP, gprProcRoot);
+		g_createdProcFsEntry[PROC_EFUSE_DUMP_ENTRY] = NULL;
+	}
+	else {
+		DBGLOG(INIT, ERROR, "PROC_EFUSE_DUMP does not exist\n");
+	}
+#endif /* CFG_SUPPORT_EASY_DEBUG */
+#endif /* WLAN_INCLUDE_PROC */
+
+	if(g_createdProcFsEntry[PROC_GET_TXPWR_TBL_ENTRY] != NULL) {
+		remove_proc_entry(PROC_GET_TXPWR_TBL, gprProcRoot);
+		g_createdProcFsEntry[PROC_GET_TXPWR_TBL_ENTRY] = NULL;
+	}
+	else {
+		DBGLOG(INIT, ERROR, "PROC_GET_TXPWR_TBL does not exist\n");
+	}
+
+	if(g_createdProcFsEntry[PROC_PKT_DELAY_DBG_ENTRY] != NULL) {
+		remove_proc_entry(PROC_PKT_DELAY_DBG, gprProcRoot);
+		g_createdProcFsEntry[PROC_PKT_DELAY_DBG_ENTRY] = NULL;
+	}
+	else {
+		DBGLOG(INIT, ERROR, "PROC_PKT_DELAY_DBG does not exist\n");
+	}
+#if CFG_SUPPORT_DEBUG_FS
+	if(g_createdProcFsEntry[PROC_COUNTRY_ENTRY] != NULL) {
+		remove_proc_entry(PROC_COUNTRY, gprProcRoot);
+		g_createdProcFsEntry[PROC_COUNTRY_ENTRY] = NULL;
+	}
+	else {
+		DBGLOG(INIT, ERROR, "PROC_COUNTRY does not exist\n");
+	}
+#endif
 #if CFG_SUPPORT_SET_CAM_BY_PROC
-	remove_proc_entry(PROC_SET_CAM, gprProcRoot);
+	if(g_createdProcFsEntry[PROC_SET_CAM_ENTRY] != NULL) {
+		remove_proc_entry(PROC_SET_CAM, gprProcRoot);
+		g_createdProcFsEntry[PROC_SET_CAM_ENTRY] = NULL;
+	}
+	else {
+		DBGLOG(INIT, ERROR, "PROC_SET_CAM does not exist\n");
+	}
 #endif
 #ifdef CFG_GET_TEMPURATURE
-	remove_proc_entry(PROC_GET_TEMPETATURE, gprProcRoot);
+	if(g_createdProcFsEntry[PROC_GET_TEMPETATURE_ENTRY] != NULL) {
+		remove_proc_entry(PROC_GET_TEMPETATURE, gprProcRoot);
+		g_createdProcFsEntry[PROC_GET_TEMPETATURE_ENTRY] = NULL;
+	}
+	else {
+		DBGLOG(INIT, ERROR, "PROC_GET_TEMPETATURE does not exist\n");
+	}
 #endif
 #if CFG_SUPPORT_DEBUG_FS
-	remove_proc_entry(PROC_ROAM_PARAM, gprProcRoot);
+	if(g_createdProcFsEntry[PROC_ROAM_PARAM_ENTRY] != NULL) {
+		remove_proc_entry(PROC_ROAM_PARAM, gprProcRoot);
+		g_createdProcFsEntry[PROC_ROAM_PARAM_ENTRY] = NULL;
+	}
+	else {
+		DBGLOG(INIT, ERROR, "PROC_ROAM_PARAM does not exist\n");
+	}
 #endif
 #if CFG_DISCONN_DEBUG_FEATURE
-	remove_proc_entry(PROC_DISCONN_INFO, gprProcRoot);
+	if(g_createdProcFsEntry[PROC_DISCONN_INFO_ENTRY] != NULL) {
+		remove_proc_entry(PROC_DISCONN_INFO, gprProcRoot);
+		g_createdProcFsEntry[PROC_DISCONN_INFO_ENTRY] = NULL;
+	}
+	else {
+		DBGLOG(INIT, ERROR, "PROC_DISCONN_INFO does not exist\n");
+	}
 #endif
 
+	g_prGlueInfo_proc = NULL;
 	return 0;
 } /* end of procRemoveProcfs() */
 
 int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 {
 	struct proc_dir_entry *prEntry;
+	uint32_t i;
 
 	DBGLOG(INIT, INFO, "[%s]\n", __func__);
 	g_prGlueInfo_proc = prGlueInfo;
+
+	for(i=0; i<PROC_ENTRY_NUM ; i++) {
+		g_createdProcFsEntry[i] = 0;
+	}
 
 	prEntry = proc_create(PROC_MCR_ACCESS, 0664, gprProcRoot, &mcr_ops);
 	if (prEntry == NULL) {
 		DBGLOG(INIT, ERROR, "Unable to create /proc entry mcr\n\r");
 		return -1;
 	}
+	g_createdProcFsEntry[PROC_MCR_ACCESS_ENTRY] = prEntry;
 
 	prEntry =
 	    proc_create(PROC_PKT_DELAY_DBG, 0664, gprProcRoot,
@@ -2839,6 +2952,7 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 	}
 	proc_set_user(prEntry, KUIDT_INIT(PROC_UID_SHELL),
 		      KGIDT_INIT(PROC_GID_WIFI));
+	g_createdProcFsEntry[PROC_PKT_DELAY_DBG_ENTRY] = prEntry;
 
 #if CFG_SUPPORT_SET_CAM_BY_PROC
 	prEntry =
@@ -2849,6 +2963,7 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 	}
 	proc_set_user(prEntry, KUIDT_INIT(PROC_UID_SHELL),
 		      KGIDT_INIT(PROC_GID_WIFI));
+	g_createdProcFsEntry[PROC_SET_CAM_ENTRY] = prEntry;
 #endif
 #if CFG_SUPPORT_DEBUG_FS
 	prEntry = proc_create(PROC_ROAM_PARAM, 0664, gprProcRoot, &roam_ops);
@@ -2857,12 +2972,15 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 		       "Unable to create /proc entry roam_param\n\r");
 		return -1;
 	}
-#endif
+	g_createdProcFsEntry[PROC_ROAM_PARAM_ENTRY] = prEntry;
+
 	prEntry = proc_create(PROC_COUNTRY, 0664, gprProcRoot, &country_ops);
 	if (prEntry == NULL) {
 		DBGLOG(INIT, ERROR, "Unable to create /proc entry country\n\r");
 		return -1;
 	}
+	g_createdProcFsEntry[PROC_COUNTRY_ENTRY] = prEntry;
+#endif
 #if WLAN_INCLUDE_PROC
 #if CFG_SUPPORT_EASY_DEBUG
 
@@ -2873,6 +2991,7 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 			"Unable to create /proc entry for driver command\n\r");
 		return -1;
 	}
+	g_createdProcFsEntry[PROC_DRIVER_CMD_ENTRY] = prEntry;
 
 	prEntry = proc_create(PROC_CFG, 0664, gprProcRoot, &cfg_ops);
 	if (prEntry == NULL) {
@@ -2880,6 +2999,7 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 			"Unable to create /proc entry for driver cfg\n\r");
 		return -1;
 	}
+	g_createdProcFsEntry[PROC_CFG_ENTRY] = prEntry;
 
 	prEntry =
 		proc_create(PROC_EFUSE_DUMP, 0664, gprProcRoot, &efusedump_ops);
@@ -2887,8 +3007,10 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 		DBGLOG(INIT, ERROR, "Unable to create /proc entry efuse\n\r");
 		return -1;
 	}
+	g_createdProcFsEntry[PROC_EFUSE_DUMP_ENTRY] = prEntry;
 #endif
 #endif
+
 	prEntry = proc_create(PROC_GET_TXPWR_TBL, 0664, gprProcRoot,
 			      &get_txpwr_tbl_ops);
 	if (prEntry == NULL) {
@@ -2896,6 +3018,8 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 			"Unable to create /proc entry TXPWR Table\n\r");
 		return -1;
 	}
+	g_createdProcFsEntry[PROC_GET_TXPWR_TBL_ENTRY] = prEntry;
+
 #ifdef CFG_GET_TEMPURATURE
 	prEntry = proc_create(PROC_GET_TEMPETATURE, 0664, gprProcRoot,
 			      &get_temperature_ops);
@@ -2903,6 +3027,7 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 		DBGLOG(INIT, ERROR, "Unable to create /proc entry efuse\n\r");
 		return -1;
 	}
+	g_createdProcFsEntry[PROC_GET_TEMPETATURE_ENTRY] = prEntry;
 #endif
 
 #if CFG_DISCONN_DEBUG_FEATURE
@@ -2913,6 +3038,7 @@ int32_t procCreateFsEntry(struct GLUE_INFO *prGlueInfo)
 			"Unable to create /proc entry disconn_info\n\r");
 		return -1;
 	}
+	g_createdProcFsEntry[PROC_DISCONN_INFO_ENTRY] = prEntry;
 #endif
 
 	return 0;

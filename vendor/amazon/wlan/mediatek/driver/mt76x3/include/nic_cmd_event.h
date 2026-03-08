@@ -2520,6 +2520,12 @@ struct CMD_SET_BSS_RLM_PARAM {
 	uint8_t ucVhtChannelFrequencyS2;
 	uint16_t u2VhtBasicMcsSet;
 	uint8_t ucNss;
+	uint8_t ucNeedRsp;
+};
+
+struct EVENT_UPDATE_BSS_RLM_PARAM_DONE {
+	uint8_t ucBssIndex;
+	uint8_t ucReserved[3];
 };
 
 struct CMD_SET_BSS_INFO {

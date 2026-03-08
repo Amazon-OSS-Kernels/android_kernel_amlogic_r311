@@ -204,11 +204,6 @@ enum PKT_PHASE {
 	PHASE_HIF_TX,
 };
 
-struct WLAN_DEBUG_INFO {
-	u_int8_t fgVoE5_7Test:1;
-	u_int8_t fgReserved:7;
-};
-
 #if MTK_WCN_HIF_SDIO
 #define DBG_ASSERT_PATH_DEFAULT DBG_ASSERT_PATH_WMT
 #else
@@ -470,8 +465,6 @@ void wlanDriverDbgLevelSync(void);
 u_int8_t wlanDbgGetGlobalLogLevel(uint32_t u4Module, uint32_t *pu4Level);
 u_int8_t wlanDbgSetGlobalLogLevel(uint32_t u4Module, uint32_t u4Level);
 
-void wlanFillTimestamp(struct ADAPTER *prAdapter, void *pvPacket,
-		       uint8_t ucPhase);
 /*******************************************************************************
  *                              F U N C T I O N S
  *******************************************************************************

@@ -371,8 +371,8 @@ void wmmSyncAcParamWithFw(struct ADAPTER *prAdapter, uint8_t ucAc,
 	if (u2MediumTime)
 		u2MediumTime = 153;
 #endif
-	prAcmCtrl->u4AdmittedTime = u2MediumTime * 32;
-	prAcmCtrl->u4IntervalEndSec = 0;
+	prAcmCtrl->u8AdmittedTime = u2MediumTime * 32;
+	prAcmCtrl->u8IntervalEndSec = 0;
 #endif
 	kalMemZero(&rCmdUpdateAcParam, sizeof(rCmdUpdateAcParam));
 	rCmdUpdateAcParam.ucAcIndex = ucAc;
@@ -1440,9 +1440,9 @@ uint32_t wmmCalculatePktUsedTime(struct BSS_INFO *prBssInfo,
 	return u4TxTime;
 }
 
-/* 1. u4PktTxTime is 0, this function give a fast check if remain medium time is
+/* 1. u8PktTxTime is 0, this function give a fast check if remain medium time is
  *enough to Deq
- ** 2. u4PktTxTime is not 0, if remain medium time is greater than u4PktTxTime,
+ ** 2. u8PktTxTime is not 0, if remain medium time is greater than u4PktTxTime,
  *statistic deq number
  **     and remain time. Otherwise, start a timer to schedule next dequeue
  *interval
@@ -1451,90 +1451,76 @@ uint32_t wmmCalculatePktUsedTime(struct BSS_INFO *prBssInfo,
  ** FALSE: No time to dequeue
  */
 u_int8_t wmmAcmCanDequeue(struct ADAPTER *prAdapter, uint8_t ucAc,
-			  uint32_t u4PktTxTime)
+			  uint64_t u8PktTxTime)
 {
 	struct SOFT_ACM_CTRL *prAcmCtrl = NULL;
 	struct WMM_INFO *prWmmInfo = &prAdapter->rWifiVar.rWmmInfo;
-	uint32_t u4CurTime = 0;
-#if KERNEL_VERSION(5, 0, 0) <= LINUX_VERSION_CODE
-	struct timespec64 ts;
-#else
-	struct timespec ts;
-#endif
+	uint64_t u8CurTime = 0;
 
 	prAcmCtrl = &prWmmInfo->arAcmCtrl[ucAc];
-	if (!prAcmCtrl->u4AdmittedTime)
+	if (!prAcmCtrl->u8AdmittedTime)
 		return FALSE;
-#if KERNEL_VERSION(5, 0, 0) <= LINUX_VERSION_CODE
-	ktime_get_boottime_ts64(&ts);
-#else
-	get_monotonic_boottime(&ts);
-#endif
-	u4CurTime = ts.tv_sec;
-	if (!TIME_BEFORE(u4CurTime, prAcmCtrl->u4IntervalEndSec)) {
-		u4CurTime++;
+	u8CurTime = kal_div64_u64(kalGetBootTime(), USEC_PER_SEC);
+	if (!TIME_BEFORE64(u8CurTime, prAcmCtrl->u8IntervalEndSec)) {
+		u8CurTime++;
 		DBGLOG(WMM, INFO,
-		       "AC %d, Admitted %u, LastEnd %u, NextEnd %u, LastUsed %u, LastDeq %d\n",
-		       ucAc, prAcmCtrl->u4AdmittedTime,
-		       prAcmCtrl->u4IntervalEndSec, u4CurTime,
-		       prAcmCtrl->u4AdmittedTime - prAcmCtrl->u4RemainTime,
+		       "AC %d, Admitted %lu, LastEnd %lu, NextEnd %lu, LastUsed %lu, LastDeq %d\n",
+		       ucAc, prAcmCtrl->u8AdmittedTime,
+		       prAcmCtrl->u8IntervalEndSec, u8CurTime,
+		       prAcmCtrl->u8AdmittedTime - prAcmCtrl->u8RemainTime,
 		       prAcmCtrl->u2DeqNum);
-		prAcmCtrl->u4IntervalEndSec = u4CurTime;
-		prAcmCtrl->u4RemainTime = prAcmCtrl->u4AdmittedTime;
+		prAcmCtrl->u8IntervalEndSec = u8CurTime;
+		prAcmCtrl->u8RemainTime = prAcmCtrl->u8AdmittedTime;
 		prAcmCtrl->u2DeqNum = 0;
 		/* Stop the next dequeue timer due to we will dequeue right now.
 		 */
 		if (timerPendingTimer(&prWmmInfo->rAcmDeqTimer))
 			cnmTimerStopTimer(prAdapter, &prWmmInfo->rAcmDeqTimer);
 	}
-	if (!u4PktTxTime) {
+	if (!u8PktTxTime) {
 		DBGLOG(WMM, TRACE, "AC %d, can dq %d\n", ucAc,
-		       (prAcmCtrl->u4RemainTime > 0));
-		return (prAcmCtrl->u4RemainTime > 0);
+		       (prAcmCtrl->u8RemainTime > 0));
+		return (prAcmCtrl->u8RemainTime > 0);
 	}
 	/* If QM request to dequeue, and have enough medium time,  then dequeue
 	 */
-	if (prAcmCtrl->u4RemainTime >= u4PktTxTime) {
+	if (prAcmCtrl->u8RemainTime >= u8PktTxTime) {
 		prAcmCtrl->u2DeqNum++;
-		prAcmCtrl->u4RemainTime -= u4PktTxTime;
-		DBGLOG(WMM, INFO, "AC %d, Remain %u, DeqNum %d\n", ucAc,
-		       prAcmCtrl->u4RemainTime, prAcmCtrl->u2DeqNum);
-		if (prAcmCtrl->u4RemainTime > 0)
+		prAcmCtrl->u8RemainTime -= u8PktTxTime;
+		DBGLOG(WMM, INFO, "AC %d, Remain %lu, DeqNum %d\n", ucAc,
+		       prAcmCtrl->u8RemainTime, prAcmCtrl->u2DeqNum);
+		if (prAcmCtrl->u8RemainTime > 0)
 			return TRUE;
 	}
 	/* If not enough medium time to dequeue next packet, should start a
 	 * timer to schedue next dequeue
-	 * We didn't consider the case u4RemainTime is enough to dequeue
+	 * We didn't consider the case u8RemainTime is enough to dequeue
 	 * packets except the head of the
 	 * station tx queue, because it is too complex to implement dequeue
 	 * routine.
-	 * We should reset u4RemainTime to 0, used to skip next dequeue request
+	 * We should reset u8RemainTime to 0, used to skip next dequeue request
 	 * if still in this deq interval.
 	 * the dequeue interval is 1 second according to WMM-AC specification.
 	 */
-	prAcmCtrl->u4RemainTime = 0;
+	prAcmCtrl->u8RemainTime = 0;
 	/* Start a timer to schedule next dequeue interval, since application
 	 * may stop sending data to driver,
 	 * but driver still pending some data to dequeue
 	 */
 	if (!timerPendingTimer(&prWmmInfo->rAcmDeqTimer)) {
-		uint32_t u4EndMsec = prAcmCtrl->u4IntervalEndSec * 1000;
+		uint64_t u8EndMsec = prAcmCtrl->u8IntervalEndSec * 1000;
 
-#if KERNEL_VERSION(5, 0, 0) <= LINUX_VERSION_CODE
-		ktime_get_boottime_ts64(&ts);
-#else
-		get_monotonic_boottime(&ts);
-#endif
-		u4CurTime = ts.tv_sec * MSEC_PER_SEC;
-		u4CurTime += ts.tv_nsec / NSEC_PER_MSEC;
-		/* It is impossible that u4EndMsec is less than u4CurTime */
-		u4EndMsec = u4EndMsec - u4CurTime +
+		u8CurTime = kal_div64_u64(
+			kalGetBootTime(), USEC_PER_SEC);
+
+		/* It is impossible that u8EndMsec is less than u8CurTime */
+		u8EndMsec = u8EndMsec - u8CurTime +
 			    20; /* the timeout duration at least 2 jiffies */
 		cnmTimerStartTimer(prAdapter, &prWmmInfo->rAcmDeqTimer,
-				   u4EndMsec);
+				   (uint32_t)u8EndMsec);
 		DBGLOG(WMM, INFO,
-		       "AC %d, will start next deq interval after %u ms\n",
-		       ucAc, u4EndMsec);
+		       "AC %d, will start next deq interval after %lu ms\n",
+		       ucAc, u8EndMsec);
 	}
 	return FALSE;
 }

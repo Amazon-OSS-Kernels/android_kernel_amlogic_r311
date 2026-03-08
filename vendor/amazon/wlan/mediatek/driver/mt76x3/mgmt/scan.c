@@ -1070,8 +1070,7 @@ void scanRemoveBssDescsByPolicy(IN struct ADAPTER *prAdapter,
 				if (!prBssDesc->prBlack)
 					aisQueryBlackList(prAdapter, prBssDesc);
 				if (prBssDesc->prBlack)
-					prBssDesc->prBlack->u4DisapperTime =
-						(uint32_t)kalGetBootTime();
+					prBssDesc->prBlack->u8DisapperTime = kalGetBootTime();
 				/* end Support AP Selection */
 
 				/* Remove this BSS Desc from
@@ -1139,8 +1138,7 @@ void scanRemoveBssDescsByPolicy(IN struct ADAPTER *prAdapter,
 			if (!prBssDescOldest->prBlack)
 				aisQueryBlackList(prAdapter, prBssDescOldest);
 			if (prBssDescOldest->prBlack)
-				prBssDescOldest->prBlack->u4DisapperTime =
-				(uint32_t)kalGetBootTime();
+				prBssDescOldest->prBlack->u8DisapperTime = kalGetBootTime();
 			/* end Support AP Selection */
 
 			/* Remove this BSS Desc from the BSS Desc list */
@@ -1224,8 +1222,7 @@ void scanRemoveBssDescsByPolicy(IN struct ADAPTER *prAdapter,
 			if (!prBssDescWeakest->prBlack)
 				aisQueryBlackList(prAdapter, prBssDescWeakest);
 			if (prBssDescWeakest->prBlack)
-				prBssDescWeakest->prBlack->u4DisapperTime =
-				(uint32_t)kalGetBootTime();
+				prBssDescWeakest->prBlack->u8DisapperTime = kalGetBootTime();
 			/* end Support AP Selection */
 
 			/* Remove this BSS Desc from the BSS Desc list */
@@ -1248,7 +1245,7 @@ void scanRemoveBssDescsByPolicy(IN struct ADAPTER *prAdapter,
 	if (u4RemovePolicy & SCN_RM_POLICY_ENTIRE) {
 		struct BSS_DESC *prBSSDescNext;
 		/* Support AP Selection */
-		uint32_t u4Current = (uint32_t)kalGetBootTime();
+		uint64_t u8Current = kalGetBootTime();
 
 		LINK_FOR_EACH_ENTRY_SAFE(prBssDesc, prBSSDescNext,
 			prBSSDescList, rLinkEntry, struct BSS_DESC) {
@@ -1265,7 +1262,7 @@ void scanRemoveBssDescsByPolicy(IN struct ADAPTER *prAdapter,
 			if (!prBssDesc->prBlack)
 				aisQueryBlackList(prAdapter, prBssDesc);
 			if (prBssDesc->prBlack)
-				prBssDesc->prBlack->u4DisapperTime = u4Current;
+				prBssDesc->prBlack->u8DisapperTime = u8Current;
 			/* end Support AP Selection */
 
 			/* Remove this BSS Desc from the BSS Desc list */
@@ -1325,8 +1322,7 @@ void scanRemoveBssDescByBssid(IN struct ADAPTER *prAdapter,
 			if (!prBssDesc->prBlack)
 				aisQueryBlackList(prAdapter, prBssDesc);
 			if (prBssDesc->prBlack)
-				prBssDesc->prBlack->u4DisapperTime =
-				(uint32_t)kalGetBootTime();
+				prBssDesc->prBlack->u8DisapperTime = kalGetBootTime();
 
 			/* Remove this BSS Desc from the BSS Desc list */
 			LINK_REMOVE_KNOWN_ENTRY(prBSSDescList, prBssDesc);
@@ -1426,8 +1422,7 @@ void scanRemoveBssDescByBandAndNetwork(IN struct ADAPTER *prAdapter,
 			if (!prBssDesc->prBlack)
 				aisQueryBlackList(prAdapter, prBssDesc);
 			if (prBssDesc->prBlack)
-				prBssDesc->prBlack->u4DisapperTime =
-					(uint32_t)kalGetBootTime();
+				prBssDesc->prBlack->u8DisapperTime = kalGetBootTime();
 
 			/* Remove this BSS Desc from the BSS Desc list */
 			LINK_REMOVE_KNOWN_ENTRY(prBSSDescList, prBssDesc);
@@ -1582,6 +1577,12 @@ struct BSS_DESC *scanAddToBssDesc(IN struct ADAPTER *prAdapter,
 	prWlanBeaconFrame = (struct WLAN_BEACON_FRAME *) prSwRfb->pvHeader;
 	ucSubtype = (*(uint8_t *) (prSwRfb->pvHeader) &
 			MASK_FC_SUBTYPE) >> OFFSET_OF_FC_SUBTYPE;
+
+	if (prSwRfb->u2PacketLen < sizeof(struct WLAN_BEACON_FRAME) ||
+		(uint8_t *)prWlanBeaconFrame < prSwRfb->pucRecvBuff ||
+		(uint8_t *)prWlanBeaconFrame + sizeof(struct WLAN_BEACON_FRAME)
+		>= prSwRfb->pucRecvBuff + prSwRfb->prRxStatus->u2RxByteCount)
+		return NULL;
 
 	WLAN_GET_FIELD_16(&prWlanBeaconFrame->u2CapInfo, &u2CapInfo);
 	WLAN_GET_FIELD_64(&prWlanBeaconFrame->au4Timestamp[0], &u8Timestamp);
@@ -2015,6 +2016,11 @@ struct BSS_DESC *scanAddToBssDesc(IN struct ADAPTER *prAdapter,
 			break;
 
 		case ELEM_ID_TIM:
+			if (IE_LEN(pucIE) < ELEM_MIN_LEN_TIM) {
+				DBGLOG(SCN, WARN, "TIM IE_LEN err(%u)!\n",
+						IE_LEN(pucIE));
+				break;
+			}
 			if (IE_LEN(pucIE) <= ELEM_MAX_LEN_TIM) {
 				prBssDesc->fgTIMPresent = TRUE;
 				prBssDesc->ucDTIMPeriod

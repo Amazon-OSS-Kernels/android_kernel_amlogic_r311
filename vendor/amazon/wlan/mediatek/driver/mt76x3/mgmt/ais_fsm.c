@@ -6333,7 +6333,7 @@ static void aisRemoveDisappearedBlacklist(struct ADAPTER *prAdapter)
 	struct BSS_DESC *prBssDesc = NULL;
 	struct LINK *prBSSDescList =
 	    &prAdapter->rWifiVar.rScanInfo.rBSSDescList;
-	uint32_t u4Current = (uint32_t)kalGetBootTime();
+	uint64_t u8Current = kalGetBootTime();
 	u_int8_t fgDisappeared = TRUE;
 
 	LINK_FOR_EACH_ENTRY_SAFE(prEntry, prNextEntry, prBlackList, rLinkEntry,
@@ -6351,8 +6351,9 @@ static void aisRemoveDisappearedBlacklist(struct ADAPTER *prAdapter)
 				break;
 			}
 		}
-		if (!fgDisappeared || (u4Current - prEntry->u4DisapperTime) <
-		    600 * USEC_PER_SEC)
+		if (!fgDisappeared ||
+		    CHECK_FOR_TIMEOUT64(u8Current, prEntry->u8DisapperTime,
+		                        600 * USEC_PER_SEC))
 			continue;
 
 		DBGLOG(AIS, INFO, "Remove disappeared blacklist %s " MACSTR,
@@ -6554,11 +6555,17 @@ static uint8_t aisGetNeighborApPreference(uint8_t *pucSubIe, uint8_t ucLength)
 static uint64_t aisGetBssTermTsf(uint8_t *pucSubIe, uint8_t ucLength)
 {
 	uint16_t u2Offset = 0;
+	uint64_t u8BssTermTsf = 0;
 
 	IE_FOR_EACH(pucSubIe, ucLength, u2Offset) {
-		if (IE_ID(pucSubIe) == ELEM_ID_NR_BSS_TERMINATION_DURATION)
-			return *(uint64_t *) &pucSubIe[2];
+		if (IE_ID(pucSubIe) == ELEM_ID_NR_BSS_TERMINATION_DURATION &&
+			IE_LEN(pucSubIe) > sizeof(uint64_t)) {
+			kalMemCopy(&u8BssTermTsf, &pucSubIe[2],
+					sizeof(uint64_t));
+			return u8BssTermTsf;
+		}
 	}
+
 	/* If no preference element is presence, give default value(lowest) 0 */
 	return 0;
 }
@@ -6571,23 +6578,32 @@ void aisCollectNeighborAP(struct ADAPTER *prAdapter, uint8_t *pucApBuf,
 	    &prAdapter->rWifiVar.rAisSpecificBssInfo;
 	struct LINK_MGMT *prAPlist = &prAisSpecBssInfo->rNeighborApList;
 	struct IE_NEIGHBOR_REPORT *prIe = (struct IE_NEIGHBOR_REPORT *)pucApBuf;
-	uint16_t u2BufLen;
+	int16_t c2BufLen = 0;
+	int16_t c2ValidIELen = 0;
 	uint16_t u2PrefIsZeroCount = 0;
 
 	if (!prIe || !u2ApBufLen || u2ApBufLen < prIe->ucLength)
 		return;
 	LINK_MERGE_TO_TAIL(&prAPlist->rFreeLink, &prAPlist->rUsingLink);
-	for (u2BufLen = u2ApBufLen; u2BufLen > 0 && u2BufLen >= IE_SIZE(prIe);
-		u2BufLen -= IE_SIZE(prIe),
+	for (c2BufLen = (int16_t)u2ApBufLen; c2BufLen >=
+		(int16_t)sizeof(struct IE_NEIGHBOR_REPORT);
+		c2BufLen -= (int16_t)IE_SIZE(prIe),
 		prIe = (struct IE_NEIGHBOR_REPORT *)((uint8_t *) prIe +
-						 IE_SIZE(prIe))) {
+						  IE_SIZE(prIe))) {
 		/* BIT0-1: AP reachable, BIT2: same security with current
 		 ** setting,
 		 ** BIT3: same authenticator with current AP
 		 */
 		if (prIe->ucId != ELEM_ID_NEIGHBOR_REPORT ||
-		    (prIe->u4BSSIDInfo & 0x7) != 0x7)
+			(prIe->u4BSSIDInfo & 0x7) != 0x7) {
+			if (c2BufLen < (int16_t) IE_SIZE(prIe)) {
+				DBGLOG(AIS, WARN,
+					"Truncated neighbor report\n");
+				break;
+			}
 			continue;
+		}
+
 		LINK_MGMT_GET_ENTRY(prAPlist, prNeighborAP,
 				    struct NEIGHBOR_AP_T, VIR_MEM_TYPE);
 		if (!prNeighborAP)
@@ -6598,18 +6614,27 @@ void aisCollectNeighborAP(struct ADAPTER *prAdapter, uint8_t *pucApBuf,
 		prNeighborAP->fgQoS = !!(prIe->u4BSSIDInfo & BIT(5));
 		prNeighborAP->fgSameMD = !!(prIe->u4BSSIDInfo & BIT(10));
 		prNeighborAP->ucChannel = prIe->ucChnlNumber;
+
+		/* Add boundary check c2ValidIELen to fix fuzz issue */
+		c2ValidIELen = ((int16_t)IE_SIZE(prIe) < c2BufLen) ?
+			(int16_t)IE_SIZE(prIe) : c2BufLen;
+
+		if (c2ValidIELen <
+			(int16_t)OFFSET_OF(struct IE_NEIGHBOR_REPORT, aucSubElem))
+			break;
+
 		prNeighborAP->fgPrefPresence = aisCandPrefIEIsExist(
 			prIe->aucSubElem,
-			IE_SIZE(prIe) - OFFSET_OF(struct IE_NEIGHBOR_REPORT,
-						   aucSubElem));
+			(uint8_t)c2ValidIELen -
+			OFFSET_OF(struct IE_NEIGHBOR_REPORT, aucSubElem));
 		prNeighborAP->ucPreference = aisGetNeighborApPreference(
 			prIe->aucSubElem,
-			IE_SIZE(prIe) - OFFSET_OF(struct IE_NEIGHBOR_REPORT,
-						  aucSubElem));
+			(uint8_t)c2ValidIELen -
+			OFFSET_OF(struct IE_NEIGHBOR_REPORT, aucSubElem));
 		prNeighborAP->u8TermTsf = aisGetBssTermTsf(
 			prIe->aucSubElem,
-			IE_SIZE(prIe) - OFFSET_OF(struct IE_NEIGHBOR_REPORT,
-					       aucSubElem));
+			(uint8_t)c2ValidIELen -
+			OFFSET_OF(struct IE_NEIGHBOR_REPORT, aucSubElem));
 		COPY_MAC_ADDR(prNeighborAP->aucBssid, prIe->aucBSSID);
 		DBGLOG(AIS, INFO,
 		       "Bssid" MACSTR

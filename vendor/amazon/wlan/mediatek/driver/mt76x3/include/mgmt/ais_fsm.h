@@ -205,7 +205,7 @@ struct AIS_BLACKLIST_ITEM {
 	uint8_t ucSSIDLen;
 	uint8_t aucSSID[32];
 	OS_SYSTIME rAddTime;
-	uint32_t u4DisapperTime;
+	uint64_t u8DisapperTime;
 	u_int8_t fgIsInFWKBlacklist;
 };
 /* end Support AP Selection */

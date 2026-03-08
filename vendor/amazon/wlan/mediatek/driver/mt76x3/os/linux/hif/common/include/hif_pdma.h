@@ -334,7 +334,7 @@ struct PCIE_CHIP_CR_MAPPING {
 struct MSDU_TOKEN_ENTRY {
 	uint32_t u4Token;
 	u_int8_t fgInUsed;
-	struct timeval rTs;	/* token tx timestamp */
+	uint64_t u8Tm;	/* token tx timestamp */
 	uint32_t u4CpuIdx;	/* tx ring cell index */
 	struct MSDU_INFO *prMsduInfo;
 	void *prPacket;
@@ -416,7 +416,6 @@ struct MSDU_TOKEN_ENTRY *halGetMsduTokenEntry(IN struct ADAPTER *prAdapter,
 					      uint32_t u4TokenNum);
 struct MSDU_TOKEN_ENTRY *halAcquireMsduToken(IN struct ADAPTER *prAdapter);
 void halReturnMsduToken(IN struct ADAPTER *prAdapter, uint32_t u4TokenNum);
-void halReturnTimeoutMsduToken(struct ADAPTER *prAdapter);
 void halTxUpdateCutThroughDesc(struct GLUE_INFO *prGlueInfo,
 			       struct MSDU_INFO *prMsduInfo,
 			       struct MSDU_TOKEN_ENTRY *prFillToken,
@@ -455,7 +454,6 @@ bool kalDevReadData(struct GLUE_INFO *prGlueInfo, uint16_t u2Port,
 bool kalDevKickCmd(struct GLUE_INFO *prGlueInfo);
 
 /* Debug functions */
-int halTimeCompare(struct timeval *prTs1, struct timeval *prTs2);
 void halShowPdmaInfo(IN struct ADAPTER *prAdapter);
 void halShowPseInfo(IN struct ADAPTER *prAdapter);
 void halShowPleInfo(IN struct ADAPTER *prAdapter);

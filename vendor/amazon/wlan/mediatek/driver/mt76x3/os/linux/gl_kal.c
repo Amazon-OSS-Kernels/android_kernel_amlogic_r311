@@ -6549,25 +6549,7 @@ nla_put_failure:
 
 uint64_t kalGetBootTime(void)
 {
-#if KERNEL_VERSION(4, 20, 0) <= LINUX_VERSION_CODE
-	struct timespec64 ts;
-#else
-	struct timespec ts;
-#endif
-	uint64_t bootTime = 0;
-
-#if KERNEL_VERSION(4, 20, 0) <= LINUX_VERSION_CODE
-	ktime_get_boottime_ts64(&ts);
-#elif KERNEL_VERSION(2, 6, 39) <= LINUX_VERSION_CODE
-	get_monotonic_boottime(&ts);
-#else
-	ts = ktime_to_timespec(ktime_get());
-#endif
-
-	bootTime = ts.tv_sec;
-	bootTime *= USEC_PER_SEC;
-	bootTime += ts.tv_nsec / NSEC_PER_USEC;
-	return bootTime;
+	return kal_div_u64(KAL_GET_SYS_BOOTTIME(), NSEC_PER_USEC);
 }
 
 #if CFG_ASSERT_DUMP
@@ -7984,6 +7966,16 @@ inline int32_t kalPerMonInit(IN struct GLUE_INFO
 {
 	struct PERF_MONITOR_T *prPerMonitor;
 
+	if (prGlueInfo == NULL) {
+		DBGLOG(SW4, ERROR, "prGlueInfo is NULL\n");
+		return -1;
+	}
+
+	if (prGlueInfo->prAdapter == NULL) {
+		DBGLOG(SW4, ERROR, "prAdapter is NULL\n");
+		return -1;
+	}
+
 	prPerMonitor = &prGlueInfo->prAdapter->rPerMonitor;
 	DBGLOG(SW4, TRACE, "enter %s\n", __func__);
 	if (KAL_TEST_BIT(PERF_MON_RUNNING_BIT,
@@ -8014,6 +8006,16 @@ inline int32_t kalPerMonDisable(IN struct GLUE_INFO
 {
 	struct PERF_MONITOR_T *prPerMonitor;
 
+	if (prGlueInfo == NULL) {
+		DBGLOG(SW4, ERROR, "prGlueInfo is NULL\n");
+		return -1;
+	}
+
+	if (prGlueInfo->prAdapter == NULL) {
+		DBGLOG(SW4, ERROR, "prAdapter is NULL\n");
+		return -1;
+	}
+
 	prPerMonitor = &prGlueInfo->prAdapter->rPerMonitor;
 
 	DBGLOG(SW4, INFO, "enter %s\n", __func__);
@@ -8033,6 +8035,16 @@ inline int32_t kalPerMonEnable(IN struct GLUE_INFO
 {
 	struct PERF_MONITOR_T *prPerMonitor;
 
+	if (prGlueInfo == NULL) {
+		DBGLOG(SW4, ERROR, "prGlueInfo is NULL\n");
+		return -1;
+	}
+
+	if (prGlueInfo->prAdapter == NULL) {
+		DBGLOG(SW4, ERROR, "prAdapter is NULL\n");
+		return -1;
+	}
+
 	prPerMonitor = &prGlueInfo->prAdapter->rPerMonitor;
 
 	DBGLOG(SW4, INFO, "enter %s\n", __func__);
@@ -8046,6 +8058,16 @@ inline int32_t kalPerMonStart(IN struct GLUE_INFO
 			      *prGlueInfo)
 {
 	struct PERF_MONITOR_T *prPerMonitor;
+
+	if (prGlueInfo == NULL) {
+		DBGLOG(SW4, ERROR, "prGlueInfo is NULL\n");
+		return -1;
+	}
+
+	if (prGlueInfo->prAdapter == NULL) {
+		DBGLOG(SW4, ERROR, "prAdapter is NULL\n");
+		return -1;
+	}
 
 	prPerMonitor = &prGlueInfo->prAdapter->rPerMonitor;
 	DBGLOG(SW4, TEMP, "enter %s\n", __func__);
@@ -8083,6 +8105,16 @@ inline int32_t kalPerMonStop(IN struct GLUE_INFO
 			     *prGlueInfo)
 {
 	struct PERF_MONITOR_T *prPerMonitor;
+
+	if (prGlueInfo == NULL) {
+		DBGLOG(SW4, ERROR, "prGlueInfo is NULL\n");
+		return -1;
+	}
+
+	if (prGlueInfo->prAdapter == NULL) {
+		DBGLOG(SW4, ERROR, "prAdapter is NULL\n");
+		return -1;
+	}
 
 	prPerMonitor = &prGlueInfo->prAdapter->rPerMonitor;
 	DBGLOG(SW4, TRACE, "enter %s\n", __func__);

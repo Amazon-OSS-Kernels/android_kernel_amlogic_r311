@@ -294,18 +294,6 @@ u_int8_t glResetTrigger(struct ADAPTER *prAdapter,
 
 	fgIsResetting = TRUE;
 
-#if CFG_FTV_60720_PATCH
-	if(prGlueInfo == NULL) {
-		DBGLOG(INIT, ERROR, "prGlueInfo is NULL\n");
-		return FALSE;
-	}
-
-	if (!completion_done(&prGlueInfo->rPendComp)) {
-		complete(&prGlueInfo->rPendComp);
-		DBGLOG(INIT, ERROR, "release pending kalIoctl operation\n");
-	}
-#endif
-
 	if (eResetReason != RST_BT_TRIGGER)
 		DBGLOG(INIT, STATE, "[SER][L0] wifi trigger eResetReason=%d\n",
 								eResetReason);
@@ -328,6 +316,19 @@ u_int8_t glResetTrigger(struct ADAPTER *prAdapter,
 			return fgResult;
 		}
 	}
+
+#if CFG_FTV_60720_PATCH
+	if(prGlueInfo == NULL) {
+		DBGLOG(INIT, ERROR, "prGlueInfo is NULL\n");
+		return FALSE;
+	}
+
+	if (!completion_done(&prGlueInfo->rPendComp)) {
+		complete(&prGlueInfo->rPendComp);
+		DBGLOG(INIT, ERROR, "release pending kalIoctl operation\n");
+	}
+#endif
+
 	u2FwOwnVersion = prAdapter->rVerInfo.u2FwOwnVersion;
 	u2FwPeerVersion = prAdapter->rVerInfo.u2FwPeerVersion;
 

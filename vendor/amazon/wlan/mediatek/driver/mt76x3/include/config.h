@@ -266,6 +266,11 @@
 #define CFG_SUPPORT_MAGIC_PKT_VENDOR_EVENT	0
 #endif
 
+/* Support CSA channel switch sync between host and FW */
+#ifndef CFG_SUPPORT_CSA_CH_SWITCH_SYNC
+#define CFG_SUPPORT_CSA_CH_SWITCH_SYNC	0
+#endif
+
 /* Enable A-MSDU RX Reordering Support */
 #define CFG_SUPPORT_RX_AMSDU	1
 

@@ -97,7 +97,7 @@ struct APPEND_VAR_IE_ENTRY txProbeRspIETable[] = {
 #if (CFG_SUPPORT_DFS_MASTER == 1)
 u_int8_t g_fgManualCac = FALSE;
 uint32_t g_u4DriverCacTime;
-uint32_t g_u4CacStartBootTime;
+uint64_t g_u8CacStartTime;
 uint8_t g_ucRadarDetectMode = FALSE;
 struct P2P_RADAR_INFO g_rP2pRadarInfo;
 uint8_t g_ucDfsState = DFS_STATE_INACTIVE;
@@ -2212,20 +2212,22 @@ uint8_t *p2pFuncShowDfsState(void)
 
 void p2pFuncRecordCacStartBootTime(void)
 {
-	g_u4CacStartBootTime = kalGetBootTime();
+	g_u8CacStartTime = kalGetBootTime();
 }
 
 uint32_t p2pFuncGetCacRemainingTime(void)
 {
-	uint32_t u4CurrentBootTime;
-	uint32_t u4CacRemainingTime;
+	uint64_t u8CacRemainingBootTime;
+	uint64_t u8CacRemainingTime;
 
-	u4CurrentBootTime = kalGetBootTime();
+	u8CacRemainingBootTime = kalGetBootTime() - g_u8CacStartTime;
 
-	u4CacRemainingTime = g_u4DriverCacTime -
-		(u4CurrentBootTime - g_u4CacStartBootTime)/1000000;
+	u8CacRemainingTime = (uint64_t)g_u4DriverCacTime -
+		kal_div_u64(u8CacRemainingBootTime, 1000000);
+	if (u8CacRemainingTime > 0xFFFF)
+		return 0xFFFF;
 
-	return u4CacRemainingTime;
+	return (uint32_t)u8CacRemainingTime;
 }
 #endif
 

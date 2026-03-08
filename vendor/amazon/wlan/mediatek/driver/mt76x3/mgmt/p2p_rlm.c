@@ -458,7 +458,7 @@ void rlmProcessPublicAction(struct ADAPTER *prAdapter,
 
 	if (rlmUpdateBwByChListForAP(prAdapter, prBssInfo)) {
 		bssUpdateBeaconContent(prAdapter, prBssInfo->ucBssIndex);
-		rlmSyncOperationParams(prAdapter, prBssInfo);
+		rlmSyncOperationParams(prAdapter, prBssInfo, FALSE);
 	}
 
 	/* Check if OBSS scan exemption response should be sent */
@@ -631,7 +631,7 @@ void rlmUpdateParamsForAP(struct ADAPTER *prAdapter,
 		else
 			prBssInfo->u2CapInfo &= ~CAP_INFO_SHORT_SLOT_TIME;
 
-		rlmSyncOperationParams(prAdapter, prBssInfo);
+		rlmSyncOperationParams(prAdapter, prBssInfo, FALSE);
 		fgUpdateBeacon = TRUE;
 	}
 

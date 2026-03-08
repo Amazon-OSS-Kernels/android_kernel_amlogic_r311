@@ -172,7 +172,7 @@ const u_int8_t afgIsOFDMRate[RATE_NUM_SW] = {
  * @param[in] prIeExtSupportedRate       Pointer to the Ext Supported Rate IE
  * @param[out] pu2OperationalRateSet     Pointer to the Operational Rate Set
  * @param[out] pu2BSSBasicRateSet        Pointer to the Basic Rate Set
- * @param[out] pfgIsUnknownBSSBasicRate  Pointer to a Flag to indicate that
+ * @param[out] pfgIsUnknownBSSBasicRate  Pointer to a Flag to indicate that
  *                                       Basic Rate Set has unknown Rate Code
  *
  * \return (none)
@@ -303,7 +303,7 @@ rateGetDataRatesFromRateSet(IN uint16_t u2OperationalRateSet,
 	ASSERT(pucDataRates);
 	ASSERT(pucDataRatesLen);
 
-	ASSERT(u2BSSBasicRateSet == (u2OperationalRateSet & u2BSSBasicRateSet));
+	//ASSERT(u2BSSBasicRateSet == (u2OperationalRateSet & u2BSSBasicRateSet));
 
 	for (i = RATE_1M_SW_INDEX, j = 0; i < RATE_NUM_SW; i++) {
 		if (u2OperationalRateSet & BIT(i)) {

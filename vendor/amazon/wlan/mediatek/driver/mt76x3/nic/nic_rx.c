@@ -4544,6 +4544,10 @@ uint8_t nicIsActionFrameValid(IN struct SW_RFB *prSwRfb)
 	if (prSwRfb->u2PacketLen < sizeof(struct WLAN_ACTION_FRAME) - 1)
 		return FALSE;
 	prActFrame = (struct WLAN_ACTION_FRAME *) prSwRfb->pvHeader;
+	if ((uint8_t *)prActFrame < prSwRfb->pucRecvBuff ||
+		(uint8_t *)prActFrame + sizeof(struct WLAN_ACTION_FRAME) >=
+		prSwRfb->pucRecvBuff + prSwRfb->prRxStatus->u2RxByteCount)
+		return FALSE;
 
 	DBGLOG(RSN, TRACE, "Action frame category=%d action=%d\n",
 	       prActFrame->ucCategory, prActFrame->ucAction);
