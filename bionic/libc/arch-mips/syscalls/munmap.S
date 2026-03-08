@@ -2,7 +2,7 @@
 
 #include <private/bionic_asm.h>
 
-ENTRY(munmap)
+ENTRY(__munmap)
     .set noreorder
     .cpload t9
     li v0, __NR_munmap
@@ -16,4 +16,4 @@ ENTRY(munmap)
     j t9
     nop
     .set reorder
-END(munmap)
+END(__munmap)

@@ -26,12 +26,21 @@
  * SUCH DAMAGE.
  */
 
+/*
+ * Portions of this file are copyright (c) 2023 Amazon.com, Inc. or its affiliates.  All rights reserved.
+ *
+ * PORTIONS OF THIS FILE ARE AMAZON PROPRIETARY/CONFIDENTIAL.  USE IS SUBJECT TO LICENSE TERMS.
+ *
+ * Amazon modifications are indicated by [fosmod_* comments].
+ */
+
 #ifndef _PRIVATE_BIONIC_GLOBALS_H
 #define _PRIVATE_BIONIC_GLOBALS_H
 
 #include <sys/cdefs.h>
 
 #include "private/bionic_malloc_dispatch.h"
+#include "private/bionic_mmap_dispatch.h" // fosmod_memleak_debug oneline
 #include "private/bionic_vdso.h"
 #include "private/WriteProtected.h"
 
@@ -39,6 +48,7 @@ struct libc_globals {
   vdso_entry vdso[VDSO_END];
   long setjmp_cookie;
   MallocDispatch malloc_dispatch;
+  MmapDispatch mmap_dispatch; // fosmod_memleak_debug oneline
 };
 
 __LIBC_HIDDEN__ extern WriteProtected<libc_globals> __libc_globals;
@@ -46,6 +56,7 @@ __LIBC_HIDDEN__ extern WriteProtected<libc_globals> __libc_globals;
 class KernelArgumentBlock;
 __LIBC_HIDDEN__ void __libc_init_global_stack_chk_guard(KernelArgumentBlock& args);
 __LIBC_HIDDEN__ void __libc_init_malloc(libc_globals* globals);
+__LIBC_HIDDEN__ void __libc_init_mmap(libc_globals* globals); // fosmod_memleak_debug oneline
 __LIBC_HIDDEN__ void __libc_init_setjmp_cookie(libc_globals* globals, KernelArgumentBlock& args);
 __LIBC_HIDDEN__ void __libc_init_vdso(libc_globals* globals, KernelArgumentBlock& args);
 

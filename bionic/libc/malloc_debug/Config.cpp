@@ -26,6 +26,14 @@
  * SUCH DAMAGE.
  */
 
+/*
+ * Portions of this file are copyright (c) 2023 Amazon.com, Inc. or its affiliates.  All rights reserved.
+ *
+ * PORTIONS OF THIS FILE ARE AMAZON PROPRIETARY/CONFIDENTIAL.  USE IS SUBJECT TO LICENSE TERMS.
+ *
+ * Amazon modifications are indicated by [fosmod_* comments].
+ */
+
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
@@ -402,6 +410,13 @@ bool Config::Set(const char* options_str) {
   const OptionString option_record_allocs_file(
       "record_allocs_file", 0, DEFAULT_RECORD_ALLOCS_FILE, &this->record_allocs_file);
 
+  /* fosmod_memleak_debug begin */
+#if defined(FOSMOD_MEMLEAK_DEBUG)
+  // mmap_debug option
+  const Option option_mmap_track("mmap_track", TRACK_MMAPS);
+#endif
+  /* fosmod_memleak_debug end */
+
   const Option* option_list[] = {
     &option_guard, &option_front_guard, &option_rear_guard,
     &option_backtrace, &option_backtrace_enable_on_signal,
@@ -410,6 +425,11 @@ bool Config::Set(const char* options_str) {
     &option_free_track, &option_free_track_backtrace_num_frames,
     &option_leak_track,
     &option_record_allocs, &option_record_allocs_file,
+    /* fosmod_memleak_debug begin */
+#if defined(FOSMOD_MEMLEAK_DEBUG)
+    &option_mmap_track,
+#endif
+    /* fosmod_memleak_debug end */
   };
 
   // Set defaults for all of the options.

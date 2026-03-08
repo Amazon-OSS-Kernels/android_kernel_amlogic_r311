@@ -26,6 +26,14 @@
  * SUCH DAMAGE.
  */
 
+/*
+ * Portions of this file are copyright (c) 2023 Amazon.com, Inc. or its affiliates.  All rights reserved.
+ *
+ * PORTIONS OF THIS FILE ARE AMAZON PROPRIETARY/CONFIDENTIAL.  USE IS SUBJECT TO LICENSE TERMS.
+ *
+ * Amazon modifications are indicated by [fosmod_* comments].
+ */
+
 #include <errno.h>
 #include <stdint.h>
 #include <sys/mman.h>
@@ -70,8 +78,4 @@ void* mmap64(void* addr, size_t size, int prot, int flags, int fd, off64_t offse
   }
 
   return result;
-}
-
-void* mmap(void* addr, size_t size, int prot, int flags, int fd, off_t offset) {
-  return mmap64(addr, size, prot, flags, fd, static_cast<off64_t>(offset));
 }

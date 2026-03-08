@@ -29,7 +29,7 @@
 /*
  * malloc_debug.cpp
  *
- * Copyright (c) 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright (c) 2021-2023 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * PROPRIETARY/CONFIDENTIAL
  *
@@ -297,6 +297,13 @@ void debug_get_malloc_leak_info(uint8_t** info, size_t* overall_size,
 }
 
 void debug_free_malloc_leak_info(uint8_t* info) {
+  /* fosmod_memleak_debug begin */
+#if defined(FOSMOD_MEMLEAK_DEBUG)
+  if (g_debug->config().options & TRACK_MMAPS) {
+    free(info);
+  } else
+#endif
+  /* fosmod_memleak_debug end */
   g_dispatch->free(info);
 }
 

@@ -2,7 +2,7 @@
 
 #include <private/bionic_asm.h>
 
-ENTRY(munmap)
+ENTRY(__munmap)
     movl    $__NR_munmap, %eax
     syscall
     cmpq    $-MAX_ERRNO, %rax
@@ -12,4 +12,5 @@ ENTRY(munmap)
     call    __set_errno_internal
 1:
     ret
-END(munmap)
+END(__munmap)
+.hidden __munmap
