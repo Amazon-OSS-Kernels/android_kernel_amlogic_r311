@@ -723,9 +723,6 @@ WLAN_STATUS wlanAdapterStop(IN P_ADAPTER_T prAdapter)
 	/* Release all CMD/MGMT/SEC frame in command queue */
 	kalClearCommandQueue(prAdapter->prGlueInfo);
 
-	/* Release all CMD in pending command queue */
-	wlanClearPendingCommandQueue(prAdapter);
-
 #if CFG_SUPPORT_MULTITHREAD
 
 	/* Flush all items in queues for multi-thread */
@@ -1627,48 +1624,6 @@ VOID wlanClearRxToOsQueue(IN P_ADAPTER_T prAdapter)
 
 /*----------------------------------------------------------------------------*/
 /*!
- * \brief This routine is used to clear all commands in pending command queue
- * \param prAdapter  Pointer of Adapter Data Structure
- *
- * \retval none
-*/
-/*----------------------------------------------------------------------------*/
-void wlanClearPendingCommandQueue(IN P_ADAPTER_T prAdapter)
-{
-    QUE_T rTempCmdQue;
-    P_QUE_T prTempCmdQue = &rTempCmdQue;
-    P_QUE_ENTRY_T prQueueEntry = (P_QUE_ENTRY_T) NULL;
-    P_CMD_INFO_T prCmdInfo = (P_CMD_INFO_T) NULL;
-
-	KAL_SPIN_LOCK_DECLARATION();
-    QUEUE_INITIALIZE(prTempCmdQue);
-
-	ASSERT(prAdapter);
-
-	KAL_ACQUIRE_SPIN_LOCK(prAdapter, SPIN_LOCK_CMD_PENDING);
-
-	QUEUE_MOVE_ALL(prTempCmdQue,&prAdapter->rPendingCmdQueue);
-
-	KAL_RELEASE_SPIN_LOCK(prAdapter, SPIN_LOCK_CMD_PENDING);
-
-	QUEUE_REMOVE_HEAD(prTempCmdQue, prQueueEntry, P_QUE_ENTRY_T);
-
-	while (prQueueEntry) {
-		prCmdInfo = (P_CMD_INFO_T) prQueueEntry;
-
-		if (prCmdInfo->pfCmdTimeoutHandler)
-			prCmdInfo->pfCmdTimeoutHandler(prAdapter, prCmdInfo);
-		else
-			wlanReleaseCommand(prAdapter, prCmdInfo, TX_RESULT_QUEUE_CLEARANCE);
-
-		nicTxCancelSendingCmd(prAdapter, prCmdInfo);
-		cmdBufFreeCmdInfo(prAdapter, prCmdInfo);
-		QUEUE_REMOVE_HEAD(prTempCmdQue, prQueueEntry, P_QUE_ENTRY_T);
-    }
-}
-
-/*----------------------------------------------------------------------------*/
-/*!
  * \brief This function will release thd CMD_INFO upon its attribution
  *
  * \param prAdapter  Pointer of Adapter Data Structure
@@ -1778,8 +1733,7 @@ VOID wlanReleasePendingOid(IN P_ADAPTER_T prAdapter, IN ULONG ulParamPtr)
 #if CFG_CHIP_RESET_SUPPORT
 			DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 						prAdapter->fgIsChipNoAck);
-
-			GL_RESET_TRIGGER(prAdapter, RST_OID_TIMEOUT);
+			glResetTrigger(prAdapter);
 #endif
 		}
 		set_bit(GLUE_FLAG_HIF_PRT_HIF_DBG_INFO_BIT, &(prAdapter->prGlueInfo->ulFlag));
@@ -2315,7 +2269,7 @@ WLAN_STATUS wlanSendNicPowerCtrlCmd(IN P_ADAPTER_T prAdapter, IN UINT_8 ucPowerM
 #if CFG_CHIP_RESET_SUPPORT
 				DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 						prAdapter->fgIsChipNoAck);
-				GL_RESET_TRIGGER(prAdapter, RST_DRV_OWN_FAIL);
+				glResetTrigger(prAdapter);
 #endif
 				break;
 			}

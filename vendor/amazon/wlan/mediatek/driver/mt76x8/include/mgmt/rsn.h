@@ -171,9 +171,6 @@
 #define ELEM_MAX_LEN_ASSOC_RSP_WSC_IE          (32 - ELEM_HDR_LEN)
 #define ELEM_MAX_LEN_TIMEOUT_IE          (5)
 
-#define SA_QUERY_RETRY_TIMEOUT	3000
-#define SA_QUERY_TIMEOUT	501
-
 /*******************************************************************************
 *                  F U N C T I O N   D E C L A R A T I O N S
 ********************************************************************************

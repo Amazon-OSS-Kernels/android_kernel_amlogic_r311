@@ -354,7 +354,6 @@ int mtk_usb_vendor_request(IN P_GLUE_INFO_T prGlueInfo, IN UCHAR uEndpointAddres
 	void *xfer_buf;
 	/* refer to RTUSB_VendorRequest */
 	int ret = 0;
-	static UINT_8 fail_count = 0;
 
 	/* TODO: semaphore */
 
@@ -397,19 +396,6 @@ int mtk_usb_vendor_request(IN P_GLUE_INFO_T prGlueInfo, IN UCHAR uEndpointAddres
 			memcpy(TransferBuffer, xfer_buf, TransferBufferLength);
 	}
 	mutex_unlock(&prHifInfo->vendor_req_sem);
-
-	if (ret != TransferBufferLength) {
-		fail_count++;
-	}
-	else
-		fail_count = 0;
-
-	// trigger chip reset to recover usb bus if we see 5 consecutive failures
-	if(fail_count >= 5) {
-		DBGLOG(REQ, ERROR, "USB bus failure, trigger chip reset\n");
-		fail_count =0;
-		GL_RESET_TRIGGER(prGlueInfo->prAdapter, RST_HIF_FAIL);
-	}
 
 	return (ret == TransferBufferLength) ? 0 : ret;
 }

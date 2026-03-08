@@ -4026,12 +4026,11 @@ VOID rlmCsaTimeout(IN P_ADAPTER_T prAdapter,
 		prCSAParams->fgActionNewChannelIsDFS = FALSE;
 		aisBssLinkDown(prAdapter);
 	}
-	else
-#endif
-	{
+	else{
 		qmUpdateStaRec(prAdapter, prStaRec);
-		DBGLOG(RLM, EVENT, "[CSA] TxAllowed = %d\n", prStaRec->fgIsTxAllowed);
+		DBGLOG(RLM, EVENT, "[CSA] TxAllowed = TRUE\n");
 	}
+#endif
 
 	rlmResetCSAParams(prBssInfo);
 }

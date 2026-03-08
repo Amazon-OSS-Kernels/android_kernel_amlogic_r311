@@ -795,10 +795,6 @@ BOOLEAN p2pNetUnregister(P_GLUE_INFO_T prGlueInfo, BOOLEAN fgIsRtnlLockAcquired)
 	BOOLEAN fgDoUnregister = FALSE;
 	BOOLEAN fgRollbackRtnlLock = FALSE;
 	UINT_8 ucRoleIdx;
-	struct net_device *prRoleDev = NULL;
-	int iftype = 0;
-	P_BSS_INFO_T prP2pBssInfo = NULL;
-	P_NETDEV_PRIVATE_GLUE_INFO prNetDevPriv = NULL;
 
 	GLUE_SPIN_LOCK_DECLARATION();
 
@@ -817,33 +813,6 @@ BOOLEAN p2pNetUnregister(P_GLUE_INFO_T prGlueInfo, BOOLEAN fgIsRtnlLockAcquired)
 
 	/* prepare for removal */
 	if (prGlueInfo->prP2PInfo[0]->prDevHandler != prGlueInfo->prP2PInfo[0]->aprRoleHandler) {
-
-		prRoleDev = prGlueInfo->prP2PInfo[0]->aprRoleHandler;
-
-		if (prRoleDev != NULL) {
-		/* info cfg80211 disconnect */
-			prNetDevPriv = (NETDEV_PRIVATE_GLUE_INFO *)netdev_priv(prRoleDev);
-			iftype = prRoleDev->ieee80211_ptr->iftype;
-			prP2pBssInfo = GET_BSS_INFO_BY_INDEX(prGlueInfo->prAdapter,
-								prNetDevPriv->ucBssIdx);
-
-			/* p2pRoleFsmUninit may call cfg80211_disconnected.
-			 * p2pRemove()->glUnregisterP2P->p2pRoleFsmUninit(),
-			 * and it may be too late to call cfg80211_disconnected there
-			 */
-
-			if ((prP2pBssInfo != NULL) &&
-				(prP2pBssInfo->eConnectionState == PARAM_MEDIA_STATE_CONNECTED) &&
-				((iftype == NL80211_IFTYPE_P2P_CLIENT) ||
-				(iftype == NL80211_IFTYPE_STATION))) {
-#if CFG_WPS_DISCONNECT || (KERNEL_VERSION(4, 4, 0) <= CFG80211_VERSION_CODE)
-					cfg80211_disconnected(prRoleDev, 0, NULL, 0, TRUE, GFP_KERNEL);
-#else
-					cfg80211_disconnected(prRoleDev, 0, NULL, 0, GFP_KERNEL);
-#endif
-			}
-		}
-
 		if (netif_carrier_ok(prGlueInfo->prP2PInfo[0]->aprRoleHandler))
 			netif_carrier_off(prGlueInfo->prP2PInfo[0]->aprRoleHandler);
 

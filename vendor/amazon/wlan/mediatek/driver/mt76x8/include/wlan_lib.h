@@ -1008,8 +1008,6 @@ VOID wlanClearDataQueue(IN P_ADAPTER_T prAdapter);
 VOID wlanClearRxToOsQueue(IN P_ADAPTER_T prAdapter);
 #endif
 
-VOID wlanClearPendingCommandQueue(IN P_ADAPTER_T prAdapter);
-
 VOID wlanReleaseCommand(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo, IN ENUM_TX_RESULT_CODE_T rTxDoneStatus);
 
 VOID wlanReleasePendingOid(IN P_ADAPTER_T prAdapter, IN ULONG ulParamPtr);
