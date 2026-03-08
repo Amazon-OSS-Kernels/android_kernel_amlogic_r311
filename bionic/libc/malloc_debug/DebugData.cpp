@@ -26,6 +26,14 @@
  * SUCH DAMAGE.
  */
 
+/*
+ * Portions of this file are copyright (c) 2023 Amazon.com, Inc. or its affiliates.  All rights reserved.
+ *
+ * PORTIONS OF THIS FILE ARE AMAZON PROPRIETARY/CONFIDENTIAL.  USE IS SUBJECT TO LICENSE TERMS.
+ *
+ * Amazon modifications are indicated by [fosmod_* comments].
+ */
+
 #include <stdint.h>
 
 #include "BacktraceData.h"
@@ -55,6 +63,15 @@ bool DebugData::Initialize(const char* options) {
         return false;
       }
     }
+
+    /* fosmod_memleak_debug begin */
+#if defined(FOSMOD_MEMLEAK_DEBUG)
+    if (config_.options & TRACK_MMAPS) {
+      // Align to PAGE_SIZE
+      pointer_offset_ = BIONIC_ALIGN(pointer_offset_, 4096);
+    }
+#endif
+    /* fosmod_memleak_debug end */
 
     if (config_.options & FRONT_GUARD) {
       front_guard.reset(new FrontGuardData(this, config_, &pointer_offset_));

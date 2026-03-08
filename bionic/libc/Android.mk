@@ -1197,6 +1197,7 @@ LOCAL_SRC_FILES := \
     $(libc_arch_dynamic_src_files) \
     $(libc_ndk_stub_src_files) \
     bionic/malloc_common.cpp \
+    bionic/mmap_common.cpp \
 
 LOCAL_SRC_FILES_arm += \
     arch-common/bionic/crtbegin_so.c \
@@ -1342,6 +1343,7 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := \
     $(libc_arch_static_src_files) \
     bionic/malloc_common.cpp \
+    bionic/mmap_common.cpp \
     bionic/libc_init_static.cpp \
 
 LOCAL_CFLAGS := $(libc_common_cflags) \
@@ -1380,6 +1382,7 @@ LOCAL_SRC_FILES := \
     arch-common/bionic/crtbrand.S \
     $(libc_arch_dynamic_src_files) \
     bionic/malloc_common.cpp \
+    bionic/mmap_common.cpp \
     bionic/libc_init_dynamic.cpp \
     bionic/NetdClient.cpp \
     arch-common/bionic/crtend_so.S \

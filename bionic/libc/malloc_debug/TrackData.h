@@ -26,6 +26,14 @@
  * SUCH DAMAGE.
  */
 
+/*
+ * Portions of this file are copyright (c) 2023 Amazon.com, Inc. or its affiliates.  All rights reserved.
+ *
+ * PORTIONS OF THIS FILE ARE AMAZON PROPRIETARY/CONFIDENTIAL.  USE IS SUBJECT TO LICENSE TERMS.
+ *
+ * Amazon modifications are indicated by [fosmod_* comments].
+ */
+
 #ifndef DEBUG_MALLOC_TRACKDATA_H
 #define DEBUG_MALLOC_TRACKDATA_H
 
@@ -34,6 +42,12 @@
 
 #include <vector>
 #include <unordered_set>
+
+/* fosmod_memleak_debug begin */
+#if defined(FOSMOD_MEMLEAK_DEBUG)
+#include <map>
+#endif
+/* fosmod_memleak_debug end */
 
 #include <private/bionic_macros.h>
 
@@ -50,6 +64,12 @@ class TrackData : public OptionData {
   virtual ~TrackData() = default;
 
   void GetList(std::vector<const Header*>* list);
+
+/* fosmod_memleak_debug begin */
+#if defined(FOSMOD_MEMLEAK_DEBUG)
+  Header* GetHeader(const void* addr, const size_t);
+#endif
+/* fosmod_memleak_debug end */
 
   void Add(const Header* header, bool backtrace_found);
 
@@ -68,6 +88,11 @@ class TrackData : public OptionData {
 
  private:
   pthread_mutex_t mutex_ = PTHREAD_MUTEX_INITIALIZER;
+/* fosmod_memleak_debug begin */
+#if defined(FOSMOD_MEMLEAK_DEBUG)
+  std::map<uintptr_t, Header*, std::greater<uintptr_t>> mheaders_;
+#endif
+/* fosmod_memleak_debug end */
   std::unordered_set<const Header*> headers_;
   size_t total_backtrace_allocs_ = 0;
 

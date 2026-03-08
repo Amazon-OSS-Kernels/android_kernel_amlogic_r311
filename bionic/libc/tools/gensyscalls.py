@@ -4,6 +4,12 @@
 # the header files listing all available system calls, and the
 # makefiles used to build all the stubs.
 
+#
+# Portions of this file are copyright (c) 2023 Amazon.com, Inc. or its affiliates.  All rights reserved.
+# PORTIONS OF THIS FILE ARE AMAZON PROPRIETARY/CONFIDENTIAL.  USE IS SUBJECT TO LICENSE TERMS.
+# Amazon modifications are indicated by [fosmod_* comments].
+#
+
 import atexit
 import commands
 import filecmp
@@ -531,6 +537,11 @@ class State:
         for syscall in self.syscalls:
             syscall["__NR_name"] = make__NR_name(syscall["name"])
 
+# fosmod_memleak_debug begin
+            if (syscall["name"] == "munmap"):
+                syscall["func"] = '__' + syscall["func"]
+# fosmod_memleak_debug end
+
             if syscall.has_key("arm"):
                 syscall["asm-arm"] = add_footer(32, arm_eabi_genstub(syscall), syscall)
 
@@ -554,6 +565,11 @@ class State:
 
             if syscall.has_key("x86_64"):
                 syscall["asm-x86_64"] = add_footer(64, x86_64_genstub(syscall), syscall)
+
+# fosmod_memleak_debug begin
+            if (syscall["name"] == "munmap"):
+                syscall["func"] = syscall["name"]
+# fosmod_memleak_debug end
 
     # Scan a Linux kernel asm/unistd.h file containing __NR_* constants
     # and write out equivalent SYS_* constants for glibc source compatibility.

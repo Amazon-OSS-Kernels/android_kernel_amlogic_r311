@@ -2,7 +2,7 @@
 
 #include <private/bionic_asm.h>
 
-ENTRY(munmap)
+ENTRY(__munmap)
     .set push
     .set noreorder
     li v0, __NR_munmap
@@ -22,4 +22,5 @@ ENTRY(munmap)
     j t9
     move ra, t0
     .set pop
-END(munmap)
+END(__munmap)
+.hidden __munmap
