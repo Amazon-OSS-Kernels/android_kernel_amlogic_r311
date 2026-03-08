@@ -1,0 +1,16 @@
+/*
+ * Copyright 2019 Amazon.com, Inc. or its Affiliates. All rights reserved.
+ */
+
+#ifndef AFL_INCLUDE_SIG_TESTS_ERRORS_H
+#define AFL_INCLUDE_SIG_TESTS_ERRORS_H
+
+enum fuzzer_error_codes {
+	NOT_ENOUGH_INPUTS,
+	SECOND_INPUT_NOT_INTEGER,
+	INPUT_PARAMETERS_OUT_OF_BOUNDS,
+	CANNOT_OPEN_FILE,
+	UNABLE_TO_ALLOCATE_MEMORY,
+	FIRST_THREE_INPUTS_NOT_INTEGERS
+};
+#endif
