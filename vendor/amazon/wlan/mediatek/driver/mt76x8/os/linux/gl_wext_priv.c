@@ -2355,6 +2355,7 @@ reqExtSetAcpiDevicePowerState(IN P_GLUE_INFO_T prGlueInfo,
 #define CMD_GET_MCS_INFO	"GET_MCS_INFO"
 #endif
 #define CMD_GET_STA_INFO	"GET_STA"
+#define CMD_GET_MAGIC_PKT_INFO		"GET_MAGIC_PKT_INFO"
 #define CMD_SET_FW_LOG		"SET_FWLOG"
 #define CMD_GET_QUE_INFO	"GET_QUE"
 #define CMD_GET_MEM_INFO	"GET_MEM"
@@ -4001,6 +4002,62 @@ out:
 	return i4BytesWritten;
 }
 #endif
+
+static int priv_driver_get_magic_pkt_info(IN struct net_device *prNetDev, IN char *pcCommand, IN int i4TotalLen)
+{
+	P_GLUE_INFO_T prGlueInfo = NULL;
+	WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS;
+	UINT_32 u4BufLen = 0;
+	INT_32 i4BytesWritten = 0;
+	INT_32 i4Argc = 0;
+	PCHAR apcArgv[WLAN_CFG_ARGV_MAX];
+	CMD_GET_MAGIC_PKT_INFO_T *cmd = NULL;
+	BOOL fgWaitResp = TRUE;
+	BOOL fgRead = TRUE;
+
+	ASSERT(prNetDev);
+
+	DBGLOG(REQ, INFO, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, INFO, "argc is %i\n", i4Argc);
+
+	prGlueInfo = *((P_GLUE_INFO_T *) netdev_priv(prNetDev));
+
+	if (!prGlueInfo)
+		goto get_info_invalid;
+
+	cmd = (CMD_GET_MAGIC_PKT_INFO_T *)kalMemAlloc(sizeof(*cmd), VIR_MEM_TYPE);
+
+	if (!cmd)
+		goto get_info_invalid;
+
+	if (i4Argc > 1)
+		goto get_info_invalid;
+
+	memset(cmd, 0, sizeof(*cmd));
+	cmd->u2Type = CMD_GET_MAGIC_PKT_INFO_TYPE;
+	cmd->u2Len = sizeof(*cmd);
+
+	rStatus = kalIoctl(prGlueInfo, wlanoidAdvCtrl, cmd, sizeof(*cmd),
+		fgWaitResp, fgRead, TRUE, &u4BufLen);
+
+	if ((rStatus != WLAN_STATUS_SUCCESS) && (rStatus != WLAN_STATUS_PENDING)) {
+		i4BytesWritten += snprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
+				"\ncommand failed %x", rStatus);
+	} else {
+		i4BytesWritten += snprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
+			"\nMagicPacket_Rx count = %d", cmd->u4MagicPktCntTotal);
+		i4BytesWritten += snprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
+			"\nPullLowGpio_Wakeup count = %d", cmd->u4GpioPullLowCntTotal);
+		i4BytesWritten += snprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
+			"\nPullHighGpio_Wakeup count = %d", cmd->u4GpioPullHighCntTotal);
+	}
+
+get_info_invalid:
+	if (cmd)
+		kalMemFree(cmd, VIR_MEM_TYPE, sizeof(*cmd));
+	return i4BytesWritten;
+}
 
 static int priv_driver_get_mcr(IN struct net_device *prNetDev, IN char *pcCommand, IN int i4TotalLen)
 {
@@ -15477,6 +15534,8 @@ INT_32 priv_driver_cmds(IN struct net_device *prNetDev, IN PCHAR pcCommand, IN I
 		else if (strnicmp(pcCommand, CMD_SET_FW_LOG, strlen(CMD_SET_FW_LOG)) == 0)
 			i4BytesWritten = priv_driver_set_fw_log(prNetDev, pcCommand, i4TotalLen);
 #endif
+		else if (strnicmp(pcCommand, CMD_GET_MAGIC_PKT_INFO, strlen(CMD_GET_MAGIC_PKT_INFO)) == 0)
+			i4BytesWritten = priv_driver_get_magic_pkt_info(prNetDev, pcCommand, i4TotalLen);
 		else if (strnicmp(pcCommand, CMD_SET_CFG, strlen(CMD_SET_CFG)) == 0) {
 			i4BytesWritten = priv_driver_set_cfg(prNetDev, pcCommand, i4TotalLen);
 		} else if (strnicmp(pcCommand, CMD_GET_CFG, strlen(CMD_GET_CFG)) == 0) {
