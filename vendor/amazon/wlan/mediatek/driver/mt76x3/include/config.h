@@ -1443,6 +1443,13 @@
 #define CFG_SUPPORT_EXT_PTA_DEBUG_COMMAND 0
 #endif
 
+/*------------------------------------------------------------------------------
+ * Support DHCP renew offload
+ *------------------------------------------------------------------------------
+ */
+#ifndef CFG_STR_DHCP_RENEW_OFFLOAD
+#define CFG_STR_DHCP_RENEW_OFFLOAD 0
+#endif
 
 /*------------------------------------------------------------------------------
  * Support CFG_SUPPORT_INBAND_WAKEUP

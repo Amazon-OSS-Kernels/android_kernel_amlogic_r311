@@ -530,6 +530,9 @@ enum ENUM_CMD_ID {
 #if CFG_WOW_SUPPORT
 	CMD_ID_SET_PF_CAPABILITY = 0x59,	/* 0x59 (Set) */
 #endif
+#if CFG_STR_DHCP_RENEW_OFFLOAD
+	CMD_ID_SET_DHCP_RENEW_OFFLOAD = 0x5C,	/* 0x5C (Set) */
+#endif
 	CMD_ID_SET_RRM_CAPABILITY = 0x5A, /* 0x5A (Set) */
 	CMD_ID_SET_AP_CONSTRAINT_PWR_LIMIT = 0x5B, /* 0x5B (Set) */
 	CMD_ID_SET_TSM_STATISTICS_REQUEST = 0x5E,
@@ -4037,6 +4040,16 @@ struct EXT_EVENT_RECAL_DATA_T {
 	} u;
 };
 
+#if CFG_STR_DHCP_RENEW_OFFLOAD
+struct CMD_DHCP_OFFLOAD_SETTING {
+	uint32_t u4RenewIntv;	/* DHCP renew offload interval configured by upper-layer */
+	uint8_t aucDhcpServerIpAddr[4];
+	uint8_t ucBssIndex;
+	uint8_t ucEnableOffload;
+	uint8_t ucSuspend;
+	uint8_t ucReserved[1];
+};
+#endif
 
 struct CMD_SUSPEND_MODE_SETTING {
 	uint8_t ucBssIndex;

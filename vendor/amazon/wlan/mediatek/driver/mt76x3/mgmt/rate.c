@@ -179,7 +179,7 @@ const u_int8_t afgIsOFDMRate[RATE_NUM_SW] = {
  */
 /*----------------------------------------------------------------------------*/
 void
-rateGetRateSetFromIEs(IN struct IE_SUPPORTED_RATE *prIeSupportedRate,
+rateGetRateSetFromIEs(IN struct IE_SUPPORTED_RATE_IOT *prIeSupportedRate,
 		      IN struct IE_EXT_SUPPORTED_RATE *prIeExtSupportedRate,
 		      OUT uint16_t *pu2OperationalRateSet,
 		      OUT uint16_t *pu2BSSBasicRateSet,
@@ -189,7 +189,6 @@ rateGetRateSetFromIEs(IN struct IE_SUPPORTED_RATE *prIeSupportedRate,
 	uint16_t u2BSSBasicRateSet = 0;
 	u_int8_t fgIsUnknownBSSBasicRate = FALSE;
 	uint8_t ucRate;
-	uint8_t ucTempLength;
 	uint32_t i, j;
 
 	ASSERT(pu2OperationalRateSet);
@@ -205,11 +204,14 @@ rateGetRateSetFromIEs(IN struct IE_SUPPORTED_RATE *prIeSupportedRate,
 		/* ASSERT(prIeSupportedRate->ucLength
 		 *  <= ELEM_MAX_LEN_SUP_RATES);
 		 */
-		ucTempLength =
-			(prIeSupportedRate->ucLength > ELEM_MAX_LEN_SUP_RATES) ?
-			ELEM_MAX_LEN_SUP_RATES : prIeSupportedRate->ucLength;
+		if (prIeSupportedRate->ucLength > ELEM_MAX_LEN_SUP_RATES_IOT) {
+			*pu2OperationalRateSet = 0;
+			*pu2BSSBasicRateSet = 0;
+			*pfgIsUnknownBSSBasicRate = TRUE;
+			return;
+		}
 
-		for (i = 0; i < ucTempLength; i++) {
+		for (i = 0; i < prIeSupportedRate->ucLength; i++) {
 			ucRate =
 			    prIeSupportedRate->aucSupportedRates[i] & RATE_MASK;
 
@@ -240,12 +242,7 @@ rateGetRateSetFromIEs(IN struct IE_SUPPORTED_RATE *prIeSupportedRate,
 		/* ASSERT(prIeExtSupportedRate->ucLength
 		 *  <= ELEM_MAX_LEN_EXTENDED_SUP_RATES);
 		 */
-		ucTempLength = (prIeExtSupportedRate->ucLength >
-				ELEM_MAX_LEN_EXTENDED_SUP_RATES) ?
-				ELEM_MAX_LEN_EXTENDED_SUP_RATES :
-				prIeExtSupportedRate->ucLength;
-
-		for (i = 0; i < ucTempLength; i++) {
+		for (i = 0; i < prIeExtSupportedRate->ucLength; i++) {
 			ucRate =
 			    prIeExtSupportedRate->aucExtSupportedRates[i] &
 			    RATE_MASK;

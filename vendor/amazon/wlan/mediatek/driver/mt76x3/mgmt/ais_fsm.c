@@ -688,12 +688,13 @@ void aisFsmStateInit_JOIN(IN struct ADAPTER *prAdapter,
 	} else {
 		ASSERT(prBssDesc->eBSSType == BSS_TYPE_INFRASTRUCTURE);
 
-		DBGLOG(AIS, LOUD, "JOIN INIT: AUTH TYPE = %d for Roaming\n",
-		       prAisSpecificBssInfo->ucRoamingAuthTypes);
-
 		/* We do roaming while the medium is connected */
 		prStaRec->fgIsReAssoc = TRUE;
 
+#if (CFG_SUPPORT_CFG80211_AUTH == 1)
+		prAisFsmInfo->ucAvailableAuthTypes =
+			(uint8_t) prAdapter->prGlueInfo->rWpaInfo.u4AuthAlg;
+#else
 		/* TODO(Kevin): We may call a sub function to
 		 * acquire the Roaming Auth Type
 		 */
@@ -709,6 +710,9 @@ void aisFsmStateInit_JOIN(IN struct ADAPTER *prAdapter,
 			    prAisSpecificBssInfo->ucRoamingAuthTypes;
 			break;
 		}
+#endif
+		DBGLOG(AIS, INFO, "JOIN INIT: Auth Algorithm for Roaming:%d\n",
+			prAisFsmInfo->ucAvailableAuthTypes);
 
 		prStaRec->ucTxAuthAssocRetryLimit =
 		    TX_AUTH_ASSOCI_RETRY_LIMIT_FOR_ROAMING;
@@ -2847,6 +2851,8 @@ void aisFsmStateAbort(IN struct ADAPTER *prAdapter,
 			prAisBssInfo->ucReasonOfDisconnect ==
 			DISCONNECT_REASON_CODE_NEW_CONNECTION &&
 #endif
+			prAisBssInfo->ucReasonOfDisconnect !=
+						DISCONNECT_REASON_CODE_DEAUTHENTICATED &&
 			prAisBssInfo->prStaRecOfAP &&
 			prAisBssInfo->prStaRecOfAP->fgIsInUse) {
 			aisFsmSteps(prAdapter, AIS_STATE_DISCONNECTING);
@@ -4507,6 +4513,15 @@ void aisFsmDisconnect(IN struct ADAPTER *prAdapter,
 	    DISCONNECT_REASON_CODE_REASSOCIATION) {
 		aisChangeMediaState(prAdapter, PARAM_MEDIA_STATE_DISCONNECTED);
 
+#if CFG_STR_DHCP_RENEW_OFFLOAD
+		if (prAisBssInfo->fgIsDhcpAcked) {
+			prAisBssInfo->fgIsDhcpAcked = FALSE;
+			prAisBssInfo->u4DhcpRenewIntv = 0;
+			kalMemZero(prAisBssInfo->aucDhcpServerIpAddr,
+					sizeof(prAisBssInfo->aucDhcpServerIpAddr));
+		}
+#endif
+
 		/* 4 <4.1> sync. with firmware */
 		nicUpdateBss(prAdapter, prAdapter->prAisBssInfo->ucBssIndex);
 	}
@@ -5255,7 +5270,7 @@ void aisBssBeaconTimeout(IN struct ADAPTER *prAdapter)
 void aisBssSecurityChanged(struct ADAPTER *prAdapter)
 {
 	prAdapter->rWifiVar.rConnSettings.fgIsDisconnectedByNonRequest = TRUE;
-	aisFsmStateAbort(prAdapter, DISCONNECT_REASON_CODE_DEAUTHENTICATED,
+	aisFsmStateAbort(prAdapter, DISCONNECT_REASON_CODE_DISASSOCIATED,
 			 FALSE);
 }
 

@@ -292,6 +292,9 @@ static int mtk_usb_suspend(struct usb_interface *intf, pm_message_t message)
 
 	/* change to non-READY state to block cfg80211 ops */
 	glUsbSetState(&prGlueInfo->rHifInfo, USB_STATE_PRE_SUSPEND_START);
+	wlan_fb_power_down = TRUE;
+	if (!wlan_perf_monitor_force_enable)
+		kalPerMonDisable(prGlueInfo);
 
 	wlanSuspendPmHandle(prGlueInfo);
 
@@ -310,6 +313,12 @@ static int mtk_usb_suspend(struct usb_interface *intf, pm_message_t message)
 	}
 
 	DBGLOG(HAL, STATE, "USB pre_suspend complete(%d)\n", count);
+
+#if CFG_SUPPORT_SER
+#if defined(_HIF_USB)
+	cnmTimerStopTimer(prGlueInfo->prAdapter, &prGlueInfo->prAdapter->rSerSyncTimer);
+#endif  /* _HIF_USB */
+#endif  /* CFG_SUPPORT_SER */
 
 	glUsbSetState(&prGlueInfo->rHifInfo, USB_STATE_SUSPEND);
 	halDisableInterrupt(prGlueInfo->prAdapter);
@@ -351,7 +360,17 @@ static int mtk_usb_resume(struct usb_interface *intf)
 	wlanSendDummyCmd(prGlueInfo->prAdapter, FALSE);
 	halEnableInterrupt(prGlueInfo->prAdapter);
 
+#if CFG_SUPPORT_SER
+#if defined(_HIF_USB)
+	cnmTimerStartTimer(prGlueInfo->prAdapter,
+			   &prGlueInfo->prAdapter->rSerSyncTimer,
+			   WIFI_SER_SYNC_TIMER_TIMEOUT_IN_MS);
+#endif  /* _HIF_USB */
+#endif  /* CFG_SUPPORT_SER */
+
 	halPreResumeCmd(prGlueInfo->prAdapter);
+	kalPerMonEnable(prGlueInfo);
+	wlan_fb_power_down = FALSE;
 
 	while (prGlueInfo->rHifInfo.state != USB_STATE_LINK_UP) {
 		if (count > 500) {

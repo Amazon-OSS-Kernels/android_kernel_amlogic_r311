@@ -14035,6 +14035,49 @@ wlanoidSetFwLog2Host(
 				   pvSetBuffer, u4SetBufferLen);
 }
 
+#if CFG_STR_DHCP_RENEW_OFFLOAD
+uint32_t
+wlanoidSetDhcpOffladInfo(
+	IN struct ADAPTER *prAdapter,
+	IN void *pvSetBuffer,
+	IN uint32_t u4SetBufferLen,
+	OUT uint32_t *pu4SetInfoLen)
+{
+	struct CMD_DHCP_OFFLOAD_SETTING *prDhcpOffloadCmd;
+
+	if (!prAdapter || !pvSetBuffer)
+		return WLAN_STATUS_INVALID_DATA;
+
+	prDhcpOffloadCmd = (struct CMD_DHCP_OFFLOAD_SETTING *)pvSetBuffer;
+
+	DBGLOG(REQ, STATE,
+		"DHCP renew info set to FW Server IP: [%d.%d.%d.%d] Lease Time: %d seconds\n",
+		prDhcpOffloadCmd->aucDhcpServerIpAddr[0],
+		prDhcpOffloadCmd->aucDhcpServerIpAddr[1],
+		prDhcpOffloadCmd->aucDhcpServerIpAddr[2],
+		prDhcpOffloadCmd->aucDhcpServerIpAddr[3],
+		prDhcpOffloadCmd->u4RenewIntv);
+
+	DBGLOG(REQ, STATE,
+		"DHCP renew offload Enable:%d, Suspend:%d, BssIdx:%d\n",
+		prDhcpOffloadCmd->ucEnableOffload,
+		prDhcpOffloadCmd->ucSuspend,
+		prDhcpOffloadCmd->ucBssIndex);
+
+	return wlanSendSetQueryCmd(prAdapter,
+					CMD_ID_SET_DHCP_RENEW_OFFLOAD,
+					TRUE,
+					FALSE,
+					TRUE,
+					nicCmdEventSetCommon,
+					nicOidCmdTimeoutCommon,
+					sizeof(struct CMD_DHCP_OFFLOAD_SETTING),
+					(uint8_t *)prDhcpOffloadCmd,
+					NULL,
+					0);
+}
+#endif
+
 uint32_t
 wlanoidNotifyFwSuspend(
 	IN struct ADAPTER *prAdapter,

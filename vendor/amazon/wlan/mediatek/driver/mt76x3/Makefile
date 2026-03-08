@@ -114,6 +114,10 @@ ifneq ($(CFG_FTV_WLANREMOVE_DEAUTH_NO_TXDONE),)
 ccflags-y += -DCFG_FTV_WLANREMOVE_DEAUTH_NO_TXDONE=$(CFG_FTV_WLANREMOVE_DEAUTH_NO_TXDONE)
 endif
 
+ifeq ($(CFG_STR_DHCP_RENEW_OFFLOAD), y)
+ccflags-y += -DCFG_STR_DHCP_RENEW_OFFLOAD=1
+endif
+
 # ---------------------------------------------------
 # Compile Options
 # ---------------------------------------------------

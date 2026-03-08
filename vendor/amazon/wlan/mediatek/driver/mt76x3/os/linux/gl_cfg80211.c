@@ -1310,35 +1310,31 @@ int mtk_cfg80211_auth(struct wiphy *wiphy, struct net_device *ndev,
 	case NL80211_AUTHTYPE_OPEN_SYSTEM:
 		if (!(prGlueInfo->rWpaInfo.u4AuthAlg & AUTH_TYPE_OPEN_SYSTEM))
 			fgNewAuthParam = TRUE;
-		prGlueInfo->rWpaInfo.u4AuthAlg = 0;
-		prGlueInfo->rWpaInfo.u4AuthAlg |= AUTH_TYPE_OPEN_SYSTEM;
+		prGlueInfo->rWpaInfo.u4AuthAlg = AUTH_TYPE_OPEN_SYSTEM;
 		break;
 	case NL80211_AUTHTYPE_SHARED_KEY:
 		if (!(prGlueInfo->rWpaInfo.u4AuthAlg & AUTH_TYPE_SHARED_KEY))
 			fgNewAuthParam = TRUE;
-		prGlueInfo->rWpaInfo.u4AuthAlg = 0;
-		prGlueInfo->rWpaInfo.u4AuthAlg |= AUTH_TYPE_SHARED_KEY;
+		prGlueInfo->rWpaInfo.u4AuthAlg = AUTH_TYPE_SHARED_KEY;
 		break;
 	case NL80211_AUTHTYPE_SAE:
 		if (!(prGlueInfo->rWpaInfo.u4AuthAlg & AUTH_TYPE_SAE))
 			fgNewAuthParam = TRUE;
-		prGlueInfo->rWpaInfo.u4AuthAlg = 0;
-		prGlueInfo->rWpaInfo.u4AuthAlg |= AUTH_TYPE_SAE;
+		prGlueInfo->rWpaInfo.u4AuthAlg = AUTH_TYPE_SAE;
 		break;
 #if CFG_SUPPORT_802_11R
 	case NL80211_AUTHTYPE_FT:
 		if (!(prGlueInfo->rWpaInfo.u4AuthAlg
 			& AUTH_TYPE_FAST_BSS_TRANSITION))
 			fgNewAuthParam = TRUE;
-		prGlueInfo->rWpaInfo.u4AuthAlg |= AUTH_TYPE_FAST_BSS_TRANSITION;
+		prGlueInfo->rWpaInfo.u4AuthAlg = AUTH_TYPE_FAST_BSS_TRANSITION;
 		break;
 #endif
 	default:
 		DBGLOG(REQ, WARN,
 			"Auth type: %ld not support, use default OPEN system\n",
 			req->auth_type);
-		prGlueInfo->rWpaInfo.u4AuthAlg = 0;
-		prGlueInfo->rWpaInfo.u4AuthAlg |= AUTH_TYPE_OPEN_SYSTEM;
+		prGlueInfo->rWpaInfo.u4AuthAlg = AUTH_TYPE_OPEN_SYSTEM;
 		break;
 	}
 	DBGLOG(REQ, INFO, "Auth Algorithm : %ld\n",
@@ -1386,9 +1382,9 @@ int mtk_cfg80211_auth(struct wiphy *wiphy, struct net_device *ndev,
 		fgNewAuthParam = TRUE;
 	}
 #if CFG_SUPPORT_802_11V_BSS_TRANSITION_MGT || CFG_SUPPORT_802_11R
-	DBGLOG(REQ, INFO, "SSID len %d, ssid %s, %d\n",
-				req->bss->ies->len, SSID_IE(req->bss->ies->data)->aucSSID,
-				SSID_IE(req->bss->ies->data)->ucLength);
+	DBGLOG(REQ, INFO, "req IE len %d, ssid %.*s, ssid_len %d\n",
+				req->bss->ies->len, SSID_IE(req->bss->ies->data)->ucLength,
+				SSID_IE(req->bss->ies->data)->aucSSID, SSID_IE(req->bss->ies->data)->ucLength);
 
 	if (req->bss->ies->len != 0 &&
 		IE_ID(req->bss->ies->data) == ELEM_ID_SSID) {

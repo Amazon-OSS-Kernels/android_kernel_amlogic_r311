@@ -2795,6 +2795,10 @@ void wlanSetSuspendMode(struct GLUE_INFO *prGlueInfo,
 		     &u4SetInfoLen) != WLAN_STATUS_SUCCESS)
 		DBGLOG(INIT, ERROR, "set packet filter failed.\n");
 #endif
+#if CFG_STR_DHCP_RENEW_OFFLOAD
+	wlanSetDhcpOffloadInfo(prGlueInfo, prDev, fgEnable);
+#endif
+
 	kalSetNetAddressFromInterface(prGlueInfo, prDev, fgEnable);
 	wlanNotifyFwSuspend(prGlueInfo, prDev, fgEnable);
 }

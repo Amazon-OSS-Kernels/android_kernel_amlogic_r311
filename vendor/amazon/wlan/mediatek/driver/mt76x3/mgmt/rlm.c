@@ -4730,7 +4730,7 @@ void rlmCsaTimeout(IN struct ADAPTER *prAdapter,
 	uint8_t ucBssIndex = (uint8_t) ulParamPtr;
 	struct BSS_INFO *prBssInfo;
 	struct SWITCH_CH_AND_BAND_PARAMS *prCSAParams;
-	struct PARAM_SSID rSsid;
+	struct PARAM_SSID rSsid = {0};
 	struct BSS_DESC *prBssDesc;
 	struct STA_RECORD *prStaRec;
 

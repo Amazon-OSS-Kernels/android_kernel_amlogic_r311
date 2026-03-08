@@ -1634,9 +1634,13 @@ uint32_t wlanTxCmdMthread(IN struct ADAPTER *prAdapter)
 			struct WIFI_CMD *prWifiCmd =
 			(struct WIFI_CMD *) prCmdInfo->pucInfoBuffer;
 
-			DBGLOG(INIT, ERROR,
-				"RETRY[%d] TX CMD: ID[0x%02X] SEQ[%u] CMD cannot send\n",
-			tx_retry_cnt, prWifiCmd->ucCID, prWifiCmd->ucSeqNum);
+			if (prWifiCmd == NULL) {
+                                DBGLOG(INIT, ERROR, "CMD cannot send, pcInfoBuffer is NULL\n");
+                        } else {
+                                DBGLOG(INIT, ERROR,
+				        "RETRY[%d] TX CMD: ID[0x%02X] SEQ[%u] CMD cannot send\n",
+			                tx_retry_cnt, prWifiCmd->ucCID, prWifiCmd->ucSeqNum);
+                        }
 			tx_retry_cnt = 0;
 		}
 #else
@@ -1664,8 +1668,12 @@ uint32_t wlanTxCmdMthread(IN struct ADAPTER *prAdapter)
 			struct WIFI_CMD *prWifiCmd =
 			(struct WIFI_CMD *) prCmdInfo->pucInfoBuffer;
 
-			DBGLOG(INIT, STATE, "RETRY[%d] TX CMD: ID[0x%02X] SEQ[%u]\n",
-				tx_retry_cnt, prWifiCmd->ucCID, prWifiCmd->ucSeqNum);
+			if (prWifiCmd == NULL) {
+                                DBGLOG(INIT, ERROR, "RETRY done, pucInfoBuffer is NULL\n");
+                        } else {
+                                DBGLOG(INIT, STATE, "RETRY[%d] TX CMD: ID[0x%02X] SEQ[%u]\n",
+				        tx_retry_cnt, prWifiCmd->ucCID, prWifiCmd->ucSeqNum);
+                        }
 		}
 		tx_retry_cnt = 0;
 #endif
@@ -9336,6 +9344,66 @@ wlanSetWakeTbttMdtim(struct GLUE_INFO *prGlueInfo)
 
 	if (rStatus != WLAN_STATUS_SUCCESS)
 		DBGLOG(REQ, INFO, "wlanSetWakeTbttMdtim fail\n");
+}
+#endif
+
+#if CFG_STR_DHCP_RENEW_OFFLOAD
+void
+wlanSetDhcpOffloadInfo(struct GLUE_INFO *prGlueInfo,
+		       struct net_device *prDev, bool fgSuspend)
+{
+	uint32_t rStatus;
+	uint32_t u4SetInfoLen;
+	uint8_t ucBssIdx;
+	bool fgOffload = FALSE;
+	struct BSS_INFO *prBssInfo;
+	struct NETDEV_PRIVATE_GLUE_INFO *prNetDevPrivate = (struct NETDEV_PRIVATE_GLUE_INFO *) NULL;
+	struct CMD_DHCP_OFFLOAD_SETTING rDhcpSetCmd;
+
+	kalMemZero(&rDhcpSetCmd, sizeof(struct CMD_DHCP_OFFLOAD_SETTING));
+
+	prNetDevPrivate = (struct NETDEV_PRIVATE_GLUE_INFO *) netdev_priv(prDev);
+
+	if (prNetDevPrivate->prGlueInfo != prGlueInfo)
+		DBGLOG(REQ, WARN, "%s: unexpected prGlueInfo(0x%p)!\n", __func__, prNetDevPrivate->prGlueInfo);
+
+	ucBssIdx = prNetDevPrivate->ucBssIdx;
+	prBssInfo = prGlueInfo->prAdapter->aprBssInfo[ucBssIdx];
+
+	/* TODO: Only support AIS for now */
+	if (prGlueInfo->prAdapter->prAisBssInfo->ucBssIndex == ucBssIdx) {
+		if (prBssInfo->fgIsDhcpAcked == TRUE &&
+				prBssInfo->eConnectionState == PARAM_MEDIA_STATE_CONNECTED) {
+			if (fgSuspend)
+				fgOffload = TRUE;
+		}
+	} else {
+		DBGLOG(REQ, ERROR, "%s: BssIdx not matched(%d:%d)!\n", __func__,
+				ucBssIdx, prGlueInfo->prAdapter->prAisBssInfo->ucBssIndex);
+		return;
+	}
+
+	rDhcpSetCmd.ucEnableOffload = fgOffload;
+	rDhcpSetCmd.ucSuspend = fgSuspend;
+	rDhcpSetCmd.ucBssIndex = ucBssIdx;
+	rDhcpSetCmd.u4RenewIntv = prBssInfo->u4DhcpRenewIntv;
+	kalMemCopy(rDhcpSetCmd.aucDhcpServerIpAddr,
+		prBssInfo->aucDhcpServerIpAddr,
+		sizeof(rDhcpSetCmd.aucDhcpServerIpAddr));
+
+    /* When FW receive command, it check connection state to decide apply setting or not */
+	rStatus = kalIoctl(prGlueInfo,
+			   wlanoidSetDhcpOffladInfo,
+			   (void *)&rDhcpSetCmd,
+			   sizeof(rDhcpSetCmd),
+			   FALSE,
+			   FALSE,
+			   TRUE,
+			   &u4SetInfoLen);
+
+	if (rStatus != WLAN_STATUS_SUCCESS)
+		DBGLOG(REQ, WARN, "wlanoidSetDhcpOffladInfo failed\n");
+
 }
 #endif
 

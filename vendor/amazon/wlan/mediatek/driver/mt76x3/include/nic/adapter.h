@@ -609,6 +609,13 @@ struct BSS_INFO {
 	struct SWITCH_CH_AND_BAND_PARAMS CSAParams;
 	uint8_t fgHasStopTx;
 #endif
+
+#if CFG_STR_DHCP_RENEW_OFFLOAD
+	bool fgIsDhcpAcked;
+	uint8_t aucDhcpServerIpAddr[4];
+	/* DHCP renew offload interval configured by upper-layer */
+	uint32_t u4DhcpRenewIntv;
+#endif
 };
 
 /* Support AP Selection */

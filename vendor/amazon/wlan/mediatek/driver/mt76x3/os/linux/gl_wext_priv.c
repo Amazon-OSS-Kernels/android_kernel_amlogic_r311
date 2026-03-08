@@ -3016,6 +3016,11 @@ reqExtSetAcpiDevicePowerState(IN struct GLUE_INFO
 #define CMD_GET_MDNS_PATTERNS "GET_MDNS_PATTERNS"
 
 #endif
+
+#if CFG_STR_DHCP_RENEW_OFFLOAD
+#define CMD_SET_DHCP_INFO       "SET_DHCP"
+#endif
+
 #define CMD_SET_ADV_PWS		"SET_ADV_PWS"
 #define CMD_SET_MDTIM		"SET_MDTIM"
 #define CMD_GET_DSLP_CNT	"GET_DSLEEP_CNT"
@@ -12553,6 +12558,146 @@ static int priv_driver_set_mdns_offload_enable(IN struct net_device *prNetDev,
 }
 #endif
 
+#if CFG_STR_DHCP_RENEW_OFFLOAD
+static int priv_driver_set_dhcp_info(IN struct net_device *prNetDev,
+		IN char *pcCommand, IN int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	struct BSS_INFO *prBssInfo;
+	int32_t i4BytesWritten = 0;
+	int32_t i4Argc = 0;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX] = { 0 };
+	uint8_t aucIpAddr[4];
+	uint8_t i = 0;
+	bool fgIsIpInvalid = FALSE;
+	uint32_t u4Ret = 0;
+	uint32_t u4RenewIntv = 0, u4Value = 0;
+	uint8_t ucLength = 0, ucNum = 0;
+	char *pcTmp, *pcStart;
+	char CurrChar;
+
+	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
+
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
+
+	DBGLOG(REQ, LOUD, "MT7663 : priv_driver_set_dhcp_info\n");
+
+	if (i4Argc != 3) {
+		DBGLOG(REQ, ERROR, "argc %i is not equal to 3\n", i4Argc);
+		goto out;
+	}
+
+	pcStart = apcArgv[1];
+	pcTmp = pcStart;
+	ucLength = strlen(apcArgv[1]);
+
+	while (i < 4) {
+		u4Value = 0;
+
+		while (1) {
+			CurrChar = *pcTmp;
+
+			pcTmp++;
+
+			if (pcTmp > (pcStart + ucLength)) {
+				if (ucNum != 3 && !isdigit(CurrChar)) {
+					DBGLOG(REQ, WARN, "Invalid: Num=%d\n", ucNum+1);
+					fgIsIpInvalid = TRUE;
+				}
+				break;
+			} else if (CurrChar >= '0' && CurrChar <= '9') {
+				u4Value *= 10;
+				u4Value += CurrChar - '0';
+			} else if (i < 3 && CurrChar == '.') {
+				ucNum++;
+				break;
+			} else {
+				if (i != 3 || !isdigit(CurrChar)) {
+					DBGLOG(REQ, WARN, "Invalid\n");
+					fgIsIpInvalid = TRUE;
+				}
+				break;
+			}
+		}
+
+		if (u4Value >= 256) {
+			DBGLOG(REQ, WARN, "Number is larger than 255\n");
+			fgIsIpInvalid = TRUE;
+			break;
+		}
+
+		aucIpAddr[i] = (uint8_t)u4Value;
+		i++;
+	}
+
+	if (fgIsIpInvalid) {
+		i4BytesWritten += snprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
+			"Dhcp Server IP is invalid");
+		return i4BytesWritten;
+	}
+
+#if 0
+	if (!inet_aton(apcArgv[1], &addr)) {
+		DBGLOG (REQ, STATE, "'%s' is invalid\n", apcArgv[1]);
+		fgIpInvalid = 1;
+		goto out;
+	}
+#endif
+
+	u4Ret = kalkStrtou32(apcArgv[2], 0, &u4RenewIntv);
+	if (u4Ret) {
+		DBGLOG(REQ, WARN, "parse u4LogType error u4Ret=%d\n", u4Ret);
+		goto out;
+	}
+
+	/* TODO: Only support AIS for now */
+	prBssInfo = prGlueInfo->prAdapter->prAisBssInfo;
+
+	if ((prBssInfo->eConnectionState == PARAM_MEDIA_STATE_CONNECTED) &&
+		(prBssInfo->fgIsNetActive) ) {
+		if (u4RenewIntv != 0) {
+			prBssInfo->fgIsDhcpAcked = TRUE ;
+			prBssInfo->u4DhcpRenewIntv = u4RenewIntv;
+
+			for (i = 0; i < 4; i++) {
+				prBssInfo->aucDhcpServerIpAddr[i] = aucIpAddr[i];
+			}
+
+			DBGLOG(REQ, EVENT,
+				"Store DHCP Renew info: ServerIP= %d.%d.%d.%d ,RenewIntv= %d seconds\n",
+				prBssInfo->aucDhcpServerIpAddr[0],
+				prBssInfo->aucDhcpServerIpAddr[1],
+				prBssInfo->aucDhcpServerIpAddr[2],
+				prBssInfo->aucDhcpServerIpAddr[3],
+				prBssInfo->u4DhcpRenewIntv);
+		} else {
+			/* disable dhcp offload if lease time is set to 0 */
+			prBssInfo->fgIsDhcpAcked = FALSE;
+			prBssInfo->u4DhcpRenewIntv = 0;
+			kalMemZero(prBssInfo->aucDhcpServerIpAddr,
+					sizeof(prBssInfo->aucDhcpServerIpAddr));
+			DBGLOG(REQ, EVENT, "Disable Dhcp Offload during STR\n");
+		}
+	} else {
+		DBGLOG(REQ, ERROR, "Cannot set_dhcp when disconnected\n");
+		i4BytesWritten += snprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
+			"set_dhcp failed due to wifi is disconnected");
+		return i4BytesWritten;
+	}
+
+	i4BytesWritten += snprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
+			"set_dhcp success");
+	return i4BytesWritten;
+
+out:
+	i4BytesWritten += snprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
+				"format:set_dhcp [Dhcp Server IP] [Renew interval]");
+	return i4BytesWritten;
+}
+#endif
+
 static int priv_driver_set_adv_pws(IN struct net_device *prNetDev,
 				   IN char *pcCommand, IN int i4TotalLen)
 {
@@ -17690,6 +17835,13 @@ int32_t priv_driver_cmds(IN struct net_device *prNetDev, IN int8_t *pcCommand,
 				strlen(CMD_SET_SHOW_CACHE)) == 0)
 			kalShowMdnsCache();
 
+#endif
+#if CFG_STR_DHCP_RENEW_OFFLOAD
+		else if (strnicmp(pcCommand, CMD_SET_DHCP_INFO,
+			 strlen(CMD_SET_DHCP_INFO)) == 0)
+			i4BytesWritten = priv_driver_set_dhcp_info(
+							prNetDev, pcCommand,
+							i4TotalLen);
 #endif
 		else if (strnicmp(pcCommand, CMD_SET_ADV_PWS,
 			 strlen(CMD_SET_ADV_PWS)) == 0)

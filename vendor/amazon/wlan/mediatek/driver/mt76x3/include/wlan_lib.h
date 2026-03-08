@@ -1766,6 +1766,12 @@ uint32_t wlanAccessRegisterStatus(IN struct ADAPTER
 
 uint32_t wlanSetChipEcoInfo(IN struct ADAPTER *prAdapter);
 
+#if CFG_STR_DHCP_RENEW_OFFLOAD
+void wlanSetDhcpOffloadInfo(struct GLUE_INFO *prGlueInfo,
+			    struct net_device *prDev,
+			    bool fgSuspend);
+#endif
+
 void wlanNotifyFwSuspend(struct GLUE_INFO *prGlueInfo,
 			 struct net_device *prDev, u_int8_t fgSuspend);
 

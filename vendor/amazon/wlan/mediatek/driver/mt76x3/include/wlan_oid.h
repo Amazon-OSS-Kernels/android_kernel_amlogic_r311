@@ -3817,6 +3817,14 @@ uint32_t wlanoidSetMonitor(IN struct ADAPTER *prAdapter,
 			   OUT uint32_t *pu4SetInfoLen);
 #endif
 
+#if CFG_STR_DHCP_RENEW_OFFLOAD
+uint32_t
+wlanoidSetDhcpOffladInfo(IN struct ADAPTER *prAdapter,
+		         IN void *pvSetBuffer,
+		         IN uint32_t u4SetBufferLen,
+		         OUT uint32_t *pu4SetInfoLen);
+#endif
+
 uint32_t
 wlanoidNotifyFwSuspend(IN struct ADAPTER *prAdapter,
 		       IN void *pvSetBuffer,
