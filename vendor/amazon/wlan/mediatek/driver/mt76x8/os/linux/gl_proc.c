@@ -351,17 +351,14 @@ static ssize_t procCfgRead(struct file *filp, char __user *buf, size_t count, lo
 static ssize_t procCfgWrite(struct file *file, const char __user *buffer,
 		size_t count, loff_t *data)
 {
-
-	/*	UINT_32 u4DriverCmd, u4DriverValue;
-	*UINT_8 *temp = &g_aucProcBuf[0];
-	*/
 	INT_32 u4CopySize = sizeof(g_aucProcBuf);
 	P_GLUE_INFO_T prGlueInfo;
 	PUINT_8	pucTmp;
 	INT_32 i4Pos = 0;
-	/*	PARAM_CUSTOM_P2P_SET_STRUCT_T rSetP2P; */
-
-
+	if (count <= 0) {
+		DBGLOG(INIT, ERROR, "wrong copy size\n");
+		return -EFAULT;
+	}
 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
 
 	pucTmp = g_aucProcBuf;
@@ -880,7 +877,7 @@ static ssize_t procReset(struct file *filp, char __user *buf, size_t count,
 		i4Pos = scnprintf(temp, (sizeof(g_aucProcBuf) - i4Pos),
 				"Reset\n");
 
-		glResetTrigger(prAdapter);
+		GL_RESET_TRIGGER(prAdapter, RST_CMD_TRIGGER);
 		u4CopySize = i4Pos;
 		if (u4CopySize > count)
 			u4CopySize = count;

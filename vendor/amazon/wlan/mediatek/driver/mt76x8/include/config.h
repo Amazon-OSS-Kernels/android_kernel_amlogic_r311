@@ -790,6 +790,9 @@
 #define CFG_MTK_STAGE_SCAN					1
 
 #define CFG_SUPPORT_MULTITHREAD             1	/* Enable driver support multicore */
+#if CFG_SUPPORT_CFG80211_AUTH
+#define CFG_WDEV_LOCK_THREAD_SUPPORT		1
+#endif
 
 #define CFG_SUPPORT_MTK_SYNERGY             1
 
@@ -1081,6 +1084,15 @@
 #endif
 
 /*------------------------------------------------------------------------------
+ * Support WPA3-R3 H2E
+ *------------------------------------------------------------------------------
+ */
+#ifndef CFG_SUPPORT_H2E
+#define CFG_SUPPORT_H2E 1
+#endif
+
+
+/*------------------------------------------------------------------------------
  * Support Single RX chain setting
  *------------------------------------------------------------------------------
  */
@@ -1125,6 +1137,13 @@
 #define CFG_IOCTL_WAIT_FOR_COMPLETION_TIMEOUT 0
 #endif
 
+#ifndef CFG_ROAMING_5G_PREFER
+#define CFG_ROAMING_5G_PREFER 0
+#endif
+
+#ifndef CFG_KEY_ERROR_STATISTIC_RECOVERY
+#define CFG_KEY_ERROR_STATISTIC_RECOVERY 0
+#endif
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************

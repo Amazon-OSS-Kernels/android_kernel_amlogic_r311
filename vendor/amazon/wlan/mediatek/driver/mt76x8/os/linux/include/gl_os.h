@@ -308,6 +308,33 @@ extern const INT_32 mtk_iface_combinations_sta_num;
 #define LOAD_AUTO 2
 #define EFUSE_AUTO_CHEK 0x76
 
+#if CFG_SUPPORT_CFG80211_AUTH
+#if KERNEL_VERSION(4, 0, 0) > CFG80211_VERSION_CODE
+#define WLAN_CIPHER_SUITE_GCMP_256			0x000FAC09
+#define WLAN_CIPHER_SUITE_CCMP_256			0x000FAC0A
+#define WLAN_CIPHER_SUITE_BIP_GMAC_128		0x000FAC0B
+#define WLAN_CIPHER_SUITE_BIP_GMAC_256		0x000FAC0C
+#define WLAN_CIPHER_SUITE_BIP_CMAC_256		0x000FAC0D
+#endif
+
+#if KERNEL_VERSION(4, 12, 0) > CFG80211_VERSION_CODE
+#define WLAN_AKM_SUITE_8021X_SUITE_B		0x000FAC0B
+#define WLAN_AKM_SUITE_8021X_SUITE_B_192	0x000FAC0C
+#endif
+
+#if KERNEL_VERSION(4, 2, 0) > CFG80211_VERSION_CODE
+#if CFG_SUPPORT_SAE
+#define WLAN_AKM_SUITE_SAE		0x000FAC08
+#endif
+#endif
+
+#if CFG_SUPPORT_OWE
+#define WLAN_AKM_SUITE_OWE		0x000FAC12
+#endif
+
+#define IW_AUTH_CIPHER_GCMP256  0x00000080
+#endif
+
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************
@@ -320,9 +347,11 @@ typedef struct _GL_WPA_INFO_T {
 	UINT_32 u4AuthAlg;
 	BOOLEAN fgPrivacyInvoke;
 #if CFG_SUPPORT_802_11W
+	UINT_32 u4CipherGroupMgmt;
 	UINT_32 u4Mfp;
 	UINT_8 ucRSNMfpCap;
 #endif
+	UINT_8 ucRsneLen;
 	UINT_8 aucKek[NL80211_KEK_LEN];
 	UINT_8 aucKck[NL80211_KCK_LEN];
 	UINT_8 aucReplayCtr[NL80211_REPLAY_CTR_LEN];
@@ -497,6 +526,10 @@ struct _GLUE_INFO_T {
 
 	/*! \brief wext wpa related information */
 	GL_WPA_INFO_T rWpaInfo;
+
+#if CFG_SUPPORT_REPLAY_DETECTION
+	struct SEC_DETECT_REPLAY_INFO prDetRplyInfo;
+#endif
 
 	/* Pointer to ADAPTER_T - main data structure of internal protocol stack */
 	P_ADAPTER_T prAdapter;

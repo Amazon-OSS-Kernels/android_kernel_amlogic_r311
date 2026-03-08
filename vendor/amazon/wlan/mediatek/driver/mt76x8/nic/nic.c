@@ -681,7 +681,7 @@ VOID nicProcessAbnormalInterrupt(IN P_ADAPTER_T prAdapter)
 	HAL_MCR_RD(prAdapter, MCR_WASR, &u4Value);
 	DBGLOG(REQ, WARN, "MCR_WASR: 0x%lx\n", u4Value);
 #if CFG_CHIP_RESET_SUPPORT
-	glResetTrigger(prAdapter);
+	GL_RESET_TRIGGER(prAdapter, RST_PROCESS_ABNORMAL_INT);
 #endif
 }
 
@@ -1490,6 +1490,12 @@ WLAN_STATUS nicUpdateBss(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIndex)
 	else {
 #if CFG_ENABLE_WIFI_DIRECT
 		if (prAdapter->fgIsP2PRegistered) {
+#if CFG_SUPPORT_SUITB
+			if (kalP2PGetGcmp256Cipher(prAdapter->prGlueInfo, (UINT_8) prBssInfo->u4PrivateData)) {
+				rCmdSetBssInfo.ucAuthMode = (UINT_8) AUTH_MODE_WPA2_PSK;
+				rCmdSetBssInfo.ucEncStatus = (UINT_8) ENUM_ENCRYPTION4_ENABLED;
+			} else
+#endif
 			if (kalP2PGetCcmpCipher(prAdapter->prGlueInfo, (UINT_8) prBssInfo->u4PrivateData)) {
 				rCmdSetBssInfo.ucAuthMode = (UINT_8) AUTH_MODE_WPA2_PSK;
 				rCmdSetBssInfo.ucEncStatus = (UINT_8) ENUM_ENCRYPTION3_ENABLED;

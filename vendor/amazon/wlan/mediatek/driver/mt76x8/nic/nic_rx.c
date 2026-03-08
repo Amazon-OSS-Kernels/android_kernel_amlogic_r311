@@ -365,7 +365,7 @@ BOOLEAN nicRxFillRFB(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 	if (prSwRfb->ucGroupVLD & BIT(RX_GROUP_VLD_4)) {
 		prSwRfb->prRxStatusGroup4 = (P_HW_MAC_RX_STS_GROUP_4_T) ((P_UINT_8) prRxStatus + u2RxStatusOffset);
 		u2RxStatusOffset += sizeof(HW_MAC_RX_STS_GROUP_4_T);
-		
+
 		/* Fill out the TID and SSN */
 		prSwRfb->ucTid = (UINT_8) (HAL_RX_STATUS_GET_TID(prRxStatus));
 		prSwRfb->u2SSN = HAL_RX_STATUS_GET_SEQFrag_NUM(prSwRfb->prRxStatusGroup4) >> RX_STATUS_SEQ_NUM_OFFSET;
@@ -1087,7 +1087,7 @@ VOID nicRxProcessPktWithoutReorder(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwR
 
 
 	/* Return RFB */
-	if (!timerPendingTimer(&prAdapter->rPacketDelaySetupTimer)) { 
+	if (!timerPendingTimer(&prAdapter->rPacketDelaySetupTimer)) {
 		if (nicRxSetupRFB(prAdapter, prSwRfb)) {
 				DBGLOG(RX, WARN,
 					"Allocate SwRfb packet buf failed, Start ReturnIndicatedRfb Timer (%u)\n",
@@ -1613,10 +1613,10 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 		fgDrop = TRUE;
 
 		if (HAL_RX_STATUS_IS_DE_AMSDU_FAIL(prRxStatus))
-			DBGLOG(RSN, INFO, "de-amsdu fail\n");
+			DBGLOG(RSN, EVENT, "de-amsdu fail\n");
 
 		if (HAL_RX_STATUS_IS_ICV_ERROR(prRxStatus))
-			DBGLOG(RSN, INFO, "icv error\n");
+			DBGLOG(RSN, EVENT, "icv error\n");
 
 		if (!HAL_RX_STATUS_IS_ICV_ERROR(prRxStatus)
 		    && HAL_RX_STATUS_IS_TKIP_MIC_ERROR(prRxStatus)) {
@@ -1669,7 +1669,7 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 		pu2EtherType =
 			(PUINT_16)((PUINT_8)prSwRfb->pvHeader + 2*MAC_ADDR_LEN);
 
-		DBGLOG(RSN, INFO,
+		DBGLOG(RSN, EVENT,
 			"HAL_RX_STATUS_IS_CIPHER_MISMATCH, htr:%d, HdrLen:%d\n",
 			HAL_RX_STATUS_IS_HEADER_TRAN(prRxStatus),
 			HAL_RX_STATUS_GET_HEADER_LEN(prRxStatus)
@@ -1686,7 +1686,7 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 				"Don't drop eapol or wpi packet\n");
 		} else {
 			fgDrop = TRUE;
-			DBGLOG(RSN, INFO,
+			DBGLOG(RSN, EVENT,
 				"Drop plain text during security connection\n");
 		}
 	}
@@ -1700,6 +1700,59 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 			"Drop fragmented broadcast and multicast\n");
 	}
 #endif /* CFG_SUPPORT_FRAG_ATTACK_DETECTION */
+
+#if CFG_KEY_ERROR_STATISTIC_RECOVERY
+	if ((prSwRfb->fgIsBC || prSwRfb->fgIsMC) &&
+			(prSwRfb->fgDataFrame == TRUE)) {
+		UINT_8 ucBssIndex =
+			secGetBssIdxByWlanIdx(prAdapter,
+				HAL_RX_STATUS_GET_WLAN_IDX(prRxStatus));
+		P_BSS_INFO_T prBssInfo =
+			GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
+
+		if (prBssInfo && IS_BSS_AIS(prBssInfo)) {
+			UINT_8 fgTriggerBCNTimeout = FALSE;
+
+			RX_INC_CNT(&prAdapter->rRxCtrl, RX_BMC_PKT_COUNT);
+
+			if (HAL_RX_STATUS_IS_ICV_ERROR(prRxStatus)) {
+				RX_INC_CNT(&prAdapter->rRxCtrl, RX_BMC_KEY_ERROR_COUNT);
+
+				DBGLOG(RSN, EVENT, "BMC Data Packet from AIS Wi-Fi interface with ICV error\n");
+
+				if (RX_GET_CNT(&prAdapter->rRxCtrl, RX_BMC_KEY_ERROR_COUNT) ==
+						prAdapter->rWifiVar.u4BmcKeyErrorTh)
+					fgTriggerBCNTimeout = TRUE;
+			} else if (HAL_RX_STATUS_IS_CIPHER_MISMATCH(prRxStatus)) {
+				RX_INC_CNT(&prAdapter->rRxCtrl, RX_BMC_NO_KEY_COUNT);
+
+				DBGLOG(RSN, EVENT, "BMC Data Packet from AIS Wi-Fi interface with Cipher Mismatch\n");
+
+				if (RX_GET_CNT(&prAdapter->rRxCtrl, RX_BMC_NO_KEY_COUNT) ==
+						prAdapter->rWifiVar.u4BmcKeyErrorTh)
+					fgTriggerBCNTimeout = TRUE;
+			}
+
+			if ((fgTriggerBCNTimeout) &&
+					(prAdapter->rWifiVar.u4BmcKeyErrorTh)) {
+				DBGLOG(QM, EVENT,
+						"Trigger BCN timeout due to RX more than\n"
+						"  %llu cipher mismatch BMC packets\n"
+						"  %llu ICV error BMC packets\n",
+						RX_GET_CNT(&prAdapter->rRxCtrl, RX_BMC_NO_KEY_COUNT),
+						RX_GET_CNT(&prAdapter->rRxCtrl, RX_BMC_KEY_ERROR_COUNT));
+
+				prBssInfo->u2DeauthReason = BEACON_TIMEOUT_REASON_DUE_2_BMC_ERR;
+#if CFG_SUPPORT_CFG80211_AUTH
+				kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
+						WLAN_STATUS_BEACON_TIMEOUT, NULL, 0);
+#else
+				aisBssBeaconTimeout(prAdapter, prBssInfo->u2DeauthReason);
+#endif
+			}
+		}
+	}
+#endif
 
 #if CFG_TCP_IP_CHKSUM_OFFLOAD || CFG_TCP_IP_CHKSUM_OFFLOAD_NDIS_60
 	if (prAdapter->fgIsSupportCsumOffload && fgDrop == FALSE) {

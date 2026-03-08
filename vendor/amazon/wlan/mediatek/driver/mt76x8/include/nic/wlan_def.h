@@ -86,6 +86,7 @@
 
 /* Beacon Timeout Event Reason */
 #define BEACON_TIMEOUT_EVENT_DUE_2_RX_DEAUTH_IN_STR     11
+#define BEACON_TIMEOUT_REASON_DUE_2_BMC_ERR             15
 
 /* The rate definitions */
 #define TX_MODE_CCK             0x00
@@ -358,6 +359,9 @@
 #define AUTH_TYPE_OPEN_SYSTEM                       BIT(AUTH_ALGORITHM_NUM_OPEN_SYSTEM)
 #define AUTH_TYPE_SHARED_KEY                        BIT(AUTH_ALGORITHM_NUM_SHARED_KEY)
 #define AUTH_TYPE_FAST_BSS_TRANSITION               BIT(AUTH_ALGORITHM_NUM_FAST_BSS_TRANSITION)
+#if CFG_SUPPORT_CFG80211_AUTH
+#define AUTH_TYPE_SAE                               BIT(AUTH_ALGORITHM_NUM_SAE)
+#endif
 
 /* Authentication Retry Limit */
 #define TX_AUTH_ASSOCI_RETRY_LIMIT                  2
@@ -886,16 +890,33 @@ typedef enum _ENUM_ANTENNA_NUM {
 /* #pragma pack(1) */
 /* #endif */
 
-#define MAX_NUM_SUPPORTED_CIPHER_SUITES 8	/* max number of supported cipher suites */
+#if CFG_SUPPORT_CFG80211_AUTH
+/* max number of supported cipher suites */
+#define MAX_NUM_SUPPORTED_CIPHER_SUITES 10
 #if CFG_SUPPORT_802_11W
-#define MAX_NUM_SUPPORTED_AKM_SUITES    8	/* max number of supported AKM suites */
+/* max number of supported AKM suites */
+#define MAX_NUM_SUPPORTED_AKM_SUITES    15
 #else
-#define MAX_NUM_SUPPORTED_AKM_SUITES    6	/* max number of supported AKM suites */
+/* max number of supported AKM suites */
+#define MAX_NUM_SUPPORTED_AKM_SUITES    13
 #endif
+#else
+#define MAX_NUM_SUPPORTED_CIPHER_SUITES 8
+#if CFG_SUPPORT_802_11W
+/* max number of supported AKM suites */
+#define MAX_NUM_SUPPORTED_AKM_SUITES    8
+#else
+/* max number of supported AKM suites */
+#define MAX_NUM_SUPPORTED_AKM_SUITES    6
+#endif
+#endif
+/* max number of supported PMKID */
+#define MAX_NUM_SUPPORTED_PMKID	        10
 
 /* Structure of RSN Information */
 typedef struct _RSN_INFO_T {
 	UINT_8 ucElemId;
+	UINT_8 ucRsneLen;
 	UINT_16 u2Version;
 	UINT_32 u4GroupKeyCipherSuite;
 	UINT_32 u4PairwiseKeyCipherSuiteCount;
@@ -904,6 +925,9 @@ typedef struct _RSN_INFO_T {
 	UINT_32 au4AuthKeyMgtSuite[MAX_NUM_SUPPORTED_AKM_SUITES];
 	UINT_16 u2RsnCap;
 	BOOLEAN fgRsnCapPresent;
+	UINT_16 u2PmkidCnt;
+	BOOLEAN aucPmkidList[MAX_NUM_SUPPORTED_PMKID * RSN_PMKID_LEN];
+	UINT_32 u4GroupMgmtKeyCipherSuite;
 } /*__KAL_ATTRIB_PACKED__*/ RSN_INFO_T, *P_RSN_INFO_T;
 
 #define MAX_NUM_SUPPORTED_WAPI_AKM_SUITES    1	/* max number of supported AKM suites */
@@ -951,6 +975,25 @@ typedef struct _P2P_DEVICE_DESC_T {
 	/* TODO: Service Information or PasswordID valid? */
 } P2P_DEVICE_DESC_T, *P_P2P_DEVICE_DESC_T;
 
+#endif
+
+#if CFG_SUPPORT_OWE
+/* Structure of OWE Information */
+struct OWE_INFO_T {
+	UINT_8 ucElemId;
+	UINT_8 ucLength;
+	UINT_8 ucElemIdExt;
+	UINT_16 u2Group;
+	UINT_8 aucPublicKey[100];
+};
+#endif
+
+#if CFG_SUPPORT_H2E
+struct RSNXE {
+	UINT_8 ucElemId;
+	UINT_8 ucLength;
+	UINT_16 u2Cap;
+} __KAL_ATTRIB_PACKED__;
 #endif
 
 /*******************************************************************************

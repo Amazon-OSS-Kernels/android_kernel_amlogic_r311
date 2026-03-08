@@ -40,7 +40,7 @@
 /*============================================================================*/
 /* Local Configuration */
 /*============================================================================*/
-#define VERSION "6.0.22060201"
+#define VERSION "6.0.22072801"
 
 /*============================================================================*/
 /* Function Prototype */
@@ -181,6 +181,7 @@ static wait_queue_head_t inq_isoc;
 static struct btmtk_usb_data *g_data;
 static int probe_counter;
 static u8 need_reset_stack;
+static u8 need_reset_stack_type;
 static u8 need_reopen;
 static int send_hw_err_event_count;
 /* bluetooth KPI feautre, bperf */
@@ -883,6 +884,9 @@ void btmtk_usb_toggle_rst_pin(void)
 	btmtk_usb_hci_snoop_print_to_log();
 
 	btmtk_usb_L0_hook_new_probe(btmtk_usb_L0_probe);
+
+	if (need_reset_stack_type == HW_ERR_NONE)
+		need_reset_stack_type = HW_ERR_CODE_BT_DRIVER;
 
 	do {
 		typedef void (*pdwnc_func) (u8 fgReset);
@@ -3892,6 +3896,9 @@ void btmtk_usb_trigger_core_dump(void)
 	}
 	USB_MUTEX_UNLOCK();
 
+	if (need_reset_stack_type == HW_ERR_NONE)
+		need_reset_stack_type = HW_ERR_CODE_WIFI;
+
 	btmtk_usb_toggle_rst_pin();
 }
 EXPORT_SYMBOL(btmtk_usb_trigger_core_dump);
@@ -4194,6 +4201,8 @@ static void btmtk_usb_bulk_in_complete(struct urb *urb)
 			if (state != BTMTK_USB_STATE_FW_DUMP && state != BTMTK_USB_STATE_RESUME_FW_DUMP) {
 				/* This is the first BULK_IN packet of FW dump. */
 				BTUSB_INFO("btmtk_usb FW dump begin");
+				if (need_reset_stack_type == HW_ERR_NONE)
+					need_reset_stack_type = HW_ERR_CODE_BT_FW;
 
 				if (state == BTMTK_USB_STATE_RESUME)
 					btmtk_usb_set_state(BTMTK_USB_STATE_RESUME_FW_DUMP);
@@ -4802,6 +4811,8 @@ static ssize_t btmtk_usb_fops_write(struct file *file, const char __user *buf,
 			if (copy_size == sizeof(fw_assert_cmd) &&
 				!memcmp(g_data->o_buf, fw_assert_cmd, sizeof(fw_assert_cmd))) {
 				BTUSB_INFO("%s: Donge FW Assert Triggered by BT Stack!", __func__);
+				if (need_reset_stack_type == HW_ERR_NONE)
+					need_reset_stack_type = HW_ERR_CODE_BT_HOST;
 				btmtk_usb_hci_snoop_print_to_log();
 			} else if (copy_size == sizeof(reset_cmd) &&
 					!memcmp(g_data->o_buf, reset_cmd, sizeof(reset_cmd))) {
@@ -5042,6 +5053,7 @@ static ssize_t btmtk_usb_fops_read(struct file *file, char __user *buf, size_t c
 				send_hw_err_event_count = 0;
 				BTUSB_WARN("%s: set need_reset_stack=0", __func__);
 				need_reset_stack = HW_ERR_NONE;
+				need_reset_stack_type = HW_ERR_NONE;
 				need_reopen = 1;
 			}
 			BTUSB_WARN("%s: set call up", __func__);
@@ -5265,6 +5277,7 @@ static int btmtk_usb_fops_open(struct inode *inode, struct file *file)
 	FOPS_MUTEX_UNLOCK();
 	need_reopen = 0;
 	need_reset_stack = HW_ERR_NONE;
+	need_reset_stack_type = HW_ERR_NONE;
 	BTUSB_INFO("%s: OK", __func__);
 
 	return 0;
@@ -5325,6 +5338,7 @@ exit:
 
 	/* In case no read from stack, and close directly */
 	need_reset_stack = HW_ERR_NONE;
+	need_reset_stack_type = HW_ERR_NONE;
 	send_hw_err_event_count = 0;
 
 	BTUSB_INFO("%s: OK", __func__);
@@ -6001,7 +6015,12 @@ static int btmtk_usb_L0_probe(struct usb_interface *intf, const struct usb_devic
 		goto exit;
 	}
 
-	need_reset_stack = HW_ERR_CODE_CHIP_RESET;
+	if (need_reset_stack_type != HW_ERR_NONE)
+		need_reset_stack = need_reset_stack_type;
+	else {
+		BTUSB_INFO("%s need_reset_stack is HW_ERR_NONE when do chip reset", __func__);
+		need_reset_stack = HW_ERR_CODE_BT_DRIVER;
+	}
 	BTUSB_INFO("need_reset_stack %d probe_ret %d", need_reset_stack, ret);
 	wake_up_interruptible(&inq);
 

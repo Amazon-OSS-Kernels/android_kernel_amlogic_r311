@@ -77,6 +77,9 @@
 *                              C O N S T A N T S
 ********************************************************************************
 */
+#if CFG_SUPPORT_CFG80211_AUTH
+#define AUTH_DATA_MAX_LEN 1024 /* temp defined */
+#endif
 /* 3 --------------- Constants for Ethernet/802.11 MAC --------------- */
 /* MAC Address */
 #define MAC_ADDR_LEN                            6
@@ -272,8 +275,11 @@
 #define RATE_36M                                72	/* 36M */
 #define RATE_48M                                96	/* 48M */
 #define RATE_54M                                108	/* 54M */
-/* 7.3.2.14 BSS membership selector */
 
+/* 7.3.2.14 BSS membership selector */
+#if CFG_SUPPORT_H2E
+#define RATE_H2E_ONLY                           123	/* BSS Selector - Hash To Element only */
+#endif
 #define RATE_VHT_PHY                            126	/* BSS Selector - Clause 22. HT PHY */
 #define RATE_HT_PHY                             127	/* BSS Selector - Clause 20. HT PHY */
 #define RATE_MASK                               BITS(0, 6)	/* mask bits for the rate */
@@ -547,6 +553,9 @@
 #define AUTH_ALGORITHM_NUM_OPEN_SYSTEM              0	/* Open System */
 #define AUTH_ALGORITHM_NUM_SHARED_KEY               1	/* Shared Key */
 #define AUTH_ALGORITHM_NUM_FAST_BSS_TRANSITION      2	/* Fast BSS Transition */
+#if CFG_SUPPORT_CFG80211_AUTH
+#define AUTH_ALGORITHM_NUM_SAE                      3	/* SAE */
+#endif
 
 /* 7.3.1.2 Authentication Transaction Sequence Number field */
 #define AUTH_TRANSACTION_SEQENCE_NUM_FIELD_LEN      2
@@ -554,6 +563,10 @@
 #define AUTH_TRANSACTION_SEQ_2                      2
 #define AUTH_TRANSACTION_SEQ_3                      3
 #define AUTH_TRANSACTION_SEQ_4                      4
+
+#if CFG_SUPPORT_H2E
+#define AUTH_STATUS_CODE_FIELD_LEN                  2
+#endif
 
 /* 7.3.1.3 Beacon Interval field */
 #define BEACON_INTERVAL_FIELD_LEN                   2
@@ -721,6 +734,10 @@
 #define STATUS_CODE_DESTINATION_STA_NOT_PRESENT     49	/* Destination STA is not present within this QBSS */
 #define STATUS_CODE_DESTINATION_STA_NOT_QSTA        50	/* Destination STA is not a QSTA */
 #define STATUS_CODE_ASSOC_DENIED_LARGE_LIS_INTERVAL 51	/* Association denied because the ListenInterval is too large */
+
+#if CFG_SUPPORT_H2E
+#define WLAN_STATUS_SAE_HASH_TO_ELEMENT             126
+#endif
 
 /* proprietary definition of reserved field of Status Code */
 #define STATUS_CODE_JOIN_FAILURE                    0xFFF0	/* Join failure */
@@ -919,6 +936,10 @@
 #define ELEM_MAX_LEN_RSN                            38	/* one pairwise, one AKM suite, one PMKID */
 #define ELEM_MAX_LEN_WAPI                           38	/* one pairwise, one AKM suite, one BKID */
 #define ELEM_MAX_LEN_WSC                            200	/* one pairwise, one AKM suite, one BKID */
+
+/* 802.11i */
+/* length of one PMKID */
+#define RSN_PMKID_LEN                               16
 
 #if CFG_SUPPORT_802_11W
 #define ELEM_WPA_CAP_MFPR                           BIT(6)
@@ -1680,8 +1701,12 @@ typedef struct _WLAN_AUTH_FRAME_T {
 	UINT_16 u2SeqCtrl;	/* Sequence Control */
 	/* Authentication frame body */
 	UINT_16 u2AuthAlgNum;	/* Authentication algorithm number */
+#if CFG_SUPPORT_CFG80211_AUTH
+	BOOLEAN aucAuthData[AUTH_DATA_MAX_LEN];
+#else
 	UINT_16 u2AuthTransSeqNo;	/* Authentication transaction sequence number */
 	UINT_16 u2StatusCode;	/* Status code */
+#endif
 	UINT_8 aucInfoElem[1];	/* Various IEs for Fast BSS Transition */
 } __KAL_ATTRIB_PACKED__ WLAN_AUTH_FRAME_T, *P_WLAN_AUTH_FRAME_T;
 

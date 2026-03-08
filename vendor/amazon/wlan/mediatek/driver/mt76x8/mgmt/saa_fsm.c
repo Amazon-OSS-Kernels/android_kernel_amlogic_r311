@@ -118,6 +118,227 @@ static PUINT_8 apucDebugAAState[AA_STATE_NUM] = {
 *                              F U N C T I O N S
 ********************************************************************************
 */
+#if CFG_SUPPORT_CFG80211_AUTH
+/*----------------------------------------------------------------------------*/
+/*
+ * @brief prepare to send authentication or association frame
+ *
+ * @param[in] prStaRec		Pointer to the STA_RECORD_T
+ *
+ * @return (none)
+ */
+/*----------------------------------------------------------------------------*/
+void saaSendAuthAssoc(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_T prStaRec)
+{
+	/* This function do the things like
+	 * "case SAA_STATE_SEND_AUTH1/ASSOC1" in SAA FSM steps
+	 */
+
+	UINT_32 rStatus = WLAN_STATUS_FAILURE;
+	P_CONNECTION_SETTINGS_T prConnSettings = NULL;
+	UINT_16 u2AuthTransSN = AUTH_TRANSACTION_SEQ_1; /* default for OPEN */
+	P_BSS_DESC_T prBssDesc = NULL;
+	P_AIS_SPECIFIC_BSS_INFO_T prAisSpecBssInfo = NULL;
+	PARAM_SSID_T rParamSsid;
+#if CFG_SUPPORT_H2E
+	UINT_16 u2AuthStatusCode = STATUS_CODE_RESERVED;
+#endif
+
+	ASSERT(prAdapter);
+	ASSERT(prStaRec);
+
+	prConnSettings = &(prAdapter->rWifiVar.rConnSettings);
+
+	DBGLOG(SAA, INFO, "[SAA]saaSendAuthAssoc, StaState:%d\n", prStaRec->ucStaState);
+
+	if (prStaRec->ucTxAuthAssocRetryCount >= prStaRec->ucTxAuthAssocRetryLimit) {
+		/* Record the Status Code of Authentication Request */
+		prStaRec->u2StatusCode = (prConnSettings->fgIsSendAssoc) ?
+			STATUS_CODE_ASSOC_TIMEOUT : STATUS_CODE_AUTH_TIMEOUT;
+
+		if (saaFsmSendEventJoinComplete(prAdapter, WLAN_STATUS_FAILURE, prStaRec, NULL) ==
+				WLAN_STATUS_RESOURCES) {
+				/* can set a timer and retry later */
+				DBGLOG(SAA, WARN, "[SAA]can't alloc msg for inform AIS join complete\n");
+		}
+	} else {
+		prStaRec->ucTxAuthAssocRetryCount++;
+		/* Prepare to send authentication frame */
+		if (!prConnSettings->fgIsSendAssoc) {
+			/* Fill authentication transaction sequence number
+			 * depends on auth type
+			 */
+			if (((prAdapter->prGlueInfo->rWpaInfo.u4AuthAlg & AUTH_TYPE_SAE) ||
+				(prAdapter->prGlueInfo->rWpaInfo.u4AuthAlg & AUTH_TYPE_SHARED_KEY)) &&
+											prConnSettings->ucAuthDataLen) {
+				kalMemCopy(&u2AuthTransSN,
+					prConnSettings->aucAuthData,
+					AUTH_TRANSACTION_SEQENCE_NUM_FIELD_LEN);
+				DBGLOG(SAA, INFO, "[SAA]Get auth SN = %d from Conn Settings\n", u2AuthTransSN);
+			}
+
+#if CFG_SUPPORT_H2E
+			if (prAdapter->prGlueInfo->rWpaInfo.u4AuthAlg & AUTH_TYPE_SAE) {
+				kalMemCopy(&u2AuthStatusCode,
+					&prConnSettings->aucAuthData[2],
+					AUTH_STATUS_CODE_FIELD_LEN);
+				DBGLOG(SAA, INFO,
+					"[SAA]Get auth StatusCode=%d from Conn Settings\n", u2AuthStatusCode);
+			}
+#endif
+
+			/* Update Station Record - Class 1 Flag */
+			if (prStaRec->ucStaState != STA_STATE_1) {
+				DBGLOG(SAA, WARN, "[SAA]Rx send auth CMD at unexpect state:%d\n", prStaRec->ucStaState);
+				cnmStaRecChangeState(prAdapter, prStaRec, STA_STATE_1);
+			}
+#if !CFG_SUPPORT_AAA
+				rStatus = authSendAuthFrame(prAdapter, prStaRec, u2AuthTransSN);
+#else
+				rStatus = authSendAuthFrame(prAdapter,
+							prStaRec,
+							prStaRec->ucBssIndex,
+							NULL,
+							u2AuthTransSN,
+#if CFG_SUPPORT_H2E
+							u2AuthStatusCode);
+#else
+							STATUS_CODE_RESERVED);
+#endif
+#endif /* CFG_SUPPORT_AAA */
+				prStaRec->eAuthAssocSent = u2AuthTransSN;
+			} else { /* Prepare to send association frame */
+#if 1
+			/* Fill Cipher/AKM before sending association request,
+			 * copy fro m AIS search step
+			 */
+			if (prConnSettings->ucSSIDLen) {
+				rParamSsid.u4SsidLen =
+					prConnSettings->ucSSIDLen;
+				COPY_SSID(rParamSsid.aucSsid,
+					rParamSsid.u4SsidLen,
+					prConnSettings->aucSSID,
+					prConnSettings->ucSSIDLen);
+				prBssDesc = scanSearchBssDescByBssidAndSsid(
+						prAdapter,
+						prStaRec->aucMacAddr,
+						TRUE,
+						&rParamSsid);
+				DBGLOG(RSN, INFO, "[RSN]saaSendAuthAssoc,"
+					"prBssDesc["MACSTR" ,%s] Searched by"
+					" BSSID["MACSTR"] & SSID %s.\n",
+					MAC2STR(prBssDesc->aucBSSID),
+					prBssDesc->aucSSID,
+					MAC2STR(prStaRec->aucMacAddr),
+					prConnSettings->aucSSID);
+			} else {
+				prBssDesc = scanSearchBssDescByBssidAndChanNum(
+					prAdapter,
+					prStaRec->aucMacAddr,
+					TRUE,
+					prConnSettings->ucChannelNum);
+				DBGLOG(RSN, INFO, "[RSN]saaSendAuthAssoc,"
+					"prBssDesc["MACSTR" ,%s] Searched by"
+					" BSSID["MACSTR"] & ChanNum %d.\n",
+					MAC2STR(prBssDesc->aucBSSID),
+					prBssDesc->aucSSID,
+					MAC2STR(prStaRec->aucMacAddr),
+					prConnSettings->ucChannelNum);
+			}
+
+			prAisSpecBssInfo = &(prAdapter->rWifiVar.rAisSpecificBssInfo);
+			if (rsnPerformPolicySelection(prAdapter, prBssDesc)) {
+				if (prAisSpecBssInfo->fgCounterMeasure)
+					DBGLOG(RSN, WARN, "Skip whle at counter measure perid\n");
+				else {
+					DBGLOG(RSN, INFO, "Bss RSN matched!\n");
+					prAdapter->prAisBssInfo->u4RsnSelectedGroupCipher =
+						prBssDesc->u4RsnSelectedGroupCipher;
+					prAdapter->prAisBssInfo->u4RsnSelectedPairwiseCipher =
+						prBssDesc->u4RsnSelectedPairwiseCipher;
+					prAdapter->prAisBssInfo->u4RsnSelectedAKMSuite =
+						prBssDesc->u4RsnSelectedAKMSuite;
+				}
+			} else
+			DBGLOG(RSN, WARN, "Bss fail for RSN check\n");
+#endif
+				if (prStaRec->ucStaState == STA_STATE_1) {
+					/* don't change to state2 for reassociation */
+					/* Update Station Record - Class 2 Flag */
+					cnmStaRecChangeState(prAdapter, prStaRec, STA_STATE_2);
+				}
+
+				rStatus = assocSendReAssocReqFrame(prAdapter, prStaRec);
+				prStaRec->eAuthAssocSent = AA_SENT_ASSOC1;
+			}
+
+			if (rStatus != WLAN_STATUS_SUCCESS) {
+				/* maybe can't alloc msdu info, retry after timeout */
+				cnmTimerInitTimer(prAdapter,
+						  &prStaRec->rTxReqDoneOrRxRespTimer,
+						  (PFN_MGMT_TIMEOUT_FUNC)
+						  saaFsmRunEventTxReqTimeOut,
+						  (unsigned long) prStaRec);
+
+				cnmTimerStartTimer(prAdapter,
+					&prStaRec->rTxReqDoneOrRxRespTimer,
+					TU_TO_MSEC(TX_AUTHENTICATION_RETRY_TIMEOUT_TU));
+			}
+		}
+	}
+
+void saaSendAuthSeq3(IN P_ADAPTER_T prAdapter,
+		IN P_STA_RECORD_T prStaRec)
+{
+	UINT_32 rStatus = WLAN_STATUS_FAILURE;
+
+	ASSERT(prAdapter);
+	ASSERT(prStaRec);
+
+	DBGLOG(SAA, INFO, "[SAA]send auth 3\n");
+
+	if (prStaRec->ucTxAuthAssocRetryCount >=
+				prStaRec->ucTxAuthAssocRetryLimit) {
+		/* Record the Status Code of Auth Request */
+		prStaRec->u2StatusCode =
+					STATUS_CODE_AUTH_TIMEOUT;
+	} else {
+		prStaRec->ucTxAuthAssocRetryCount++;
+#if 0
+		prStaRec->ucAuthTranNum =
+				AUTH_TRANSACTION_SEQ_3;
+#endif
+
+#if !CFG_SUPPORT_AAA
+		rStatus = authSendAuthFrame(prAdapter,
+							prStaRec,
+							AUTH_TRANSACTION_SEQ_3);
+#else
+		rStatus = authSendAuthFrame(prAdapter,
+							prStaRec,
+							prStaRec->ucBssIndex,
+							NULL,
+							AUTH_TRANSACTION_SEQ_3,
+							STATUS_CODE_RESERVED);
+#endif /* CFG_SUPPORT_AAA */
+
+		prStaRec->eAuthAssocSent = AA_SENT_AUTH3;
+
+		if (rStatus != WLAN_STATUS_SUCCESS) {
+			cnmTimerInitTimer(prAdapter,
+					&prStaRec->rTxReqDoneOrRxRespTimer,
+					(PFN_MGMT_TIMEOUT_FUNC)
+					saaFsmRunEventTxReqTimeOut,
+					(unsigned long) prStaRec);
+
+			cnmTimerStartTimer(prAdapter,
+					&prStaRec->rTxReqDoneOrRxRespTimer,
+					TU_TO_MSEC(
+					TX_AUTHENTICATION_RETRY_TIMEOUT_TU));
+		}
+	}
+}
+#endif
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -363,7 +584,10 @@ saaFsmSendEventJoinComplete(IN P_ADAPTER_T prAdapter,
 		prSaaFsmCompMsg = cnmMemAlloc(prAdapter, RAM_TYPE_MSG, sizeof(MSG_SAA_FSM_COMP_T));
 		if (!prSaaFsmCompMsg)
 			return WLAN_STATUS_RESOURCES;
-
+#if CFG_SUPPORT_CFG80211_AUTH
+		if (rJoinStatus == WLAN_STATUS_SUCCESS)
+			prStaRec->u2StatusCode = STATUS_CODE_SUCCESSFUL;
+#endif
 		prSaaFsmCompMsg->rMsgHdr.eMsgId = MID_SAA_AIS_JOIN_COMPLETE;
 		prSaaFsmCompMsg->ucSeqNum = prStaRec->ucAuthAssocReqSeqNum;
 		prSaaFsmCompMsg->rJoinStatus = rJoinStatus;
@@ -382,7 +606,10 @@ saaFsmSendEventJoinComplete(IN P_ADAPTER_T prAdapter,
 		prSaaFsmCompMsg = cnmMemAlloc(prAdapter, RAM_TYPE_MSG, sizeof(MSG_SAA_FSM_COMP_T));
 		if (!prSaaFsmCompMsg)
 			return WLAN_STATUS_RESOURCES;
-
+#if CFG_SUPPORT_CFG80211_AUTH
+		if (rJoinStatus == WLAN_STATUS_SUCCESS)
+			prStaRec->u2StatusCode = STATUS_CODE_SUCCESSFUL;
+#endif
 		prSaaFsmCompMsg->rMsgHdr.eMsgId = MID_SAA_P2P_JOIN_COMPLETE;
 		prSaaFsmCompMsg->ucSeqNum = prStaRec->ucAuthAssocReqSeqNum;
 		prSaaFsmCompMsg->rJoinStatus = rJoinStatus;
@@ -476,8 +703,12 @@ VOID saaFsmRunEventStart(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHdr)
 	}
 	/* 4 <3> Reset Status Code and Time */
 	/* Update Station Record - Status/Reason Code */
+#if CFG_SUPPORT_CFG80211_AUTH
+	prStaRec->u2StatusCode = STATUS_CODE_UNSPECIFIED_FAILURE;
+#else
 #if !CFG_KEEP_SAA_STATUS_CODE
 	prStaRec->u2StatusCode = STATUS_CODE_SUCCESSFUL;
+#endif
 #endif
 
 	/* Update the record join time. */
@@ -515,11 +746,22 @@ VOID saaFsmRunEventStart(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHdr)
 		}
 		DBGLOG(RLM, TRACE, "STA 40mAllowed=%d\n", prBssInfo->fgAssoc40mBwAllowed);
 	}
+
+#if CFG_SUPPORT_CFG80211_AUTH
+	if (!IS_STA_IN_P2P(prStaRec)) {
+		/* skip SAA FSM */
+		prStaRec->eAuthAssocSent = AA_SENT_NONE;
+		saaSendAuthAssoc(prAdapter, prStaRec);
+	} else {
+#endif
 	/* 4 <7> Trigger SAA FSM */
 	if (prStaRec->ucStaState == STA_STATE_1)
 		saaFsmSteps(prAdapter, prStaRec, SAA_STATE_SEND_AUTH1, (P_SW_RFB_T) NULL);
 	else if (prStaRec->ucStaState == STA_STATE_2 || prStaRec->ucStaState == STA_STATE_3)
 		saaFsmSteps(prAdapter, prStaRec, SAA_STATE_SEND_ASSOC1, (P_SW_RFB_T) NULL);
+#if CFG_SUPPORT_CFG80211_AUTH
+	}
+#endif
 }				/* end of saaFsmRunEventStart() */
 
 /*----------------------------------------------------------------------------*/
@@ -548,12 +790,61 @@ saaFsmRunEventTxDone(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInfo, IN E
 
 	ASSERT(prStaRec);
 
+#if CFG_CHIP_RESET_SUPPORT
+	if (kalIsResetting()) {
+		DBGLOG(SAA, WARN, "Skip TxDone event due to chip resetting\n");
+		return WLAN_STATUS_SUCCESS;
+	}
+#endif
+
 	DBGLOG(SAA, LOUD, "EVENT-TX DONE: Current Time = %d\n", kalGetTimeTick());
 
 	/* Trigger statistics log if Auth/Assoc Tx failed */
 	if (rTxDoneStatus != TX_RESULT_SUCCESS)
 		wlanTriggerStatsLog(prAdapter, prAdapter->rWifiVar.u4StatsLogDuration);
 
+#if CFG_SUPPORT_CFG80211_AUTH
+	if (!IS_STA_IN_P2P(prStaRec)) {
+		/* check the outgoing frame is matched with
+		 * the last sent frame, ignore the unmatched txdone
+		 */
+		if ((prStaRec->eAuthAssocSent >= AA_SENT_AUTH1) &&
+			(prStaRec->eAuthAssocSent <= AA_SENT_AUTH4)) {
+			if (authCheckTxAuthFrame(prAdapter, prMsduInfo,
+				prStaRec->eAuthAssocSent) != WLAN_STATUS_SUCCESS)
+				return WLAN_STATUS_SUCCESS;
+		} else if (prStaRec->eAuthAssocSent == AA_SENT_ASSOC1) {
+			if (assocCheckTxReAssocReqFrame(prAdapter, prMsduInfo) != WLAN_STATUS_SUCCESS)
+				return WLAN_STATUS_SUCCESS;
+		} else
+			DBGLOG(SAA, WARN, "unexpected sent frame = %d\n", prStaRec->eAuthAssocSent);
+
+		cnmTimerStopTimer(prAdapter, &prStaRec->rTxReqDoneOrRxRespTimer);
+
+		if (rTxDoneStatus == TX_RESULT_SUCCESS) {
+			cnmTimerInitTimer(prAdapter,
+				&prStaRec->rTxReqDoneOrRxRespTimer,
+				(PFN_MGMT_TIMEOUT_FUNC) saaFsmRunEventRxRespTimeOut,
+				(unsigned long) prStaRec);
+#if CFG_SUPPORT_CFG80211_AUTH
+			if (prAdapter->prGlueInfo->rWpaInfo.u4AuthAlg & AUTH_TYPE_SAE)
+				cnmTimerStartTimer(prAdapter,
+					&prStaRec->rTxReqDoneOrRxRespTimer,
+					TU_TO_MSEC(DOT11_RSNA_SAE_RETRANS_PERIOD_TU));
+			else
+#endif
+				cnmTimerStartTimer(prAdapter,
+					&prStaRec->rTxReqDoneOrRxRespTimer,
+					TU_TO_MSEC(DOT11_AUTHENTICATION_RESPONSE_TIMEOUT_TU));
+		} else {/* Tx failed, do retry if possible */
+			/* Add for support wep when enable wpa3 */
+			if (prStaRec->eAuthAssocSent == AA_SENT_AUTH3)
+				saaSendAuthSeq3(prAdapter, prStaRec);
+			else
+				saaSendAuthAssoc(prAdapter, prStaRec);
+		}
+	} else {
+#endif
 	eNextState = prStaRec->eAuthAssocState;
 
 	switch (prStaRec->eAuthAssocState) {
@@ -571,6 +862,12 @@ saaFsmRunEventTxDone(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInfo, IN E
 				cnmTimerInitTimer(prAdapter, &prStaRec->rTxReqDoneOrRxRespTimer, (PFN_MGMT_TIMEOUT_FUNC)
 						  saaFsmRunEventRxRespTimeOut, (ULONG) prStaRec);
 
+#if CFG_SUPPORT_CFG80211_AUTH
+			if (prAdapter->prGlueInfo->rWpaInfo.u4AuthAlg & AUTH_TYPE_SAE)
+				cnmTimerStartTimer(prAdapter, &prStaRec->rTxReqDoneOrRxRespTimer,
+					TU_TO_MSEC(DOT11_RSNA_SAE_RETRANS_PERIOD_TU));
+			else
+#endif
 				cnmTimerStartTimer(prAdapter,
 						   &prStaRec->rTxReqDoneOrRxRespTimer,
 						   TU_TO_MSEC(DOT11_AUTHENTICATION_RESPONSE_TIMEOUT_TU));
@@ -638,7 +935,9 @@ saaFsmRunEventTxDone(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInfo, IN E
 	default:
 		break;		/* Ignore other cases */
 	}
-
+#if CFG_SUPPORT_CFG80211_AUTH
+	}
+#endif
 	return WLAN_STATUS_SUCCESS;
 
 }				/* end of saaFsmRunEventTxDone() */
@@ -664,7 +963,11 @@ VOID saaFsmRunEventTxReqTimeOut(IN P_ADAPTER_T prAdapter, IN ULONG plParamPtr)
 
 	/* Trigger statistics log if Auth/Assoc Tx timeout */
 	wlanTriggerStatsLog(prAdapter, prAdapter->rWifiVar.u4StatsLogDuration);
-
+#if CFG_SUPPORT_CFG80211_AUTH
+	if (!IS_STA_IN_P2P(prStaRec)) {
+		saaSendAuthAssoc(prAdapter, prStaRec);
+	} else {
+#endif
 	switch (prStaRec->eAuthAssocState) {
 	case SAA_STATE_SEND_AUTH1:
 	case SAA_STATE_SEND_AUTH3:
@@ -675,6 +978,9 @@ VOID saaFsmRunEventTxReqTimeOut(IN P_ADAPTER_T prAdapter, IN ULONG plParamPtr)
 	default:
 		return;
 	}
+#if CFG_SUPPORT_CFG80211_AUTH
+	}
+#endif
 }				/* end of saaFsmRunEventTxReqTimeOut() */
 
 /*----------------------------------------------------------------------------*/
@@ -697,6 +1003,12 @@ VOID saaFsmRunEventRxRespTimeOut(IN P_ADAPTER_T prAdapter, IN ULONG ulParamPtr)
 	if (!prStaRec)
 		return;
 
+#if CFG_SUPPORT_CFG80211_AUTH
+	if (!IS_STA_IN_P2P(prStaRec)) {
+		/* Retry the last sent frame if possible */
+		saaSendAuthAssoc(prAdapter, prStaRec);
+	} else {
+#endif
 	eNextState = prStaRec->eAuthAssocState;
 
 	switch (prStaRec->eAuthAssocState) {
@@ -730,6 +1042,9 @@ VOID saaFsmRunEventRxRespTimeOut(IN P_ADAPTER_T prAdapter, IN ULONG ulParamPtr)
 
 	if (eNextState != prStaRec->eAuthAssocState)
 		saaFsmSteps(prAdapter, prStaRec, eNextState, (P_SW_RFB_T) NULL);
+#if CFG_SUPPORT_CFG80211_AUTH
+	}
+#endif
 }				/* end of saaFsmRunEventRxRespTimeOut() */
 
 /*----------------------------------------------------------------------------*/
@@ -748,10 +1063,22 @@ VOID saaFsmRunEventRxAuth(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 	UINT_16 u2StatusCode;
 	ENUM_AA_STATE_T eNextState;
 	UINT_8 ucWlanIdx;
+#if CFG_SUPPORT_CFG80211_AUTH
+	P_GLUE_INFO_T prGlueInfo = NULL;
+	P_WLAN_AUTH_FRAME_T prAuthFrame = (P_WLAN_AUTH_FRAME_T) NULL;
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+	PUINT_8 pFrameBuf = NULL;
+	BOOLEAN fgIsInterruptContext = FALSE;
+#endif
+#endif
 
 	ASSERT(prSwRfb);
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
 	ucWlanIdx = (UINT_8) HAL_RX_STATUS_GET_WLAN_IDX(prSwRfb->prRxStatus);
+#if CFG_SUPPORT_CFG80211_AUTH
+	prGlueInfo = prAdapter->prGlueInfo;
+	ASSERT(prGlueInfo);
+#endif
 
 	/* We should have the corresponding Sta Record. */
 	 if (!prStaRec) {
@@ -761,6 +1088,104 @@ VOID saaFsmRunEventRxAuth(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 
 	if (!IS_AP_STA(prStaRec))
 		return;
+
+#if CFG_SUPPORT_CFG80211_AUTH
+	/* check received auth frame */
+	if ((authCheckRxAuthFrameStatus(prAdapter, prSwRfb,
+		prStaRec->eAuthAssocSent, &u2StatusCode) ==
+		WLAN_STATUS_SUCCESS) && (!(IS_STA_IN_P2P(prStaRec)))) {
+		cnmTimerStopTimer(prAdapter, &prStaRec->rTxReqDoneOrRxRespTimer);
+
+		/* Record the Status Code of Authentication Request */
+		prStaRec->u2StatusCode = u2StatusCode;
+
+		/*Report Rx auth frame to upper layer*/
+		prAuthFrame = (P_WLAN_AUTH_FRAME_T) prSwRfb->pvHeader;
+
+		DBGLOG(INIT, INFO, "Dump rx auth data\n");
+		DBGLOG_MEM8(REQ, INFO, prAuthFrame, prSwRfb->u2PacketLen);
+
+		/*add for WEP */
+		if ((prAuthFrame->u2AuthAlgNum ==
+				AUTH_ALGORITHM_NUM_SHARED_KEY) &&
+				(prAuthFrame->aucAuthData[0] ==
+				AUTH_TRANSACTION_SEQ_2)) {
+			/* Reset Send Auth/(Re)Assoc Frame Count */
+			prStaRec->ucTxAuthAssocRetryCount = 0;
+			if (u2StatusCode == STATUS_CODE_SUCCESSFUL) {
+
+				authProcessRxAuth2_Auth4Frame(
+						prAdapter, prSwRfb);
+				saaSendAuthSeq3(prAdapter, prStaRec);
+				return;
+			}
+		} else {
+			DBGLOG(SAA, INFO,
+				"Report RX auth to upper layer with alg:%d, SN:%d, status:%d\n",
+				prAuthFrame->u2AuthAlgNum, prAuthFrame->aucAuthData[0],
+				prAuthFrame->aucAuthData[2]);
+
+#if (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+			if (in_interrupt()) {
+				pFrameBuf = kalMemAlloc(prSwRfb->u2PacketLen, PHY_MEM_TYPE);
+				fgIsInterruptContext = TRUE;
+			} else {
+				pFrameBuf = kalMemAlloc(prSwRfb->u2PacketLen, VIR_MEM_TYPE);
+				fgIsInterruptContext = FALSE;
+			}
+
+			if (!pFrameBuf) {
+				DBGLOG(SAA, ERROR, "Alloc buffer for frame failed\n");
+				return;
+			}
+
+			kalMemCopy((PVOID) pFrameBuf,
+						(PVOID) prAuthFrame,
+						prSwRfb->u2PacketLen);
+			kalWDevLockThread(prGlueInfo,
+								prGlueInfo->prDevHandler,
+								CFG80211_RX_MLME_MGMT,
+								pFrameBuf,
+								prSwRfb->u2PacketLen,
+								NULL,
+								0,
+								fgIsInterruptContext);
+#else
+			cfg80211_rx_mlme_mgmt(prGlueInfo->prDevHandler,
+				(const u8 *)prAuthFrame, (size_t)prSwRfb->u2PacketLen);
+#endif
+#else
+			cfg80211_send_rx_auth(prGlueInfo->prDevHandler,
+				(const u8 *)prAuthFrame, (size_t)prSwRfb->u2PacketLen);
+#endif
+
+			DBGLOG(SAA, INFO, "notification of RX Authentication Done\n");
+		}
+
+		/* Reset Send Auth/(Re)Assoc Frame Count */
+		prStaRec->ucTxAuthAssocRetryCount = 0;
+		if (u2StatusCode == STATUS_CODE_SUCCESSFUL
+#if CFG_SUPPORT_H2E
+			|| (u2StatusCode == WLAN_STATUS_SAE_HASH_TO_ELEMENT)
+#endif
+		) {
+			authProcessRxAuth2_Auth4Frame(prAdapter, prSwRfb);
+		} else {
+			DBGLOG(SAA, INFO,
+				"Auth Req was rejected by [" MACSTR"], Status Code = %d\n",
+				MAC2STR(prStaRec->aucMacAddr), u2StatusCode);
+
+		/* AIS retry JOIN or indicate JOIN FAILURE to upper layer*/
+			if (saaFsmSendEventJoinComplete(prAdapter,
+				WLAN_STATUS_FAILURE, prStaRec, NULL) ==
+				WLAN_STATUS_RESOURCES) {
+			/* can set a timer and retry later */
+			DBGLOG(SAA, WARN, "[SAA]can't alloc msg for inform AIS join complete\n");
+			}
+		}
+	} else {
+#endif
 
 	switch (prStaRec->eAuthAssocState) {
 	case SAA_STATE_SEND_AUTH1:
@@ -839,6 +1264,9 @@ VOID saaFsmRunEventRxAuth(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 	default:
 		break;		/* Ignore other cases */
 	}
+#if CFG_SUPPORT_CFG80211_AUTH
+	}
+#endif
 }				/* end of saaFsmRunEventRxAuth() */
 
 /*----------------------------------------------------------------------------*/
@@ -860,10 +1288,21 @@ WLAN_STATUS saaFsmRunEventRxAssoc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRf
 	P_SW_RFB_T prRetainedSwRfb = (P_SW_RFB_T) NULL;
 	WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS;
 	UINT_8 ucWlanIdx;
+#if CFG_SUPPORT_CFG80211_AUTH
+	P_GLUE_INFO_T prGlueInfo = NULL;
+	P_WLAN_ASSOC_RSP_FRAME_T prAssocRspFrame = NULL;
+	P_CONNECTION_SETTINGS_T prConnSettings = NULL;
+#endif
 
 	ASSERT(prSwRfb);
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
 	ucWlanIdx = (UINT_8) HAL_RX_STATUS_GET_WLAN_IDX(prSwRfb->prRxStatus);
+#if CFG_SUPPORT_CFG80211_AUTH
+	prGlueInfo = prAdapter->prGlueInfo;
+	ASSERT(prGlueInfo);
+	prConnSettings = &prGlueInfo->prAdapter->rWifiVar.rConnSettings;
+#endif
+	DBGLOG(SAA, INFO, "RX Assoc Resp\n");
 
 	/* We should have the corresponding Sta Record. */
 	if (!prStaRec) {
@@ -874,6 +1313,71 @@ WLAN_STATUS saaFsmRunEventRxAssoc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRf
 
 	if (!IS_AP_STA(prStaRec))
 		return rStatus;
+
+#if CFG_SUPPORT_CFG80211_AUTH
+	/* TRUE if the incoming frame is what we are waiting for */
+	if ((assocCheckRxReAssocRspFrameStatus(prAdapter, prSwRfb, &u2StatusCode)
+		== WLAN_STATUS_SUCCESS) && (!(IS_STA_IN_P2P(prStaRec)))) {
+		cnmTimerStopTimer(prAdapter, &prStaRec->rTxReqDoneOrRxRespTimer);
+
+		/* Record the Status Code of Authentication Request */
+		prStaRec->u2StatusCode = u2StatusCode;
+
+		/*Report Rx assoc frame to upper layer*/
+		prAssocRspFrame = (P_WLAN_ASSOC_RSP_FRAME_T) prSwRfb->pvHeader;
+
+		/* The BSS from cfg80211_ops.assoc must give back to
+		 * cfg80211_send_rx_assoc() or to cfg80211_assoc_timeout().
+		 * To ensure proper refcounting, new association requests
+		 * while already associating must be rejected.
+		 */
+		DBGLOG(SAA, INFO, "Report RX Assoc to upper layer, %s\n",
+			prConnSettings->bss ? "DO IT" : "Oops");
+
+		kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
+						WLAN_STATUS_ASSOC_RESP,
+						prAssocRspFrame,
+						prSwRfb->u2PacketLen);
+
+		/* Reset Send Auth/(Re)Assoc Frame Count */
+		prStaRec->ucTxAuthAssocRetryCount = 0;
+
+		/* update RCPI */
+		ASSERT(prSwRfb->prRxStatusGroup3);
+		prStaRec->ucRCPI = nicRxGetRcpiValueFromRxv(RCPI_MODE_WF0, prSwRfb);
+
+		if (u2StatusCode == STATUS_CODE_SUCCESSFUL) {
+			/* Update Station Record - Class 3 Flag */
+			/* NOTE(Kevin): Moved to AIS FSM for roaming issue
+			 * We should deactivate the struct STA_RECORD of
+			 * previous AP before activate new one in Driver.
+			 */
+			/* cnmStaRecChangeState(prStaRec, STA_STATE_3); */
+			/* Clear history. */
+			prStaRec->ucJoinFailureCount = 0;
+
+			if (saaFsmSendEventJoinComplete(prAdapter,
+				WLAN_STATUS_SUCCESS,
+				prStaRec, prSwRfb) == WLAN_STATUS_RESOURCES) {
+			/* can set a timer and retry later */
+			DBGLOG(SAA, WARN, "[SAA]can't alloc msg for inform AIS join complete\n");
+			}
+
+			rStatus = WLAN_STATUS_PENDING;
+		} else {
+			DBGLOG(SAA, INFO,
+				   "Assoc Req was rejected by [" MACSTR"], Status Code = %d\n",
+				   MAC2STR(prStaRec->aucMacAddr), u2StatusCode);
+
+			if (saaFsmSendEventJoinComplete(prAdapter,
+				WLAN_STATUS_FAILURE,
+				prStaRec, NULL) == WLAN_STATUS_RESOURCES) {
+			/* can set a timer and retry later */
+			DBGLOG(SAA, WARN, "[SAA]can't alloc msg for inform AIS join complete\n");
+			}
+		}
+	} else {
+#endif
 
 	switch (prStaRec->eAuthAssocState) {
 	case SAA_STATE_SEND_ASSOC1:
@@ -921,7 +1425,9 @@ WLAN_STATUS saaFsmRunEventRxAssoc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRf
 	default:
 		break;		/* Ignore other cases */
 	}
-
+#if CFG_SUPPORT_CFG80211_AUTH
+	}
+#endif
 	return rStatus;
 
 }				/* end of saaFsmRunEventRxAssoc() */
@@ -940,6 +1446,14 @@ WLAN_STATUS saaFsmRunEventRxDeauth(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwR
 	P_STA_RECORD_T prStaRec;
 	P_WLAN_DEAUTH_FRAME_T prDeauthFrame;
 	UINT_8 ucWlanIdx;
+#if CFG_SUPPORT_CFG80211_AUTH
+	uint8_t ucRoleIdx = 0;
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+	PUINT_8 pFrameBuf = NULL;
+	P_BSS_INFO_T prBssInfo = NULL;
+	BOOLEAN fgIsInterruptContext = FALSE;
+#endif
+#endif
 
 	ASSERT(prSwRfb);
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
@@ -966,7 +1480,10 @@ WLAN_STATUS saaFsmRunEventRxDeauth(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwR
 
 			prAisBssInfo = prAdapter->prAisBssInfo;
 
-			if (prStaRec->ucStaState > STA_STATE_1) {
+			if (prStaRec->ucStaState >= STA_STATE_1) {
+#if CFG_SUPPORT_CFG80211_AUTH
+				cnmTimerStopTimer(prAdapter, &prStaRec->rTxReqDoneOrRxRespTimer);
+#endif
 
 				/* Check if this is the AP we are associated or associating with */
 				if (authProcessRxDeauthFrame(prSwRfb,
@@ -986,13 +1503,57 @@ WLAN_STATUS saaFsmRunEventRxDeauth(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwR
 					       IS_BMCAST_MAC_ADDR(prDeauthFrame->aucDestAddr),
 					       prDeauthFrame->u2FrameCtrl);
 					if (prAisSpecBssInfo->fgMgmtProtection
+						&& prStaRec->fgIsTxAllowed
 					    && HAL_RX_STATUS_IS_CIPHER_MISMATCH(prSwRfb->prRxStatus)
 					    /* HAL_RX_STATUS_GET_SEC_MODE(prSwRfb->prRxStatus) != CIPHER_SUITE_BIP */
 					    ) {
 						saaChkDeauthfrmParamHandler(prAdapter, prSwRfb, prStaRec);
+
+						if(prStaRec->fgIsTxAllowed) {
+							DBGLOG(RSN, INFO,
+								"ignore no sec deauth\n");
+						}
+
 						return WLAN_STATUS_SUCCESS;
 					}
 #endif
+#if CFG_SUPPORT_CFG80211_AUTH
+					DBGLOG(SAA, INFO, "notification of RX deauthentication %d\n", prSwRfb->u2PacketLen);
+#if (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+					if (in_interrupt()) {
+						pFrameBuf = kalMemAlloc(prSwRfb->u2PacketLen, PHY_MEM_TYPE);
+						fgIsInterruptContext = TRUE;
+					} else {
+						pFrameBuf = kalMemAlloc(prSwRfb->u2PacketLen, VIR_MEM_TYPE);
+						fgIsInterruptContext = FALSE;
+					}
+
+					if (!pFrameBuf) {
+						DBGLOG(SAA, ERROR, "Alloc buffer for frame failed\n");
+						return WLAN_STATUS_RESOURCES;
+					}
+
+					kalMemCopy((PVOID) pFrameBuf,
+								(PVOID) prDeauthFrame,
+								prSwRfb->u2PacketLen);
+					kalWDevLockThread(prAdapter->prGlueInfo,
+										prAdapter->prGlueInfo->prDevHandler,
+										CFG80211_RX_MLME_MGMT,
+										pFrameBuf,
+										prSwRfb->u2PacketLen,
+										NULL,
+										0,
+										fgIsInterruptContext);
+#else
+					cfg80211_rx_mlme_mgmt(prAdapter->prGlueInfo->prDevHandler, (PUINT_8)prDeauthFrame, (size_t)prSwRfb->u2PacketLen);
+#endif
+#else
+					cfg80211_send_deauth(prAdapter->prGlueInfo->prDevHandler, (PUINT_8)prDeauthFrame, (size_t)prSwRfb->u2PacketLen);
+#endif
+					DBGLOG(SAA, INFO, "notification of RX deauthentication Done\n");
+#endif
+
 					saaSendDisconnectMsgHandler(prAdapter, prStaRec, prAisBssInfo, FRM_DEAUTH);
 				}
 			}
@@ -1000,6 +1561,53 @@ WLAN_STATUS saaFsmRunEventRxDeauth(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwR
 #if CFG_ENABLE_WIFI_DIRECT
 		else if (prAdapter->fgIsP2PRegistered && IS_STA_IN_P2P(prStaRec)) {
 			/* TODO(Kevin) */
+#if CFG_SUPPORT_CFG80211_AUTH
+			DBGLOG(SAA, INFO, "notification of RX deauthentication %d\n", prSwRfb->u2PacketLen);
+			prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
+							prStaRec->ucBssIndex);
+			ucRoleIdx = (UINT_8)prBssInfo->u4PrivateData;
+#if (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+			if (in_interrupt()) {
+				pFrameBuf = kalMemAlloc(prSwRfb->u2PacketLen, PHY_MEM_TYPE);
+				fgIsInterruptContext = TRUE;
+			} else {
+				pFrameBuf = kalMemAlloc(prSwRfb->u2PacketLen, VIR_MEM_TYPE);
+				fgIsInterruptContext = FALSE;
+			}
+
+			if (!pFrameBuf) {
+				DBGLOG(SAA, ERROR, "Alloc buffer for frame failed\n");
+				return WLAN_STATUS_RESOURCES;
+			}
+
+			kalMemCopy((PVOID) pFrameBuf,
+						(PVOID) prDeauthFrame,
+						prSwRfb->u2PacketLen);
+			kalWDevLockThread(prAdapter->prGlueInfo,
+								prAdapter->prGlueInfo->prP2PInfo[ucRoleIdx]
+											->aprRoleHandler,
+								CFG80211_RX_MLME_MGMT,
+								pFrameBuf,
+								prSwRfb->u2PacketLen,
+								NULL,
+								0,
+								fgIsInterruptContext);
+#else
+			cfg80211_rx_mlme_mgmt(prAdapter->prGlueInfo->
+									prP2PInfo[ucRoleIdx]->aprRoleHandler,
+								(PUINT_8)prDeauthFrame,
+								(size_t)prSwRfb->u2PacketLen);
+#endif
+#else
+			cfg80211_send_deauth(prAdapter->prGlueInfo->
+									prP2PInfo[ucRoleIdx]->aprRoleHandler,
+								(PUINT_8)prDeauthFrame,
+								(size_t)prSwRfb->u2PacketLen);
+#endif
+			DBGLOG(SAA, INFO, "notification of RX deauthentication Done\n");
+#endif
+
 			p2pRoleFsmRunEventRxDeauthentication(prAdapter, prStaRec, prSwRfb);
 		}
 #endif
@@ -1084,7 +1692,19 @@ saaSendDisconnectMsgHandler(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_T prStaRec
 				prAisAbortMsg->fgDelayIndication = FALSE;
 				mboxSendMsg(prAdapter, MBOX_ID_0, (P_MSG_HDR_T) prAisAbortMsg, MSG_SEND_METHOD_BUF);
 			} else {
-				/* TODO(Kevin): Joining Abort */
+				prStaRec->ucTxAuthAssocRetryCount = 0;
+#if CFG_SUPPORT_CFG80211_AUTH
+				/* 20210421 frog: STA STATE other than STATE_3, so should be JOIN_ABORT. */
+				if (saaFsmSendEventJoinComplete(prAdapter,
+									WLAN_STATUS_JOIN_ABORT,
+									prStaRec, NULL) == WLAN_STATUS_RESOURCES) {
+					/* can set a timer and retry later */
+					DBGLOG(SAA, WARN, "[SAA]can't alloc msg for inform AIS join complete\n");
+				}
+#else
+				saaFsmSteps(prAdapter, prStaRec, AA_STATE_IDLE, (P_SW_RFB_T) NULL);
+#endif
+
 			}
 		} else {	/* FRM_DISASSOC */
 			if (prStaRec->ucStaState == STA_STATE_3) {
@@ -1100,7 +1720,18 @@ saaSendDisconnectMsgHandler(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_T prStaRec
 				prAisAbortMsg->fgDelayIndication = FALSE;
 				mboxSendMsg(prAdapter, MBOX_ID_0, (P_MSG_HDR_T) prAisAbortMsg, MSG_SEND_METHOD_BUF);
 			} else {
-				/* TODO(Kevin): Joining Abort */
+				prStaRec->ucTxAuthAssocRetryCount = 0;
+#if CFG_SUPPORT_CFG80211_AUTH
+				/* 20210421 frog: STA STATE other than STATE_3, so should be JOIN_ABORT. */
+				if (saaFsmSendEventJoinComplete(prAdapter,
+									WLAN_STATUS_JOIN_ABORT,
+									prStaRec, NULL) == WLAN_STATUS_RESOURCES) {
+					/* can set a timer and retry later */
+					DBGLOG(SAA, WARN, "[SAA]can't alloc msg for inform AIS join complete\n");
+				}
+#else
+				saaFsmSteps(prAdapter, prStaRec, AA_STATE_IDLE, (P_SW_RFB_T) NULL);
+#endif
 			}
 		}
 		if (prAisBssInfo)
@@ -1122,11 +1753,23 @@ WLAN_STATUS saaFsmRunEventRxDisassoc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prS
 	P_STA_RECORD_T prStaRec;
 	P_WLAN_DISASSOC_FRAME_T prDisassocFrame;
 	UINT_8 ucWlanIdx;
+#if CFG_SUPPORT_CFG80211_AUTH
+	struct wireless_dev *wdev = NULL;
+	P_BSS_INFO_T prBssInfo = NULL;
+	UINT_8 ucRoleIdx = 0;
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+	PUINT_8 pFrameBuf = NULL;
+	BOOLEAN fgIsInterruptContext = FALSE;
+#endif
+#endif
 
 	ASSERT(prSwRfb);
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
 	prDisassocFrame = (P_WLAN_DISASSOC_FRAME_T) prSwRfb->pvHeader;
 	ucWlanIdx = (UINT_8) HAL_RX_STATUS_GET_WLAN_IDX(prSwRfb->prRxStatus);
+#if CFG_SUPPORT_CFG80211_AUTH
+	wdev = prAdapter->prGlueInfo->prDevHandler->ieee80211_ptr;
+#endif
 
 	DBGLOG(SAA, EVENT,
 	       "Rx Disassoc frame from BSSID[" MACSTR "] DA[" MACSTR "] ReasonCode[0x%x]\n",
@@ -1180,6 +1823,46 @@ WLAN_STATUS saaFsmRunEventRxDisassoc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prS
 						return WLAN_STATUS_SUCCESS;
 					}
 #endif
+#if CFG_SUPPORT_CFG80211_AUTH
+					DBGLOG(SAA, INFO, "notification of RX disassociation %d\n", prSwRfb->u2PacketLen);
+					if (wdev->current_bss) {
+#if (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+						if (in_interrupt()) {
+							pFrameBuf = kalMemAlloc(prSwRfb->u2PacketLen, PHY_MEM_TYPE);
+							fgIsInterruptContext = TRUE;
+						} else {
+							pFrameBuf = kalMemAlloc(prSwRfb->u2PacketLen, VIR_MEM_TYPE);
+							fgIsInterruptContext = FALSE;
+						}
+
+						if (!pFrameBuf) {
+							DBGLOG(SAA, ERROR, "Alloc buffer for frame failed\n");
+							return WLAN_STATUS_RESOURCES;
+						}
+
+						kalMemCopy((PVOID) pFrameBuf,
+									(PVOID) prDisassocFrame,
+									prSwRfb->u2PacketLen);
+						kalWDevLockThread(prAdapter->prGlueInfo,
+										prAdapter->prGlueInfo->prDevHandler,
+										CFG80211_RX_MLME_MGMT,
+										pFrameBuf,
+										prSwRfb->u2PacketLen,
+										NULL,
+										0,
+										fgIsInterruptContext);;
+#else
+						cfg80211_rx_mlme_mgmt(prAdapter->prGlueInfo->prDevHandler,
+								(PUINT_8)prDisassocFrame, (size_t)prSwRfb->u2PacketLen);
+#endif
+#else
+						cfg80211_send_disassoc(prAdapter->prGlueInfo->prDevHandler,
+								(PUINT_8)prDisassocFrame, (size_t)prSwRfb->u2PacketLen);
+#endif
+					}
+					DBGLOG(SAA, INFO, "notification of RX disassociation Done\n");
+#endif
 					saaSendDisconnectMsgHandler(prAdapter, prStaRec, prAisBssInfo, FRM_DISASSOC);
 				}
 			}
@@ -1187,6 +1870,46 @@ WLAN_STATUS saaFsmRunEventRxDisassoc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prS
 #if CFG_ENABLE_WIFI_DIRECT
 		else if (prAdapter->fgIsP2PRegistered && (IS_STA_IN_P2P(prStaRec))) {
 			/* TODO(Kevin) */
+#if CFG_SUPPORT_CFG80211_AUTH
+			DBGLOG(SAA, INFO, "notification of RX disassociation %d\n", prSwRfb->u2PacketLen);
+			prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prStaRec->ucBssIndex);
+			ucRoleIdx = (UINT_8)prBssInfo->u4PrivateData;
+			wdev = prAdapter->prGlueInfo->prP2PInfo[ucRoleIdx]->prDevHandler->ieee80211_ptr;
+			if (wdev->current_bss) {
+#if (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+				pFrameBuf = kalMemAlloc(prSwRfb->u2PacketLen,
+										VIR_MEM_TYPE);
+				kalMemCopy((PVOID) pFrameBuf,
+							(PVOID) prDisassocFrame,
+							prSwRfb->u2PacketLen);
+				kalWDevLockThread(prAdapter->prGlueInfo,
+									prAdapter->prGlueInfo->prP2PInfo[ucRoleIdx]
+										->aprRoleHandler,
+									CFG80211_RX_MLME_MGMT,
+									pFrameBuf,
+									prSwRfb->u2PacketLen,
+									NULL,
+									0,
+									fgIsInterruptContext);
+#else
+				cfg80211_rx_mlme_mgmt(prAdapter->prGlueInfo
+										->prP2PInfo[ucRoleIdx]
+										->aprRoleHandler,
+									(PUINT_8)prDisassocFrame,
+									(size_t)prSwRfb->u2PacketLen);
+#endif
+#else
+				cfg80211_send_disassoc(prAdapter->prGlueInfo
+										->prP2PInfo[ucRoleIdx]
+										->aprRoleHandler,
+									(PUINT_8)prDisassocFrame,
+									(size_t)prSwRfb->u2PacketLen);
+#endif
+			}
+			DBGLOG(SAA, INFO, "notification of RX disassociation Done\n");
+#endif
+
 			p2pRoleFsmRunEventRxDisassociation(prAdapter, prStaRec, prSwRfb);
 		}
 #endif
@@ -1194,6 +1917,46 @@ WLAN_STATUS saaFsmRunEventRxDisassoc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prS
 		else if (IS_STA_BOW_TYPE(prStaRec)) {
 			/* ToDo:: nothing */
 			/* TODO(Kevin) */
+#if CFG_SUPPORT_CFG80211_AUTH
+			DBGLOG(SAA, INFO, "notification of RX disassociation %d\n", prSwRfb->u2PacketLen);
+			if (wdev->current_bss) {
+#if (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+				if (in_interrupt()) {
+					pFrameBuf = kalMemAlloc(prSwRfb->u2PacketLen, PHY_MEM_TYPE);
+					fgIsInterruptContext = TRUE;
+				} else {
+					pFrameBuf = kalMemAlloc(prSwRfb->u2PacketLen, VIR_MEM_TYPE);
+					fgIsInterruptContext = FALSE;
+				}
+
+				if (!pFrameBuf) {
+					DBGLOG(SAA, ERROR, "Alloc buffer for frame failed\n");
+					return WLAN_STATUS_RESOURCES;
+				}
+
+				kalMemCopy((PVOID) pFrameBuf,
+							(PVOID) prDisassocFrame,
+							prSwRfb->u2PacketLen);
+				kalWDevLockThread(prAdapter->prGlueInfo,
+									prAdapter->prGlueInfo->prDevHandler,
+									CFG80211_RX_MLME_MGMT,
+									pFrameBuf,
+									prSwRfb->u2PacketLen,
+									NULL,
+									0,
+									fgIsInterruptContext);
+#else
+				cfg80211_rx_mlme_mgmt(prAdapter->prGlueInfo->prDevHandler,
+						(PUINT_8)prDisassocFrame, (size_t)prSwRfb->u2PacketLen);
+#endif
+#else
+				cfg80211_send_disassoc(prAdapter->prGlueInfo->prDevHandler,
+						(PUINT_8)prDisassocFrame, (size_t)prSwRfb->u2PacketLen);
+#endif
+			}
+			DBGLOG(SAA, INFO, "notification of RX disassociation Done\n");
+#endif
 		}
 #endif
 		else
