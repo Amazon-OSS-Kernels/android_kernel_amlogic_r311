@@ -440,7 +440,7 @@ int fastboot_fail(const char *reason)
 	return fastboot_tx_write(response, strlen(response));
 }
 
-/* flag bits related to adb on Rosalita. */
+/* flag bits related to adb on ABC. */
 #define FOS_FLAGS_ADB_ON        0x1
 #define FOS_FLAGS_ADB_ROOT      0x2
 #define DEV_FLAGS_ADB_USB_ON    0x1000
