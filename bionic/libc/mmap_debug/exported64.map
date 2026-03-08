@@ -1,0 +1,10 @@
+LIBC_MMAP_DEBUG {
+  global:
+    debug_finalize_mmap;
+    debug_munmap;
+    debug_initialize_mmap;
+    debug_mmap;
+
+  local:
+    *;
+};
