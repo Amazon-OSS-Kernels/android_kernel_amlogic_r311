@@ -40,7 +40,7 @@
 /*============================================================================*/
 /* Local Configuration */
 /*============================================================================*/
-#define VERSION "6.0.22072801"
+#define VERSION "6.0.23010601"
 
 /*============================================================================*/
 /* Function Prototype */
@@ -4850,8 +4850,6 @@ static ssize_t btmtk_usb_fops_write(struct file *file, const char __user *buf,
 
 		/* ACL data */
 		} else if (g_data->o_buf[0] == HCI_ACLDATA_PKT) {
-			retval = btmtk_usb_send_data(&g_data->o_buf[0], copy_size);
-
 			/* ACL data : Type(8b) handle+flag(16b) length(16b)
 			 * Header length = 1 + 2 + 2
 			 */
@@ -4864,6 +4862,7 @@ static ssize_t btmtk_usb_fops_write(struct file *file, const char __user *buf,
 				goto OUT;
 			}
 
+			retval = btmtk_usb_send_data(&g_data->o_buf[0], copy_size);
 		/* Unknown */
 		} else {
 			BTUSB_WARN("%s: this is unknown bt data:0x%02x", __func__, g_data->o_buf[0]);
