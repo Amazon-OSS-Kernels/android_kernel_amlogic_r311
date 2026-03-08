@@ -352,6 +352,16 @@ static void get_poweron_reason(void)
 		pm_wakeup_wakelock = 1;
 		break;
 
+	case REMOTE_CUSTOM5_WAKEUP:
+		sprintf(power_on_src, "%s", "app_5");
+		pm_wakeup_wakelock = 1;
+		break;
+
+	case REMOTE_CUSTOM6_WAKEUP:
+		sprintf(power_on_src, "%s", "app_6");
+		pm_wakeup_wakelock = 1;
+		break;
+
 	default:
 		sprintf(power_on_src, "%s", "unknown");
 		pr_warn("power_on_method=%d is unknown\n", power_on_method);
