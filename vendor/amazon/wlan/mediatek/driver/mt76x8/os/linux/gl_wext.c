@@ -3409,7 +3409,7 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 			break;
 		}
 
-		if (copy_from_user(prExtraBuf, &iw.essid,
+		if (kalMemCopy(prExtraBuf, &iw.essid,
 			iw.essid_len)) {
 			ret = -EFAULT;
 		} else {

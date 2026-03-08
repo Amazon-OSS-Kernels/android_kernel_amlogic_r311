@@ -184,6 +184,12 @@ else
     ccflags-y += -DCFG_SUPPORT_SUITB=0
 endif
 
+# Disable wlan feature send only one cfg to FW
+# Default is enabled in the config.h
+ifeq ($(CFG_SUPPORT_SEND_ONLY_ONE_CFG), n)
+    ccflags-y += -DCFG_SUPPORT_SEND_ONLY_ONE_CFG=0
+endif
+
 # Enable Metrics for Wlan reset
 ifeq ($(CONFIG_AMAZON_METRICS_LOG), y)
     ccflags-y += -DCFG_AMAZON_METRICS_LOG=$(CONFIG_AMAZON_METRICS_LOG)
@@ -364,10 +370,8 @@ ifneq ($(CFG_SUPPORT_REORDER_TIMER_PER_TID),)
 ccflags-y += -DCFG_SUPPORT_REORDER_TIMER_PER_TID=$(CFG_SUPPORT_REORDER_TIMER_PER_TID)
 endif
 
-ifeq ($(CFG_DFS_NEWCH_DFS_FORCE_DISCONNECT),y)
-    ccflags-y += -DCFG_DFS_NEWCH_DFS_FORCE_DISCONNECT=1
-else
-    ccflags-y += -DCFG_DFS_NEWCH_DFS_FORCE_DISCONNECT=0
+ifeq ($(CFG_DFS_NEWCH_DFS_FORCE_DISCONNECT),n)
+ccflags-y += -DCFG_DFS_NEWCH_DFS_FORCE_DISCONNECT=0
 endif
 
 ifneq ($(CFG_CFG80211_VERSION),)

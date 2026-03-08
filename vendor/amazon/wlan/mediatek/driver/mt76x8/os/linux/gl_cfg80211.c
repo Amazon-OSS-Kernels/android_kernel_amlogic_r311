@@ -1832,8 +1832,6 @@ int mtk_cfg80211_join_ibss(struct wiphy *wiphy, struct net_device *ndev, struct 
 	}
 
 	return 0;
-
-	return -EINVAL;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -2296,7 +2294,7 @@ void mtk_cfg80211_mgmt_frame_register(IN struct wiphy *wiphy,
 			}
 			break;
 		default:
-			DBGLOG(INIT, TRACE, "Ask frog to add code for mgmt:%x\n", frame_type);
+			DBGLOG(INIT, TRACE, "unsupported frame type:%x\n", frame_type);
 			break;
 		}
 
@@ -2713,6 +2711,10 @@ int mtk_cfg80211_testmode_set_key_ext(IN struct wiphy *wiphy, IN void *data, IN 
 	DBGLOG(INIT, INFO, "--> %s()\n", __func__);
 #endif
 
+	if (len < sizeof(struct NL80211_DRIVER_SET_KEY_EXTS)) {
+		DBGLOG(REQ, ERROR, "len [%d] is invalid!\n", len);
+		return -EINVAL;
+	}
 	if (data && len)
 		prParams = (P_NL80211_DRIVER_SET_KEY_EXTS) data;
 
@@ -2787,18 +2789,23 @@ mtk_cfg80211_testmode_get_sta_statistics(IN struct wiphy *wiphy, IN void *data, 
 	ASSERT(wiphy);
 	ASSERT(prGlueInfo);
 
+	if (len < sizeof(struct _NL80211_DRIVER_GET_STA_STATISTICS_PARAMS)) {
+		DBGLOG(QM, ERROR, "len [%d] is invalid!\n", len);
+		return -EINVAL;
+	}
+
 	if (data && len)
 		prParams = (P_NL80211_DRIVER_GET_STA_STATISTICS_PARAMS) data;
 
 	if (!prParams->aucMacAddr) {
-		DBGLOG(QM, TRACE, "%s MAC Address is NULL\n", __func__);
+		DBGLOG(QM, ERROR, "%s MAC Address is NULL\n", __func__);
 		return -EINVAL;
 	}
 
 	skb = cfg80211_testmode_alloc_reply_skb(wiphy, sizeof(PARAM_GET_STA_STA_STATISTICS) + 1);
 
 	if (!skb) {
-		DBGLOG(QM, TRACE, "%s allocate skb failed:%lx\n", __func__, rStatus);
+		DBGLOG(QM, ERROR, "%s allocate skb failed:%lx\n", __func__, rStatus);
 		return -ENOMEM;
 	}
 
@@ -2981,6 +2988,10 @@ int mtk_cfg80211_testmode_sw_cmd(IN struct wiphy *wiphy, IN void *data, IN int l
 	DBGLOG(INIT, INFO, "--> %s()\n", __func__);
 #endif
 
+	if (len < sizeof(struct _NL80211_DRIVER_SW_CMD_PARAMS)) {
+		DBGLOG(REQ, ERROR, "len [%d] is invalid!\n", len);
+		return -EINVAL;
+	}
 	if (data && len)
 		prParams = (P_NL80211_DRIVER_SW_CMD_PARAMS) data;
 
@@ -3007,6 +3018,10 @@ static int mtk_wlan_cfg_testmode_cmd(struct wiphy *wiphy, void *data, int len)
 	ASSERT(wiphy);
 	DBGLOG(INIT, INFO, "-->%s()\n", __func__);
 
+	if (len < sizeof(struct _NL80211_DRIVER_TEST_MODE_PARAMS)) {
+		DBGLOG(REQ, ERROR, "len [%d] is invalid!\n", len);
+		return -EINVAL;
+	}
 	if (!data || !len) {
 		DBGLOG(REQ, ERROR, "mtk_cfg80211_testmode_cmd null data\n");
 		return -EINVAL;
