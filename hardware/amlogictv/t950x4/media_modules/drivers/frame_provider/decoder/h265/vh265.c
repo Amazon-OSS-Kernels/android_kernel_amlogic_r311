@@ -2943,12 +2943,8 @@ static int hevc_max_mmu_buf_size(int max_w, int max_h)
 
 static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 {
-	uint tvp_flag = vdec_secure(hw_to_vdec(hevc)) ?
+	int tvp_flag = vdec_secure(hw_to_vdec(hevc)) ?
 		CODEC_MM_FLAGS_TVP : 0;
-#ifdef CONFIG_OSD_MEMORY
-	uint osd_flag = (hw_to_vdec(hevc)->frame_base_video_path ==
-		FRAME_BASE_PATH_IONVIDEO) ? CODEC_MM_FLAGS_SYS_FIRST : 0;
-#endif
 	int buf_size = hevc_max_mmu_buf_size(hevc->max_pic_w,
 			hevc->max_pic_h);
 
@@ -2965,9 +2961,6 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 			MAX_REF_PIC_NUM,
 			buf_size * SZ_1M,
 			tvp_flag
-#ifdef CONFIG_OSD_MEMORY
-			| osd_flag
-#endif
 			);
 		if (!hevc->mmu_box) {
 			pr_err("h265 alloc mmu box failed!!\n");
@@ -2980,10 +2973,7 @@ static int init_mmu_buffers(struct hevc_state_s *hevc, int bmmu_flag)
 				MAX_REF_PIC_NUM,
 				buf_size * SZ_1M,
 				tvp_flag
-#ifdef CONFIG_OSD_MEMORY
-				| osd_flag
-#endif
-			);
+				);
 			if (!hevc->mmu_box_dw)
 				goto dw_mmu_box_failed;
 		}
@@ -9958,7 +9948,6 @@ static int post_video_frame(struct vdec_s *vdec, struct PIC_s *pic)
 			}
 			put_vf_to_display_q(hevc, vf);
 		}
-		vf->type_original = vf->type;
 #else
 		vf->type_original = vf->type;
 		pic->vf_ref = 1;
@@ -12173,9 +12162,7 @@ static void config_decode_mode(struct hevc_state_s *hevc)
 
 static void vh265_prot_init(struct hevc_state_s *hevc)
 {
-#ifdef CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_DOLBYVISION
 	struct vdec_s *vdec = hw_to_vdec(hevc);
-#endif
 	/* H265_DECODE_INIT(); */
 
 	hevc_config_work_space_hw(hevc);
@@ -12211,9 +12198,9 @@ static void vh265_prot_init(struct hevc_state_s *hevc)
 			ctl_val = 0x4;	/* check vps/sps/pps only in ucode */
 		else if (hevc->PB_skip_mode == 3)
 			ctl_val = 0x0;	/* check vps/sps/pps/idr in ucode */
-/*		if (((error_handle_policy & 0x200) == 0) &&
+		if (((error_handle_policy & 0x200) == 0) &&
 				input_stream_based(vdec))
-			ctl_val = 0x1;*/
+			ctl_val = 0x1;
 		WRITE_VREG(NAL_SEARCH_CTL, ctl_val);
 	}
 	if ((get_dbg_flag(hevc) & H265_DEBUG_NO_EOS_SEARCH_DONE)

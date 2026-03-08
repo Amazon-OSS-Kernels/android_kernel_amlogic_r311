@@ -9173,12 +9173,8 @@ static int vav1_stop(struct AV1HW_s *hw)
 }
 static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 {
-	uint tvp_flag = vdec_secure(hw_to_vdec(hw)) ?
+	int tvp_flag = vdec_secure(hw_to_vdec(hw)) ?
 		CODEC_MM_FLAGS_TVP : 0;
-#ifdef CONFIG_OSD_MEMORY
-	uint osd_flag = (hw_to_vdec(hw)->frame_base_video_path ==
-			FRAME_BASE_PATH_IONVIDEO) ? CODEC_MM_FLAGS_SYS_FIRST : 0;
-#endif
 	int buf_size = 48;
 
 	if ((hw->max_pic_w * hw->max_pic_h > 1280*736) &&
@@ -9196,9 +9192,6 @@ static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 			hw->index /* * 2*/, count,
 			hw->need_cache_size,
 			tvp_flag
-#ifdef CONFIG_OSD_MEMORY
-			| osd_flag
-#endif
 			);
 		if (!hw->mmu_box) {
 			pr_err("av1 alloc mmu box failed!!\n");
@@ -9210,9 +9203,6 @@ static int amvdec_av1_mmu_init(struct AV1HW_s *hw)
 				hw->index /** 2 + 1*/, count,
 				hw->need_cache_size,
 				tvp_flag
-#ifdef CONFIG_OSD_MEMORY
-				| osd_flag
-#endif
 				);
 			if (!hw->mmu_box_dw) {
 				pr_err("av1 alloc dw mmu box failed!!\n");

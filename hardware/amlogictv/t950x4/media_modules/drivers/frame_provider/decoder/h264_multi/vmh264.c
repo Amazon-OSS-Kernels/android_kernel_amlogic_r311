@@ -3134,7 +3134,6 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 			}
 		}
 #endif
-		vf->type_original = vf->type;
 		kfifo_put(&hw->display_q, (const struct vframe_s *)vf);
 		ATRACE_COUNTER(MODULE_NAME, vf->pts);
 		hw->vf_pre_count++;
@@ -4280,10 +4279,10 @@ static struct vframe_s *vh264_vf_get(void *op_arg)
 						__func__, vf->index);
 			} else {
 				dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_DETAIL,
-				"%s buf_spec_num %d vf %p poc %d dur %d pts %d interval %dms, type=%d\n",
+				"%s buf_spec_num %d vf %p poc %d dur %d pts %d interval %dms\n",
 				__func__, BUFSPEC_INDEX(vf->index), vf,
 				p_H264_Dpb->mFrameStore[frame_index].poc,
-				vf->duration, vf->pts, frame_interval, vf->type);
+				vf->duration, vf->pts, frame_interval);
 			}
 		}
 		if (hw->last_frame_time > 0) {

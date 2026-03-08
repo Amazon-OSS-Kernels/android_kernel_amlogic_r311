@@ -2348,6 +2348,13 @@ int vdec_resource_checking(struct vdec_s *vdec)
 }
 EXPORT_SYMBOL(vdec_resource_checking);
 
+int isosd_mod = 0;
+int is_osd_mod(void)
+{
+	return isosd_mod;
+}
+EXPORT_SYMBOL(is_osd_mod);
+
 /*
  *register vdec_device
  * create output, vfm or create ionvideo output
@@ -2480,6 +2487,7 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k)
 		goto error;
 	}
 
+	isosd_mod = 0;
 	if (p->use_vfm_path) {
 		vdec->vf_receiver_inst = -1;
 		vdec->vfm_map_id[0] = 0;
@@ -2508,6 +2516,8 @@ s32 vdec_init(struct vdec_s *vdec, int is_4k)
 		}
 #ifdef CONFIG_AMLOGIC_IONVIDEO
 		else if (p->frame_base_video_path == FRAME_BASE_PATH_IONVIDEO) {
+		    isosd_mod = 0x8;
+		    pr_info("osd mod\n");
 #if 1
 			r = ionvideo_assign_map(&vdec->vf_receiver_name,
 					&vdec->vf_receiver_inst);

@@ -6486,12 +6486,8 @@ static int vavs2_stop(struct AVS2Decoder_s *dec)
 
 static int amvdec_avs2_mmu_init(struct AVS2Decoder_s *dec)
 {
-	uint tvp_flag = vdec_secure(hw_to_vdec(dec)) ?
+	int tvp_flag = vdec_secure(hw_to_vdec(dec)) ?
 		CODEC_MM_FLAGS_TVP : 0;
-#ifdef CONFIG_OSD_MEMORY
-	uint osd_flag = (hw_to_vdec(dec)->frame_base_video_path ==
-		FRAME_BASE_PATH_IONVIDEO) ? CODEC_MM_FLAGS_SYS_FIRST : 0;
-#endif
 	int buf_size = 48;
 
 #ifdef AVS2_10B_MMU
@@ -6501,9 +6497,6 @@ static int amvdec_avs2_mmu_init(struct AVS2Decoder_s *dec)
 		dec->index, FRAME_BUFFERS,
 		dec->need_cache_size,
 		tvp_flag
-#ifdef CONFIG_OSD_MEMORY
-		| osd_flag
-#endif
 		);
 	if (!dec->mmu_box) {
 		pr_err("avs2 alloc mmu box failed!!\n");
@@ -6517,11 +6510,7 @@ static int amvdec_avs2_mmu_init(struct AVS2Decoder_s *dec)
 			4 + PAGE_SHIFT,
 			CODEC_MM_FLAGS_CMA_CLEAR |
 			CODEC_MM_FLAGS_FOR_VDECODER |
-			tvp_flag
-#ifdef CONFIG_OSD_MEMORY
-			| osd_flag
-#endif
-			);
+			tvp_flag);
 	if (!dec->bmmu_box) {
 		pr_err("avs2 alloc bmmu box failed!!\n");
 		return -1;
