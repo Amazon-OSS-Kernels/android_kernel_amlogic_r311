@@ -99,8 +99,6 @@
 #define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL16	0x9e610586 /* Insignia additional remote --- power */
 #define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL17	0x817EBF40 /* Toshiba additional remote --- power */
 
-#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL18	0x5ba47d02 /* ABS presetting1 key */
-#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL19	0x5aa57d02 /* ABS presetting2 key */
 
 /* config the default parameters for adc power key */
 #define CONFIG_ADC_POWER_KEY_CHAN		2  /* channel range: 0-7*/
