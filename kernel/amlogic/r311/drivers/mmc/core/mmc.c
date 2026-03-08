@@ -428,6 +428,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		}
 	}
 
+	card->ext_csd.raw_pre_eol_info = ext_csd[EXT_CSD_PRE_EOL_INFO];
 	/* device life time estimate type A/B */
 	card->ext_csd.raw_dev_lifetime_est_typ_a =
 		ext_csd[EXT_CSD_DEV_LIFETIME_EST_TYP_A];
@@ -763,10 +764,6 @@ MMC_DEV_ATTR(enhanced_area_size, "%u\n", card->ext_csd.enhanced_area_size);
 MMC_DEV_ATTR(raw_erase_timeout_mult, "%d\n",
 		card->ext_csd.raw_erase_timeout_mult);
 MMC_DEV_ATTR(raw_sec_erase_mult, "%d\n", card->ext_csd.raw_sec_erase_mult);
-MMC_DEV_ATTR(dev_lifetime_est_typ_a, "0x%02x\n",
-		card->ext_csd.raw_dev_lifetime_est_typ_a);
-MMC_DEV_ATTR(dev_lifetime_est_typ_b, "0x%02x\n",
-		card->ext_csd.raw_dev_lifetime_est_typ_b);
 MMC_DEV_ATTR(raw_rpmb_size_mult, "%#x\n", card->ext_csd.raw_rpmb_size_mult);
 MMC_DEV_ATTR(rel_sectors, "%#x\n", card->ext_csd.rel_sectors);
 MMC_DEV_ATTR(firmware_version, "%02x%02x%02x%02x%02x%02x%02x%02x\n",
@@ -778,6 +775,72 @@ MMC_DEV_ATTR(firmware_version, "%02x%02x%02x%02x%02x%02x%02x%02x\n",
 		card->ext_csd.firmware_version[5],
 		card->ext_csd.firmware_version[6],
 		card->ext_csd.firmware_version[7]);
+
+static ssize_t mmc_life_time_show(struct device *dev,
+			    struct device_attribute *attr,
+			    char *buf)
+{
+	struct mmc_card *card = mmc_dev_to_card(dev);
+	u8 *ext_csd;
+	int err = 0;
+
+	mmc_get_card(card);
+	err = mmc_get_ext_csd(card, &ext_csd);
+	if (err) {
+		/* If the host or the card can't do the switch,
+		 * fail more gracefully. */
+		if ((err != -EINVAL)
+		 && (err != -ENOSYS)
+		 && (err != -EFAULT)) {
+			mmc_put_card(card);
+			return err;
+		}
+	}
+	mmc_put_card(card);
+
+	card->ext_csd.raw_dev_lifetime_est_typ_a =
+			ext_csd[EXT_CSD_DEV_LIFETIME_EST_TYP_A];
+	card->ext_csd.raw_dev_lifetime_est_typ_b =
+			ext_csd[EXT_CSD_DEV_LIFETIME_EST_TYP_B];
+
+	kfree(ext_csd);
+	return sprintf(buf, "0x%02x 0x%02x\n",
+	        card->ext_csd.raw_dev_lifetime_est_typ_a,
+	        card->ext_csd.raw_dev_lifetime_est_typ_b);
+}
+
+static DEVICE_ATTR(life_time, S_IRUGO, mmc_life_time_show, NULL);
+
+static ssize_t mmc_pre_eol_info_show(struct device *dev,
+			    struct device_attribute *attr,
+			    char *buf)
+{
+	struct mmc_card *card = mmc_dev_to_card(dev);
+	u8 *ext_csd;
+	int err = 0;
+
+	mmc_get_card(card);
+	err = mmc_get_ext_csd(card, &ext_csd);
+	if (err) {
+		/* If the host or the card can't do the switch,
+		 * fail more gracefully. */
+		if ((err != -EINVAL)
+		 && (err != -ENOSYS)
+		 && (err != -EFAULT)) {
+			mmc_put_card(card);
+			return err;
+		}
+	}
+	mmc_put_card(card);
+
+	card->ext_csd.raw_pre_eol_info = ext_csd[EXT_CSD_PRE_EOL_INFO];
+
+	kfree(ext_csd);
+	return sprintf(buf, "0x%02x\n",
+			card->ext_csd.raw_pre_eol_info);
+}
+
+static DEVICE_ATTR(pre_eol_info, S_IRUGO, mmc_pre_eol_info_show, NULL);
 
 static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_cid.attr,
@@ -791,13 +854,13 @@ static struct attribute *mmc_std_attrs[] = {
 	&dev_attr_name.attr,
 	&dev_attr_oemid.attr,
 	&dev_attr_prv.attr,
+	&dev_attr_pre_eol_info.attr,
+	&dev_attr_life_time.attr,
 	&dev_attr_serial.attr,
 	&dev_attr_enhanced_area_offset.attr,
 	&dev_attr_enhanced_area_size.attr,
 	&dev_attr_raw_sec_erase_mult.attr,
 	&dev_attr_raw_erase_timeout_mult.attr,
-	&dev_attr_dev_lifetime_est_typ_a.attr,
-	&dev_attr_dev_lifetime_est_typ_b.attr,
 	&dev_attr_raw_rpmb_size_mult.attr,
 	&dev_attr_rel_sectors.attr,
 	&dev_attr_firmware_version.attr,
