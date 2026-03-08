@@ -594,8 +594,8 @@ static void lcd_suspend_work(struct work_struct *p_work)
 #endif
 
 	mutex_lock(&lcd_drv->power_mutex);
-	aml_lcd_notifier_call_chain(LCD_EVENT_POWER_OFF, NULL);
 	lcd_resume_flag = 0;
+	aml_lcd_notifier_call_chain(LCD_EVENT_POWER_OFF, NULL);
 	LCDPR("%s finished\n", __func__);
 	mutex_unlock(&lcd_drv->power_mutex);
 

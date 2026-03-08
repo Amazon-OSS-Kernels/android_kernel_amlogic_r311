@@ -120,6 +120,30 @@ static bool mdio_bus_phy_may_suspend(struct phy_device *phydev)
 	return true;
 }
 
+#ifdef CONFIG_DISABLE_WOL
+static int get_hw_id_ch2(void)
+{
+	char val_buf[64];
+	int ret;
+	int led_flag = 0;
+
+	char *rootfsmtd_ptr = strstr(saved_command_line,
+			"androidboot.hw_id=");
+	if (rootfsmtd_ptr) {
+		ret = sscanf(rootfsmtd_ptr,
+			"androidboot.hw_id=%s", val_buf);
+		if (ret == -1)
+			return -1;
+		pr_info("Found androidboot.hw_id=%s\n",
+		val_buf);
+	}
+	ret = kstrtoint(val_buf, 10, &led_flag);
+	if (ret)
+		return -1;
+	return led_flag;
+}
+#endif
+
 static int mdio_bus_phy_suspend(struct device *dev)
 {
 	struct phy_device *phydev = to_phy_device(dev);
@@ -153,9 +177,11 @@ static int mdio_bus_phy_suspend(struct device *dev)
 	}
 #endif
 #ifdef CONFIG_DISABLE_WOL
+	if (get_hw_id_ch2() != 5) {
 	scpi_set_wol_power(0);
 	set_wol_flag(0);
 	set_wol_notify_bl31();
+	}
 #endif
 	if (phydev->attached_dev && phydev->adjust_link)
 		phy_stop_machine(phydev);
