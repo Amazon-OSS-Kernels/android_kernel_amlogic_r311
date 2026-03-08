@@ -177,7 +177,7 @@ static void send_frame(void)
 	}
 }
 
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ANJALI) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_ANJALI) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 extern int gpio_lookup_name(const char *name, struct udevice **devp,
 		     unsigned int *offsetp, unsigned int *gpiop);
 
@@ -194,7 +194,7 @@ void aml_irblaster_enable(int enabled) {
 	gpio_lookup_name("gpioz_12", NULL, NULL, &gpioz_12);
 	gpio_request(gpioz_12, "cmd_gpio");
 	gpio_direction_output(gpioz_12, enabled);
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 /*
 	config GPIOZ_9 as output
 */
@@ -236,7 +236,7 @@ void aml_irblaster_pinmux_config(void)
 	clrbits_le32(P_PERIPHS_PIN_MUX_4 , (1<<8));
 	clrbits_le32(P_PERIPHS_PIN_MUX_3 , (1<<18)|(1<<21)| (1<<5));
 	clrbits_le32(P_PERIPHS_PIN_MUX_10, (1<<18)|(1<<16));
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 /*
 	Config GPIOZ_9 As GPIO. enable IR blaster Power, if High
 */
@@ -267,7 +267,7 @@ static int open(void)
 	drv->frequency = 38000; /*freq 38k*/
 
 	/*pinmux*/
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ANJALI) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_ANJALI) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 	aml_irblaster_pinmux_config();
 
 /*
@@ -284,7 +284,7 @@ static int open(void)
 
 static int close(void)
 {
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ANJALI) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_ANJALI) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 /*
 	disable irblaster
 */
