@@ -4,3 +4,4 @@
 - [Amazon Fire TV Smart TV   Onida](https://github.com/Amazon-OSS-Kernels/android_kernel_amlogic_r311/tree/onida/onida_hd_fhd_firetvedition-6.2.9.4-20221228)
 - [Amazon Fire TV Smart TV   Onida (2020 Model)](https://github.com/Amazon-OSS-Kernels/android_kernel_amlogic_r311/tree/onida_2020_model/amazonfiretv-6.2.9.4-20221228)
 - [Amazon Fire TV Smart TV   Onida (2021 Model)](https://github.com/Amazon-OSS-Kernels/android_kernel_amlogic_r311/tree/onida_2021_model/amazonfiretv-6.2.9.4-20221228)
+- [Amazon Fire TV Smart TV   Quachi (2022 Model)](https://github.com/Amazon-OSS-Kernels/android_kernel_amlogic_r311/tree/quachi_2022_model/amazonfiretv-6.2.9.0-20220616)
