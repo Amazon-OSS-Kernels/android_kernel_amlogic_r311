@@ -485,12 +485,14 @@ static u32 tsync_calcpcr_by_audio(u32 first_apts, uint64_t audio_cache_pts)
 static u32 tsync_calcpcr_by_video(u32 first_vpts, uint64_t video_cache_pts)
 {
 	u32 ref_pcr = 0;
-	int diff = 0;
+	u32 diff = 0, video_latency = 0;
 
-	if (video_cache_pts >= tsync_pcr_ref_latency) {
+	/* default video latency = mim_cache + tsync_latency */
+	video_latency = tsync_pcr_ref_latency + MIN_SYNC_VCHACH_TIME;
+	if (video_cache_pts >= video_latency) {
 		ref_pcr = first_vpts;
 	} else {
-		diff = tsync_pcr_ref_latency - video_cache_pts;
+		diff = video_latency - video_cache_pts;
 		if (first_vpts > diff)
 			ref_pcr = first_vpts - diff;
 		else
@@ -498,6 +500,28 @@ static u32 tsync_calcpcr_by_video(u32 first_vpts, uint64_t video_cache_pts)
 	}
 	pr_info("tsync_calcpcr_by_video ref_pcr %x\n", ref_pcr);
 	return ref_pcr;
+}
+
+static bool tsync_audio_comes_later(void)
+{
+	u32 checkin_vpts, checkin_apts, pcrpts, first_vpts;
+	bool status = false;
+
+	checkin_vpts = get_last_checkin_pts(PTS_TYPE_VIDEO);
+	checkin_apts = get_last_checkin_pts(PTS_TYPE_AUDIO);
+	first_vpts = timestamp_firstvpts_get();
+	pcrpts = timestamp_pcrscr_get();
+	if (VALID_PTS32(checkin_vpts) && VALID_PTS32(checkin_apts) &&
+		first_vpts && tsync_pcr_vstart_flag) {
+		if ((checkin_vpts > first_vpts && pcrpts > first_vpts &&
+			pcrpts - first_vpts > TIME_UNIT90K) ||
+			(first_vpts > checkin_vpts && first_vpts > pcrpts &&
+			first_vpts - pcrpts > TIME_UNIT90K))
+			status = true;
+	}
+	if (tsync_pcr_debug)
+		pr_info("%s, status %d\n", __func__, status);
+	return status;
 }
 
 u32 tsync_pcr_get_ref_pcr(void)
@@ -531,7 +555,7 @@ u32 tsync_pcr_get_ref_pcr(void)
 	}
 	cur_checkin_vpts = get_last_checkin_pts(PTS_TYPE_VIDEO);
 	cur_checkin_apts = get_last_checkin_pts(PTS_TYPE_AUDIO);
-	if (cur_checkin_vpts != 0xffffffff)
+	if (cur_checkin_vpts != 0xffffffff && cur_checkin_vpts > first_vpts)
 		video_cache_pts = cur_checkin_vpts - first_vpts;
 	if (cur_checkin_apts != 0xffffffff)
 	audio_cache_pts = cur_checkin_apts - first_apts;
@@ -1231,13 +1255,17 @@ static void tsync_dmx_buffer_control(u32 vpts, u64 msecs)
 	threshold = priv->vsync_inc * VCACHE_AJUDST_FACTOR / 90;
 	if (vbuf_size && vbuf_size < 10 * 1024 * 1024)
 		vbuf_size = 10 * 1024 * 1024;
+	else if (!vbuf_size)
+		return;
+	t1 = timestamp_pcrscr_get();
 	dmx_vpts = get_last_checkin_pts(PTS_TYPE_VIDEO);
 	dmx_apts = get_last_checkin_pts(PTS_TYPE_AUDIO);
 	if (VALID_PTS32(dmx_apts) && VALID_PTS32(dmx_vpts))
 		video_mode &= ((dmx_apts > dmx_vpts && dmx_apts - dmx_vpts >
 			MIN_SYNC_ACHACH_TIME) || (dmx_vpts > dmx_apts &&
 			dmx_vpts - dmx_apts > PLAY_PCR_INVALID_THRESHOLD));
-	if (video_mode && vcached > 0 && vcached < MIN_SYNC_VCHACH_TIME)
+	if (video_mode && vcached > 0 && vcached < MIN_SYNC_VCHACH_TIME &&
+		dmx_vpts > t1 && (dmx_vpts - t1) < MIN_SYNC_VCHACH_TIME)
 		mode_t = PLAY_MODE_SLOW;
 	if (video_mode && (vcached * 2 > MAX_SYNC_VCHACH_TIME ||
 		(vbuf_level * 10 > vbuf_size * 5)))
@@ -1256,7 +1284,6 @@ static void tsync_dmx_buffer_control(u32 vpts, u64 msecs)
 	} else
 		priv->pcrpts_tune_msecs = msecs;
 	if (avail && timestamp_pcrscr_enable_state()) {
-		t1 = timestamp_pcrscr_get();
 		if (mode_t == PLAY_MODE_SPEED) {
 			timestamp_pcrscr_set(timestamp_pcrscr_get() +
 				priv->vsync_inc);
@@ -1609,6 +1636,10 @@ void tsync_pcr_avevent_locked(enum avevent_e event, u32 param)
 				VALID_PTS32(cur_checkin_vpts) &&
 				VALID_PTS32(cur_checkin_apts) &&
 				!priv->av_init_synced) {
+				if (tsync_audio_comes_later()) {
+					priv->av_init_synced = 1;
+					break;
+				}
 				tsync_pcr_inited_flag = 0;
 				tsync_pcr_pcrscr_set();
 				if (tsync_pcr_inited_flag)

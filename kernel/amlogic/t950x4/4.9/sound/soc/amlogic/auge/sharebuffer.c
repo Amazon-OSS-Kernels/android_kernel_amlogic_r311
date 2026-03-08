@@ -19,7 +19,7 @@
 
 #include "sharebuffer.h"
 #include "ddr_mngr.h"
-
+#include "spdif.h"
 #include "spdif_hw.h"
 
 struct samesrc_ops *samesrc_ops_table[SHAREBUFFER_SRC_NUM];
@@ -50,7 +50,7 @@ static int sharebuffer_spdifout_prepare(struct snd_pcm_substream *substream,
 	struct iec958_chsts chsts;
 	struct snd_pcm_substream substream_tmp;
 	struct snd_pcm_runtime runtime_tmp;
-
+	unsigned int l_src = 0;
 	bit_depth = snd_pcm_format_width(runtime->format);
 
 	spdifout_samesource_set(spdif_id,
@@ -62,9 +62,11 @@ static int sharebuffer_spdifout_prepare(struct snd_pcm_substream *substream,
 
 	/* spdif to hdmitx */
 	spdifout_to_hdmitx_ctrl(separated, spdif_id);
+	l_src = get_spdif_source_l_config(spdif_id);
 	/* check and set channel status */
 	iec_get_channel_status_info(&chsts,
-				    type, runtime->rate);
+				    type, runtime->rate,
+				    l_src);
 	spdif_set_channel_status_info(&chsts, spdif_id);
 
 	/* for samesource case, always 2ch substream to hdmitx */

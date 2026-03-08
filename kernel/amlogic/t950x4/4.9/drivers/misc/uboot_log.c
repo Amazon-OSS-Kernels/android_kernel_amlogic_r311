@@ -224,7 +224,7 @@ char *uboot_log_dump(int *size)
 
 	uboot_log_hr = (struct uboot_log *)((char *)log_vaddr + offset_in_page(log_paddr));
 	if (ULOG_COOKIE == uboot_log_hr->header.cookie) {
-		log_len = min(uboot_log_hr->header.size_written, uboot_log_hr->header.max_size);
+		log_len = min(PAGE_ALIGN(uboot_log_hr->header.size_written), uboot_log_hr->header.max_size);
 		uboot_log_hr->data[log_len] = '\0';
 		*size = log_len;
 		return uboot_log_hr->data;

@@ -271,7 +271,8 @@ bool raw_is_4x_clk(enum aud_codec_types codec_type)
 void iec_get_channel_status_info(
 	struct iec958_chsts *chsts,
 	enum aud_codec_types codec_type,
-	unsigned int rate)
+	unsigned int rate,
+	unsigned int l_bit)
 {
 	int rate_bit = snd_pcm_rate_to_rate_bit(rate);
 
@@ -336,6 +337,11 @@ void iec_get_channel_status_info(
 			chsts->chstat1_l = 0xe00;
 			chsts->chstat1_r = 0xe00;
 		}
+	}
+
+	if (l_bit) {
+		chsts->chstat0_l |= 1 << 15;
+		chsts->chstat0_r |= 1 << 15;
 	}
 	pr_debug("rate: %d, codec_type:0x%x, channel status L:0x%x, R:0x%x\n",
 		 rate,

@@ -653,6 +653,19 @@ const uint32_t tas5805m_volume[] = {
 #ifdef CONFIG_NEW_EQ_DRC
 #define TAS5805_EQ_PARAM_COUNT 1800
 #define TAS5805_DRC_PARAM_COUNT  1800
+/* This register only can be used on T5D platform. */
+#define EXT_GPIO_STATUS_ADDR			(0xff634460)
+#define EXT_GPIOH_7_PINMUX_ADDR			(0xff6346d4)
+#define EXT_GPIOH_10_PINMUX_ADDR		(0xff6346d8)
+#define EXT_GPIO_DIRECTION_ADDR			(0xff634458)
+#define EXT_GPIO_VALUE_ADDR			(0xff63445c)
+
+void __iomem *ext_stat_reg;
+void __iomem *ext_gpio7_pmux_reg;
+void __iomem *ext_gpio10_pmux_reg;
+void __iomem *ext_dir_reg;
+void __iomem *ext_val_reg;
+extern int idme_get_model_name(char *model_name);
 #else
 #define TAS5805_EQPARAM_LENGTH 610
 #define TAS5805_EQ_LENGTH 245
@@ -684,6 +697,70 @@ const struct regmap_config tas5805m_regmap = {
 	.val_bits = 8,
 	.cache_type = REGCACHE_RBTREE,
 };
+
+#ifdef CONFIG_NEW_EQ_DRC
+int  is_32_or_43_inch_panel(void)
+{
+	char model_name[128] = {0};
+
+	idme_get_model_name(model_name);
+	if (strstr(model_name, "HVT_FHD_32_1_T") != NULL ||
+		(strstr(model_name, "HVT_FHD_32_4_T") != NULL) ||
+		(strstr(model_name, "HVT_FHD_32_8_T") != NULL) ||
+		(strstr(model_name, "HVT_FHD_43_3_T") != NULL) ||
+		(strstr(model_name, "HVT_FHD_43_6_T") != NULL)) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+static int tas5805m_i2c_status_ctrl(struct snd_soc_codec *codec)
+{
+	int gpio_sts;
+	u32 gpio_val;
+
+	if (!ext_stat_reg || !ext_gpio7_pmux_reg || !ext_dir_reg ||
+		!ext_val_reg) {
+		dev_err(codec->dev, "Gpio reg addr is null\n");
+		return 0;
+	}
+	gpio_val = readl(ext_stat_reg);
+	/* Bit 7 of register value present voltage status of GPIOH_7. */
+	/* If it's value is one,it means that the voltage of I2C is */
+	/* high. It can access tas5805 now. */
+	gpio_sts = (gpio_val >> 7) & 0x1;
+	dev_info(codec->dev, "i2c status ctrl gpio status %x %x\n",
+		gpio_val, gpio_sts);
+	if (!gpio_sts) {
+		/* Pull up gpio 7 to provide supply to I2C interface */
+		/* Set gpio pinmux */
+		gpio_val = readl(ext_gpio7_pmux_reg);
+		gpio_val = gpio_val & 0xfffffff;
+		writel(gpio_val, ext_gpio7_pmux_reg);
+
+		/* Set gpio direction */
+		gpio_val = readl(ext_dir_reg);
+		gpio_val = gpio_val & 0xffffff7f;
+		writel(gpio_val, ext_dir_reg);
+
+		/* Set gpio status */
+		gpio_val = readl(ext_val_reg);
+		writel(gpio_val | BIT(7), ext_val_reg);
+		gpio_val = readl(ext_val_reg);
+
+		gpio_val = readl(ext_stat_reg);
+		dev_info(codec->dev, "after gpio setting gpio_val %x\n",
+			gpio_val);
+
+		/* After pull up the gpio,it needs to sleep more than 10ms */
+		/* first.Then it can start to initialize tas5805. */
+		usleep_range(10 * 1000, 11 * 1000);
+	}
+
+	return 0;
+}
+#endif
 
 static int tas5805m_vol_info(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_info *uinfo)
@@ -745,35 +822,42 @@ static void tas5805m_set_volume(struct snd_soc_codec *codec, int vol)
 {
 	unsigned int index;
 	uint32_t volume_hex;
-	uint8_t byte4;
-	uint8_t byte3;
-	uint8_t byte2;
-	uint8_t byte1;
+	int i, ret = 0;
+
+#ifdef CONFIG_NEW_EQ_DRC
+	if (is_32_or_43_inch_panel())
+		tas5805m_i2c_status_ctrl(codec);
+#endif
 
 	index = get_volume_index(vol);
 	volume_hex = tas5805m_volume[index];
 
-	byte4 = ((volume_hex >> 24) & 0xFF);
-	byte3 = ((volume_hex >> 16) & 0xFF);
-	byte2 = ((volume_hex >> 8) & 0xFF);
-	byte1 = ((volume_hex >> 0) & 0xFF);
+	tas5805m_vol_setting[3][1] = ((volume_hex >> 24) & 0xFF);
+	tas5805m_vol_setting[4][1] = ((volume_hex >> 16) & 0xFF);
+	tas5805m_vol_setting[5][1] = ((volume_hex >> 8) & 0xFF);
+	tas5805m_vol_setting[6][1] = ((volume_hex >> 0) & 0xFF);
 
-	//w 58 00 00
-	snd_soc_write(codec, TAS5805M_REG_00, TAS5805M_PAGE_00);
-	//w 58 7f 8c
-	snd_soc_write(codec, TAS5805M_REG_7F, TAS5805M_BOOK_8C);
-	//w 58 00 2a
-	snd_soc_write(codec, TAS5805M_REG_00, TAS5805M_PAGE_2A);
-	//w 58 24 xx xx xx xx
-	snd_soc_write(codec, TAS5805M_REG_24, byte4);
-	snd_soc_write(codec, TAS5805M_REG_25, byte3);
-	snd_soc_write(codec, TAS5805M_REG_26, byte2);
-	snd_soc_write(codec, TAS5805M_REG_27, byte1);
-	//w 58 28 xx xx xx xx
-	snd_soc_write(codec, TAS5805M_REG_28, byte4);
-	snd_soc_write(codec, TAS5805M_REG_29, byte3);
-	snd_soc_write(codec, TAS5805M_REG_2A, byte2);
-	snd_soc_write(codec, TAS5805M_REG_2B, byte1);
+	tas5805m_vol_setting[7][1] = ((volume_hex >> 24) & 0xFF);
+	tas5805m_vol_setting[8][1] = ((volume_hex >> 16) & 0xFF);
+	tas5805m_vol_setting[9][1] = ((volume_hex >> 8) & 0xFF);
+	tas5805m_vol_setting[10][1] = ((volume_hex >> 0) & 0xFF);
+
+	dev_info(codec->dev, "tas5805m_set_volume %d %x %x %x %x %x %x %x %x %x\n",
+		vol, volume_hex,
+		tas5805m_vol_setting[3][1], tas5805m_vol_setting[4][1],
+		tas5805m_vol_setting[5][1], tas5805m_vol_setting[6][1],
+		tas5805m_vol_setting[7][1], tas5805m_vol_setting[8][1],
+		tas5805m_vol_setting[9][1], tas5805m_vol_setting[10][1]);
+
+	for (i = 0; i < ARRAY_SIZE(tas5805m_vol_setting); i++) {
+		ret = snd_soc_write(codec, tas5805m_vol_setting[i][0],
+			tas5805m_vol_setting[i][1]);
+		if (ret < 0) {
+			dev_err(codec->dev, "Failed to setting volume ret %d\n",
+					ret);
+			break;
+		}
+	};
 }
 
 static int tas5805m_vol_locked_put(struct snd_kcontrol *kcontrol,
@@ -791,24 +875,34 @@ static int tas5805m_vol_locked_put(struct snd_kcontrol *kcontrol,
 
 static int tas5805m_mute(struct snd_soc_codec *codec, int mute)
 {
-	u8 reg03_value = 0;
-	u8 reg35_value = 0;
+	int i, ret = 0;
+
+#ifdef CONFIG_NEW_EQ_DRC
+	if (is_32_or_43_inch_panel())
+		tas5805m_i2c_status_ctrl(codec);
+#endif
 
 	if (mute) {
 		//mute both left & right channels
-		reg03_value = 0x0b;
-		reg35_value = 0x00;
+		tas5805m_mute_setting[3][1] = 0x0b;
+		tas5805m_mute_setting[4][1] = 0x00;
 	} else {
 		//unmute
-		reg03_value = 0x03;
-		reg35_value = 0x11;
+		tas5805m_mute_setting[3][1] = 0x03;
+		tas5805m_mute_setting[4][1] = 0x11;
 	}
+	dev_info(codec->dev, "tas5805m_mute %x %x\n",
+	tas5805m_vol_setting[3][1], tas5805m_vol_setting[4][1]);
 
-	snd_soc_write(codec, TAS5805M_REG_00, TAS5805M_PAGE_00);
-	snd_soc_write(codec, TAS5805M_REG_7F, TAS5805M_BOOK_00);
-	snd_soc_write(codec, TAS5805M_REG_00, TAS5805M_PAGE_00);
-	snd_soc_write(codec, TAS5805M_REG_03, reg03_value);
-	snd_soc_write(codec, TAS5805M_REG_35, reg35_value);
+	for (i = 0; i < ARRAY_SIZE(tas5805m_mute_setting); i++) {
+		ret = snd_soc_write(codec, tas5805m_mute_setting[i][0],
+			tas5805m_mute_setting[i][1]);
+		if (ret < 0) {
+			dev_err(codec->dev, "Failed to setting mute ret %d\n",
+					ret);
+			break;
+		}
+	}
 
 	return 0;
 }
@@ -1182,16 +1276,31 @@ static int tas5805m_snd_suspend(struct snd_soc_codec *codec)
 
 static int tas5805m_reg_init(struct snd_soc_codec *codec)
 {
-	int i, j = 0;
+	int i, j = 0, ret = 0;
+
+#ifdef CONFIG_NEW_EQ_DRC
+	if (is_32_or_43_inch_panel())
+		tas5805m_i2c_status_ctrl(codec);
+#endif
 
 	for (j = 0; j < ARRAY_SIZE(tas5805m_reset); j++) {
-		snd_soc_write(codec, tas5805m_reset[j][0],
+		ret = snd_soc_write(codec, tas5805m_reset[j][0],
 			tas5805m_reset[j][1]);
+		if (ret < 0) {
+			dev_err(codec->dev, "Failed to do reset setting ret %d\n",
+					ret);
+			break;
+		}
 	};
 	usleep_range(10 * 1000, 11 * 1000);
 	for (i = 0; i < ARRAY_SIZE(tas5805m_init_sequence); i++) {
-		snd_soc_write(codec, tas5805m_init_sequence[i][0],
+		ret = snd_soc_write(codec, tas5805m_init_sequence[i][0],
 			tas5805m_init_sequence[i][1]);
+		if (ret < 0) {
+			dev_err(codec->dev, "Failed to do init setting ret %d\n",
+					ret);
+			break;
+		}
 	};
 	return 0;
 
@@ -1212,8 +1321,9 @@ static int tas5805m_snd_resume(struct snd_soc_codec *codec)
 	if (pdata->reset_pin)
 		gpio_direction_output(pdata->reset_pin, GPIOF_OUT_INIT_HIGH);
 
-	usleep_range(3 * 1000, 4 * 1000);
-
+	/* According to the specification, it needs to sleep more than 5ms */
+	/* after pulling up gpio "PDN". */
+	usleep_range(10 * 1000, 11 * 1000);
 	ret = tas5805m_reg_init(codec);
 //	    regmap_register_patch(tas5805m->regmap, tas5805m_init_sequence,
 //				  ARRAY_SIZE(tas5805m_init_sequence));
@@ -1227,17 +1337,27 @@ static int tas5805m_snd_resume(struct snd_soc_codec *codec)
 #ifdef CONFIG_NEW_EQ_DRC
 	if (tas5805m->eq_enable) {
 		for (i = 0; i < (tas5805m->eq_len / 2); i++) {
-			snd_soc_write(codec, *p_eq, *(p_eq + 1));
+			ret = snd_soc_write(codec, *p_eq, *(p_eq + 1));
+			if (ret < 0) {
+				dev_err(codec->dev, "Failed to setting eq param ret %d\n",
+						ret);
+				break;
+			}
 			p_eq += 2;
 		}
 	}
 
 	if (tas5805m->drc_enable) {
-                for (i = 0; i < (tas5805m->drc_len / 2); i++) {
-                        snd_soc_write(codec, *p_drc, *(p_drc + 1));
-                        p_drc += 2;
-                }
-        }
+		for (i = 0; i < (tas5805m->drc_len / 2); i++) {
+			ret = snd_soc_write(codec, *p_drc, *(p_drc + 1));
+			if (ret < 0) {
+				dev_err(codec->dev, "Failed to setting drc param ret %d\n",
+						ret);
+				break;
+			}
+			p_drc += 2;
+		}
+	}
 
 	tas5805m_mute(codec, tas5805m->mute);
 #else
@@ -1390,6 +1510,21 @@ static int tas5805m_i2c_probe(struct i2c_client *i2c,
 	if (!tas5805m->m_eq_tab)
 		return -ENOMEM;
 
+	ext_stat_reg = ioremap(EXT_GPIO_STATUS_ADDR, 1);
+	if (!ext_stat_reg)
+		pr_err("%s ioremap fail\n", __func__);
+	ext_gpio7_pmux_reg = ioremap(EXT_GPIOH_7_PINMUX_ADDR, 1);
+	if (!ext_gpio7_pmux_reg)
+		pr_err("%s gpio 7 pmux reg ioremap fail\n", __func__);
+	ext_dir_reg = ioremap(EXT_GPIO_DIRECTION_ADDR, 1);
+	if (!ext_dir_reg)
+		pr_err("%s dir reg ioremap fail\n", __func__);
+	ext_val_reg = ioremap(EXT_GPIO_VALUE_ADDR, 1);
+	if (!ext_val_reg)
+		pr_err("%s val reg ioremap fail\n", __func__);
+	ext_gpio10_pmux_reg = ioremap(EXT_GPIOH_10_PINMUX_ADDR, 1);
+	if (!ext_gpio10_pmux_reg)
+		pr_err("%s gpio 10 pmux reg ioremap fail\n", __func__);
 #endif
 	return ret;
 }
@@ -1412,6 +1547,19 @@ static void tas5805m_i2c_shutdown(struct i2c_client *i2c)
 {
 	struct tas5805m_priv *tas5805m = (struct tas5805m_priv *)i2c_get_clientdata(i2c);
 	struct tas5805m_platform_data *pdata = tas5805m->pdata;
+
+#ifdef CONFIG_NEW_EQ_DRC
+	if (ext_stat_reg)
+		iounmap(ext_stat_reg);
+	if (ext_gpio7_pmux_reg)
+		iounmap(ext_gpio7_pmux_reg);
+	if (ext_dir_reg)
+		iounmap(ext_dir_reg);
+	if (ext_val_reg)
+		iounmap(ext_val_reg);
+	if (ext_gpio10_pmux_reg)
+		iounmap(ext_gpio10_pmux_reg);
+#endif
 
 	if (pdata->reset_pin)
 		gpio_direction_output(pdata->reset_pin, GPIOF_OUT_INIT_LOW);

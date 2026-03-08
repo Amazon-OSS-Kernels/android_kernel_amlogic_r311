@@ -40,4 +40,5 @@ extern int spdif_set_audio_clk(int id,
 
 int spdifout_get_lane_mask_version(int id);
 
+unsigned int get_spdif_source_l_config(int id);
 #endif

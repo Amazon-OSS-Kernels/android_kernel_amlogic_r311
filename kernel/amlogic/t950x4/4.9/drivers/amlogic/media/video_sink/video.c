@@ -2755,6 +2755,18 @@ static inline bool vpts_expire(struct vframe_s *cur_vf,
 			 *  to notify tsync and adjust the sysclock to
 			 * make playback smooth.
 			 */
+			if (pts == 0)
+				pts = timestamp_vpts_get() + (cur_vf ?
+					DUR2PTS(cur_vf->duration) : 0);
+			/*
+			 * show nosync and the first was toggled case:
+			 * if the first vpts is bigger the threshold(10s)
+			 * than the pcrpts, toggle the discontinuity
+			 */
+			if (show_first_frame_nosync && pts > systime &&
+				(pts - systime) < TIME_UNIT90K * 10 &&
+				new_frame_count == 1)
+				return false;
 			if (next_vf->pts != 0) {
 				tsync_avevent_locked(VIDEO_TSTAMP_DISCONTINUITY,
 					next_vf->pts);
@@ -2762,9 +2774,6 @@ static inline bool vpts_expire(struct vframe_s *cur_vf,
 					vsync_pts_inc) >= 0xFFFFFFFF)
 					return true;
 			} else if (next_vf->pts == 0) {
-				if (pts == 0)
-					pts = timestamp_vpts_get() + (cur_vf ?
-						DUR2PTS(cur_vf->duration) : 0);
 				tsync_avevent_locked(VIDEO_TSTAMP_DISCONTINUITY,
 					pts);
 				return true;

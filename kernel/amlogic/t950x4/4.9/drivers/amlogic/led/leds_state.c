@@ -27,15 +27,22 @@
 #include <linux/amlogic/scpi_protocol.h>
 #include <linux/amlogic/leds_state.h>
 
-
+extern int idme_get_oem_data(char *oem_data);
 static void meson_ledled_set_twenty_percent(struct work_struct *work)
 {
 #ifdef CONFIG_NEW_LED_BR
 	pr_info("%s set brightness to 50%%\n", DRIVER_NAME);
         meson_led_state_set_brightness(0, 128);/* 50 percent brightness */
 #else
-	pr_info("%s set brightness to 20%%\n", DRIVER_NAME);
-	meson_led_state_set_brightness(0, 51);/* 20 percent brightness */
+	char oem_data[128] = {0};
+	idme_get_oem_data(oem_data);
+	if (strstr(oem_data, "ABC-tm") != NULL) {
+		pr_info("%s set brightness to 50%%\n", DRIVER_NAME);
+		meson_led_state_set_brightness(0, 127);/* 50 percent brightness */
+	} else {
+		pr_info("%s set brightness to 20%%\n", DRIVER_NAME);
+		meson_led_state_set_brightness(0, 51);/* 20 percent brightness */
+	}
 #endif
 }
 

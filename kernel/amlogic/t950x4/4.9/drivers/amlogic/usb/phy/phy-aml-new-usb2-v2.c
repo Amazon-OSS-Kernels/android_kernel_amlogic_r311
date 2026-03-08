@@ -33,12 +33,13 @@
 #include "phy-aml-new-usb-v2.h"
 
 struct amlogic_usb_v2	*g_phy2_v2;
+/* set the parameter in the function directly to adapt ABC-jt ABC-tm
 #ifdef CONFIG_NEW_USB_SQUELCH
 #define TUNING_DISCONNECT_THRESHOLD 0x37
 #else
 #define TUNING_DISCONNECT_THRESHOLD 0x34
 #endif
-
+*/
 void set_usb_phy_host_tuning(int port, int default_val)
 {
 	void __iomem	*phy_reg_base;
@@ -166,9 +167,11 @@ static void usb_set_calibration_trim
 	dev_info(phy->dev, "phy trim value= 0x%08x\n", value);
 }
 
+extern int idme_get_oem_data(char *oem_data);
 void set_usb_pll(struct amlogic_usb_v2 *phy, void __iomem	*reg)
 {
 	u32 val;
+	char oem_data[128] = {0};
 	/* TO DO set usb  PLL */
 	writel((0x30000000 | (phy->pll_setting[0])), reg + 0x40);
 	writel(phy->pll_setting[1], reg + 0x44);
@@ -177,7 +180,12 @@ void set_usb_pll(struct amlogic_usb_v2 *phy, void __iomem	*reg)
 	writel((0x10000000 | (phy->pll_setting[0])), reg + 0x40);
 
 	/**write 0x0c must write 0x78000 to 0x34**/
-	writel(TUNING_DISCONNECT_THRESHOLD, reg + 0xC);
+	idme_get_oem_data(oem_data);
+	if (strstr(oem_data, "ABC-tm") != NULL || (strstr(oem_data, "ABC-tm") != NULL)) {
+		writel(0x37, reg + 0xC);
+	} else {
+		writel(0x34, reg + 0xC);
+	}
 	/* PHY Tune */
 	if (g_phy2_v2) {
 		if (g_phy2_v2->phy_version) {
