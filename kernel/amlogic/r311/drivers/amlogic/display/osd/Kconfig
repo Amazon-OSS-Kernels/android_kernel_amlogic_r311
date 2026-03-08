@@ -47,11 +47,11 @@ config FB_OSD2_CURSOR
 	help
 		Select to enable OSD2 cursor.
 
-config AM_PRODUCT_abc123
-        boolean "abc123 special setting"
+config AM_PRODUCT_BURGUNDY
+        boolean "Burgundy special setting"
         default n
         help
-                abc123 special setting.
+                Burgundy special setting.
 
 
 endmenu

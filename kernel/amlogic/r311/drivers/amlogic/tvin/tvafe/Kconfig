@@ -45,11 +45,11 @@ config TVIN_AVIN_DETECT
 		Only for av input
 endif
 
-config AM_PRODUCT_abc123
-	tristate "abc123 devices"
+config AM_PRODUCT_ANJALI
+	tristate "ANJALI devices"
 	default n
 	help
-		only use for abc123
+		only use for anjali
 
 config AM_ATV_SYNC_SCAN_RANGE
         tristate "Amlogic ATV sync scan range adjust"

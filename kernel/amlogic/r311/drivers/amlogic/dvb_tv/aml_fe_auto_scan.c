@@ -1326,7 +1326,7 @@ static int aml_fe_afc_closer(struct dvb_frontend *fe, int minafcfreq,
 			pr_err("%s: tv_sec now:%ld,tv_sec success:%ld\n",
 				__func__, time_now.tv_sec, success_time.tv_sec);
 
-		/* abc123 L2 and L4 board*/
+		/* ANJALI L2 and L4 board*/
 		if ((0 == strcmp(hwid_val, "1000")) ||
 			(0 == strcmp(hwid_val, "1110")) ||
 			(0 == strcmp(hwid_val, "1001"))) {

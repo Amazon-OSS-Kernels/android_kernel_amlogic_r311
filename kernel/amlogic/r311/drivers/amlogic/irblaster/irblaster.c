@@ -156,7 +156,7 @@ static DEFINE_SPINLOCK(event_lock);
 
 static struct irtx_dev *tx_dev;
 
-/*add extern to judge abc123*/
+/*add extern to judge Burgundy*/
 bool hasIrBlaster = true;
 char hwid_type_propname[10];
 
@@ -863,7 +863,7 @@ static int  aml_irblaster_probe(struct platform_device *pdev)
 
 
      /*
-     set GPIO AO_2 as remote output on abc123
+     set GPIO AO_2 as remote output on ANJALI
      */
      val = (aml_read_aobus(AO_RTI_PIN_MUX_REG) & ~(1<<10 | 1<<8)) | 1 << 28;
 	 aml_write_aobus(AO_RTI_PIN_MUX_REG, val);
@@ -1063,7 +1063,7 @@ __setup("androidboot.hwid=", hwid_type_para_setup);
 
 static int __init aml_irblaster_init(void)
 {
-	/*Not abc123 board*/
+	/*Not Burgundy board*/
 	if (hasIrBlaster == false) {
 		pr_info("device cannot support irblaster\n");
 		return -ENODEV;

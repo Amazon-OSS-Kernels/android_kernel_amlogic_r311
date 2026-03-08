@@ -467,7 +467,7 @@ static ssize_t tvafe_store(struct device *dev,
 	} else if (!strncmp(buff, "state", strlen("state"))) {
 		tvafe_state(devp);
 	} else {
-		/* abc123 L2 and L4 board*/
+		/* ANJALI L2 and L4 board*/
 		if ((0 == strcmp(hwid_val, "1000")) ||
 			(0 == strcmp(hwid_val, "1110")) ||
 			(0 == strcmp(hwid_val, "1001"))) {
@@ -1005,7 +1005,7 @@ int tvafe_dec_open(struct tvin_frontend_s *fe, enum tvin_port_e port)
 			W_APB_BIT(TVFE_CLAMP_INTF, 1,
 					CLAMP_EN_BIT, CLAMP_EN_WID);
 		}
-#ifdef CONFIG_AM_PRODUCT_abc123
+#ifdef CONFIG_AM_PRODUCT_ANJALI
 		if (port == TVIN_PORT_CVBS1)
 			tvafe_avin_detect_ch1_anlog_enable(0);
 		else if (port == TVIN_PORT_CVBS2)
@@ -1233,7 +1233,7 @@ void tvafe_dec_close(struct tvin_frontend_s *fe)
 #endif
 #ifdef CONFIG_TVIN_AVIN_DETECT
 	if (is_meson_txlx_cpu()) {
-#ifdef CONFIG_AM_PRODUCT_abc123
+#ifdef CONFIG_AM_PRODUCT_ANJALI
 		if (tvafe->parm.port == TVIN_PORT_CVBS1)
 			tvafe_avin_detect_ch1_anlog_enable(1);
 		else if (tvafe->parm.port == TVIN_PORT_CVBS2)

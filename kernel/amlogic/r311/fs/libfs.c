@@ -371,6 +371,9 @@ int simple_setattr(struct dentry *dentry, struct iattr *iattr)
 	int error;
 
 	error = inode_change_ok(inode, iattr);
+        if (error)
+                return error;
+        error = setattr_killpriv(dentry, iattr);
 	if (error)
 		return error;
 

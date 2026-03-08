@@ -846,7 +846,7 @@ static int snd_usb_mbox2_boot_quirk(struct usb_device *dev)
 #define MAUDIO_SET_16B_48K_DI	 0x11 /* 16bits+48KHz+Digital Input */
 #define MAUDIO_SET_16B_48K_NOTDI 0x01 /* 16bits+48KHz+No Digital Input */
 
-static int abc123_skip_setting_quirk(struct snd_usb_audio *chip,
+static int quattro_skip_setting_quirk(struct snd_usb_audio *chip,
 				      int iface, int altno)
 {
 	/* Reset ALL ifaces to 0 altsetting.
@@ -952,9 +952,9 @@ int snd_usb_apply_interface_quirk(struct snd_usb_audio *chip,
 	/* audiophile usb: skip altsets incompatible with device_setup */
 	if (chip->usb_id == USB_ID(0x0763, 0x2003))
 		return audiophile_skip_setting_quirk(chip, iface, altno);
-	/* abc123 usb: skip altsets incompatible with device_setup */
+	/* quattro usb: skip altsets incompatible with device_setup */
 	if (chip->usb_id == USB_ID(0x0763, 0x2001))
-		return abc123_skip_setting_quirk(chip, iface, altno);
+		return quattro_skip_setting_quirk(chip, iface, altno);
 	/* fasttrackpro usb: skip altsets incompatible with device_setup */
 	if (chip->usb_id == USB_ID(0x0763, 0x2012))
 		return fasttrackpro_skip_setting_quirk(chip, iface, altno);
@@ -1020,7 +1020,7 @@ int snd_usb_is_big_endian_format(struct snd_usb_audio *chip, struct audioformat 
 {
 	/* it depends on altsetting whether the device is big-endian or not */
 	switch (chip->usb_id) {
-	case USB_ID(0x0763, 0x2001): /* M-Audio abc123: captured data only */
+	case USB_ID(0x0763, 0x2001): /* M-Audio Quattro: captured data only */
 		if (fp->altsetting == 2 || fp->altsetting == 3 ||
 			fp->altsetting == 5 || fp->altsetting == 6)
 			return 1;

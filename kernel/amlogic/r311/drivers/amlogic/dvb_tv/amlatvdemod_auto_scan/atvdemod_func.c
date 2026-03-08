@@ -1936,7 +1936,7 @@ static void atvdemod_do_work(struct work_struct *work)
 	if (atvaudio_det_outputmode_en)
 		atvauddemod_set_outputmode();
 
-	/* abc123 L2 and L4 board*/
+	/* ANJALI L2 and L4 board*/
 	if ((0 == strcmp(hwid_val, "1000")) ||
 		(0 == strcmp(hwid_val, "1110"))) {
 		if (audio_carrier_offset_det_en)

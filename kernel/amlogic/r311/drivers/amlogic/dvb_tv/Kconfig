@@ -306,10 +306,10 @@ config AM_SI2151
 		M: build as module
 
 config AM_ATV_SEARCH_PATCH
-        tristate "Amlogic AVT search patch for abc123"
+        tristate "Amlogic AVT search patch for BURGUNDY"
         default n
         help
-                Modify AVT search patch for abc123
+                Modify AVT search patch for BURGUNDY
 
 
 

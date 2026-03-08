@@ -751,7 +751,7 @@ static void nr_ctrl_reg_load(struct NR_CTRL_REGS_s *pnr_regs)
 	unsigned int i = 0;
 	for (i = 0; i < NR_CTRL_REG_NUM; i++) {
 		if (atomic_read(&pnr_regs->regs[i].load_flag)) {
-#ifdef CONFIG_AM_PRODUCT_abc123
+#ifdef CONFIG_AM_PRODUCT_BURGUNDY
 			if (cpu_after_eq(MESON_CPU_MAJOR_ID_TXLX) &&
 			    pnr_regs->regs[i].addr == NR4_TOP_CTRL)
 				pnr_regs->regs[i].value |= (1 << 15);

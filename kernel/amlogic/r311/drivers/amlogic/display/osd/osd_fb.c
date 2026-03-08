@@ -2846,7 +2846,7 @@ static int osd_probe(struct platform_device *pdev)
 	switch_set_state(&window_axis_state, 0);
 
 	INIT_DELAYED_WORK(&osd_dwork, mem_free_work);
-#ifdef CONFIG_AM_PRODUCT_abc123
+#ifdef CONFIG_AM_PRODUCT_BURGUNDY
 	schedule_delayed_work(&osd_dwork, msecs_to_jiffies(25 * 1000));
 #else
 	schedule_delayed_work(&osd_dwork, msecs_to_jiffies(18 * 1000));
