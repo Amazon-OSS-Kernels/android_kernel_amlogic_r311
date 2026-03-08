@@ -290,7 +290,8 @@ void dumpSTA(P_ADAPTER_T prAdapter, P_STA_RECORD_T prStaRec)
 	       prStaRec->u2HtCapInfo);
 
 	for (i = 0; i < NUM_OF_PER_STA_TX_QUEUES; i++)
-		DBGLOG(SW4, INFO, "TC %u Queue Len %u\n", i, prStaRec->aprTargetQueue[i]->u4NumElem);
+		if (prStaRec->aprTargetQueue[i])
+			DBGLOG(SW4, INFO, "TC %u Queue Len %u\n", i, prStaRec->aprTargetQueue[i]->u4NumElem);
 
 	DBGLOG(SW4, INFO, "BmpDeliveryAC %x\n", prStaRec->ucBmpDeliveryAC);
 	DBGLOG(SW4, INFO, "BmpTriggerAC  %x\n", prStaRec->ucBmpTriggerAC);
@@ -399,8 +400,11 @@ VOID swCtrlCmdCategory0(P_ADAPTER_T prAdapter, UINT_8 ucCate, UINT_8 ucAction, U
 				prAdapter->rQM.au4QmDebugCounters[i] = 0;
 			break;
 		case SWCTRL_QM_DBG_CNT:
+			if (ucOpt0 >= QM_DBG_CNT_NUM) {
+				DBGLOG(INIT, ERROR, "%s-SWCTRL_QM_DBG_CNT: ucOpt0:%d out of bound\n", __func__, ucOpt0);
+				return;
+			}
 			prAdapter->rQM.au4QmDebugCounters[ucOpt0] = g_au4SwCr[1];
-
 			break;
 #endif
 #if CFG_RX_PKTS_DUMP
@@ -581,6 +585,11 @@ VOID swCtrlCmdCategory0(P_ADAPTER_T prAdapter, UINT_8 ucCate, UINT_8 ucAction, U
 				switch (ucOpt0) {
 				case 0:
 #if QM_ADAPTIVE_TC_RESOURCE_CTRL
+					if (ucOpt1 >= TC_NUM) {
+						DBGLOG(SW4, WARN, "ucOpt1 %u invalid\n",
+							 ucOpt1);
+						break;
+					}
 					g_au4SwCr[1] = (QM_GET_TX_QUEUE_LEN(prAdapter, ucOpt1));
 					g_au4SwCr[2] = prQM->au4MinReservedTcResource[ucOpt1];
 					g_au4SwCr[3] = prQM->au4CurrentTcResource[ucOpt1];
@@ -590,12 +599,22 @@ VOID swCtrlCmdCategory0(P_ADAPTER_T prAdapter, UINT_8 ucCate, UINT_8 ucAction, U
 
 				case 1:
 #if QM_FORWARDING_FAIRNESS
+					if (ucOpt1 >= NUM_OF_PER_STA_TX_QUEUES) {
+						DBGLOG(SW4, WARN, "ucOpt1 %u invalid\n",
+							 ucOpt1);
+						break;
+					}
 					g_au4SwCr[1] = prQM->au4ResourceUsedCount[ucOpt1];
 					g_au4SwCr[2] = prQM->au4HeadStaRecIndex[ucOpt1];
 #endif
 					break;
 
 				case 2:
+					if (ucOpt1 >= NUM_OF_PER_STA_TX_QUEUES) {
+						DBGLOG(SW4, WARN, "ucOpt1 %u invalid\n",
+							 ucOpt1);
+						break;
+					}
 					g_au4SwCr[1] = prQM->arTxQueue[ucOpt1].u4NumElem;	/* only one */
 
 					break;
@@ -609,6 +628,11 @@ VOID swCtrlCmdCategory0(P_ADAPTER_T prAdapter, UINT_8 ucCate, UINT_8 ucAction, U
 				prTxCtrl = &prAdapter->rTxCtrl;
 				switch (ucOpt0) {
 				case 0:
+					if (ucOpt1 >= TC_NUM) {
+						DBGLOG(SW4, WARN, "ucOpt1 %u invalid\n",
+							 ucOpt1);
+						break;
+					}
 					g_au4SwCr[1] = prAdapter->rTxCtrl.rTc.au4FreeBufferCount[ucOpt1];
 					g_au4SwCr[2] = prAdapter->rTxCtrl.rTc.au4MaxNumOfBuffer[ucOpt1];
 					break;
@@ -627,11 +651,19 @@ VOID swCtrlCmdCategory0(P_ADAPTER_T prAdapter, UINT_8 ucCate, UINT_8 ucAction, U
 			break;
 
 		case SWCTRL_QM_DBG_CNT:
+			if (ucOpt0 >= QM_DBG_CNT_NUM) {
+				DBGLOG(INIT, ERROR, "%s-SWCTRL_QM_DBG_CNT: ucOpt0:%d out of bound\n", __func__, ucOpt0);
+				return;
+			}
 			g_au4SwCr[1] = prAdapter->rQM.au4QmDebugCounters[ucOpt0];
 			break;
 #endif
 		case SWCTRL_DUMP_BSS:
 			{
+				if (ucOpt0 >= (HW_BSSID_NUM + 1)) {
+					DBGLOG(INIT, ERROR, "%s-SWCTRL_DUMP_BSS: ucOpt0:%d out of bound\n", __func__, ucOpt0);
+					return;
+				}
 				dumpBss(prAdapter, GET_BSS_INFO_BY_INDEX(prAdapter, ucOpt0));
 			}
 			break;
@@ -666,6 +698,11 @@ VOID swCtrlCmdCategory1(P_ADAPTER_T prAdapter, UINT_8 ucCate, UINT_8 ucAction, U
 		switch (ucIndex) {
 		case SWCTRL_STA_QUE_INFO:
 			{
+			if (ucOpt1 >= NUM_OF_PER_STA_TX_QUEUES) {
+				DBGLOG(SW4, WARN, "ucOpt1 %u invalid\n",
+					ucOpt1);
+				break;
+			}
 				g_au4SwCr[1] = prStaRec->arTxQueue[ucOpt1].u4NumElem;
 			}
 			break;
@@ -754,6 +791,12 @@ VOID testPsSetupBss(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIndex)
 
 	DEBUGFUNC("testPsSetupBss()");
 	DBGLOG(SW4, INFO, "index %d\n", ucBssIndex);
+
+	if (!IS_BSS_INDEX_VALID(ucBssIndex)) {
+		DBGLOG(RLM, ERROR,
+			"Invalid bssidx:%d\n", ucBssIndex);
+		return;
+	}
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
 
@@ -1200,6 +1243,7 @@ VOID swCrDebugCheckTimeout(IN P_ADAPTER_T prAdapter, ULONG ulParamPtr)
 	CMD_SW_DBG_CTRL_T rCmdSwCtrl;
 	WLAN_STATUS rStatus;
 
+	kalMemZero(&rCmdSwCtrl, sizeof(CMD_SW_DBG_CTRL_T));
 	rCmdSwCtrl.u4Id = (0xb000 << 16) + g_ucSwcrDebugCheckType;
 	rCmdSwCtrl.u4Data = 0;
 	rStatus = wlanSendSetQueryCmd(prAdapter,	/* prAdapter */

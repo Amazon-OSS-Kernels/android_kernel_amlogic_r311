@@ -116,6 +116,10 @@ ifeq ($(CFG_STR_DEAUTH_DELAY), y)
 ccflags-y += -DCFG_STR_DEAUTH_DELAY
 endif
 
+ifeq ($(CFG_KEY_ERROR_STATISTIC_RECOVERY), y)
+ccflags-y += -DCFG_KEY_ERROR_STATISTIC_RECOVERY=1
+endif
+
 ifeq ($(CFG_SUPPORT_MGMT_RSSI), y)
 ccflags-y += -DCFG_SUPPORT_MGMT_RSSI=1
 endif
@@ -168,6 +172,23 @@ else
     $(info CFG_GARP_KEEPALIVE=0)
 endif
 
+ifeq ($(CONFIG_MTK_WPA3_SUPPORT), y)
+    ccflags-y += -DCFG_SUPPORT_CFG80211_AUTH=1
+    ccflags-y += -DCFG_SUPPORT_SAE=1
+    ccflags-y += -DCFG_SUPPORT_OWE=0
+    ccflags-y += -DCFG_SUPPORT_SUITB=0
+else
+    ccflags-y += -DCFG_SUPPORT_CFG80211_AUTH=0
+    ccflags-y += -DCFG_SUPPORT_SAE=0
+    ccflags-y += -DCFG_SUPPORT_OWE=0
+    ccflags-y += -DCFG_SUPPORT_SUITB=0
+endif
+
+# Disable wlan feature send only one cfg to FW
+# Default is enabled in the config.h
+ifeq ($(CFG_SUPPORT_SEND_ONLY_ONE_CFG), n)
+    ccflags-y += -DCFG_SUPPORT_SEND_ONLY_ONE_CFG=0
+endif
 
 # Enable Metrics for Wlan reset
 ifeq ($(CONFIG_AMAZON_METRICS_LOG), y)
@@ -349,10 +370,8 @@ ifneq ($(CFG_SUPPORT_REORDER_TIMER_PER_TID),)
 ccflags-y += -DCFG_SUPPORT_REORDER_TIMER_PER_TID=$(CFG_SUPPORT_REORDER_TIMER_PER_TID)
 endif
 
-ifeq ($(CFG_DFS_NEWCH_DFS_FORCE_DISCONNECT),y)
-    ccflags-y += -DCFG_DFS_NEWCH_DFS_FORCE_DISCONNECT=1
-else
-    ccflags-y += -DCFG_DFS_NEWCH_DFS_FORCE_DISCONNECT=0
+ifeq ($(CFG_DFS_NEWCH_DFS_FORCE_DISCONNECT),n)
+ccflags-y += -DCFG_DFS_NEWCH_DFS_FORCE_DISCONNECT=0
 endif
 
 ifneq ($(CFG_CFG80211_VERSION),)

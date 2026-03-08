@@ -418,7 +418,11 @@ bow_proc:
 			prStaRec->ucAuthAlgNum = AUTH_ALGORITHM_NUM_OPEN_SYSTEM;
 		} else {
 			/* NOTE(Kevin): We should have STA_RECORD_T if the status code was successful */
-			ASSERT(!(u2StatusCode == STATUS_CODE_SUCCESSFUL));
+			ASSERT(!(u2StatusCode == STATUS_CODE_SUCCESSFUL)
+#if CFG_SUPPORT_H2E
+				&& (u2StatusCode != WLAN_STATUS_SAE_HASH_TO_ELEMENT)
+#endif
+			);
 		}
 
 		/* NOTE: Ignore the return status for AAA */

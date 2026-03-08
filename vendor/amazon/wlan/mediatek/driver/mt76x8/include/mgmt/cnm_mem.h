@@ -346,7 +346,10 @@ struct _STA_RECORD_T {
 
 	UINT_8 ucTxAuthAssocRetryCount;	/* For Infra Mode, the Retry Count of TX Auth/Assod Frame(SAA) */
 	UINT_8 ucTxAuthAssocRetryLimit;	/* For Infra Mode, the Retry Limit of TX Auth/Assod Frame(SAA) */
-
+#if CFG_SUPPORT_CFG80211_AUTH
+	/* Record what we sent for retry TX Auth/Assoc without SAA FSM */
+	enum ENUM_AA_SENT_T eAuthAssocSent;
+#endif
 	UINT_16 u2StatusCode;	/* Status of Auth/Assoc Req */
 	UINT_16 u2ReasonCode;	/* Reason that been Deauth/Disassoc */
 

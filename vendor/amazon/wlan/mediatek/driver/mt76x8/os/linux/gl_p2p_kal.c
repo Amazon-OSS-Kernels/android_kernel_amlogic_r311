@@ -427,6 +427,19 @@ BOOLEAN kalP2PGetWepCipher(IN P_GLUE_INFO_T prGlueInfo, IN UINT_8 ucRoleIdx)
 	return FALSE;
 }
 
+#if CFG_SUPPORT_SUITB
+BOOLEAN kalP2PGetGcmp256Cipher(IN P_GLUE_INFO_T prGlueInfo, IN UINT_8 ucRoleIdx)
+{
+	ASSERT(prGlueInfo);
+	ASSERT(prGlueInfo->prP2PInfo[ucRoleIdx]);
+
+	if (prGlueInfo->prP2PInfo[ucRoleIdx]->u4CipherPairwise == IW_AUTH_CIPHER_GCMP256)
+		return TRUE;
+
+	return FALSE;
+}
+#endif
+
 BOOLEAN kalP2PGetCcmpCipher(IN P_GLUE_INFO_T prGlueInfo, IN UINT_8 ucRoleIdx)
 {
 	ASSERT(prGlueInfo);

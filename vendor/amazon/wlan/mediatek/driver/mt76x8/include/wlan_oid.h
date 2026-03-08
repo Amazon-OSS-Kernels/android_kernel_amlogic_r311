@@ -195,6 +195,9 @@ typedef enum _ENUM_PARAM_AUTH_MODE_T {
 	AUTH_MODE_WPA_NONE,	/*!< For Ad hoc */
 	AUTH_MODE_WPA2,
 	AUTH_MODE_WPA2_PSK,
+#if CFG_SUPPORT_CFG80211_AUTH
+	AUTH_MODE_WPA2_SAE,
+#endif
 	AUTH_MODE_NUM		/*!< Upper bound, not real case */
 } ENUM_PARAM_AUTH_MODE_T, *P_ENUM_PARAM_AUTH_MODE_T;
 
@@ -211,7 +214,12 @@ typedef enum _ENUM_WEP_STATUS_T {
 	ENUM_ENCRYPTION2_ENABLED,
 	ENUM_ENCRYPTION2_KEY_ABSENT,
 	ENUM_ENCRYPTION3_ENABLED,
-	ENUM_ENCRYPTION3_KEY_ABSENT
+	ENUM_ENCRYPTION3_KEY_ABSENT,
+#if CFG_SUPPORT_SUITB
+	ENUM_ENCRYPTION4_ENABLED,
+	ENUM_ENCRYPTION4_KEY_ABSENT,
+#endif
+	ENUM_ENCRYPTION_NUM
 } ENUM_PARAM_ENCRYPTION_STATUS_T, *P_ENUM_PARAM_ENCRYPTION_STATUS_T;
 
 typedef UINT_8 PARAM_MAC_ADDRESS[PARAM_MAC_ADDR_LEN];
@@ -254,6 +262,18 @@ typedef enum _ENUM_PARAM_OP_MODE_T {
 					/* if fail then establish AdHoc permanently, no more SCAN. */
 	NET_TYPE_NUM		/* 4 */
 } ENUM_PARAM_OP_MODE_T, *P_ENUM_PARAM_OP_MODE_T;
+
+#if CFG_SUPPORT_CFG80211_AUTH
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+enum ENUM_CFG80211_WDEV_LOCK_FUNC {
+	CFG80211_RX_ASSOC_RESP = 0,
+	CFG80211_RX_MLME_MGMT,
+	CFG80211_TX_MLME_MGMT,
+	CFG80211_ABANDON_ASSOC,
+	CFG80211_ASSOC_TIMEOUT
+};
+#endif
+#endif
 
 typedef struct _PARAM_SSID_T {
 	UINT_32 u4SsidLen;	/*!< SSID length in bytes. Zero length is broadcast(any) SSID */
@@ -2126,6 +2146,21 @@ typedef struct _CNM_STATUS_T {
 typedef struct _CNM_CH_LIST_T {
 	UINT_8              ucChNum[4];
 } CNM_CH_LIST_T, *P_CNM_CH_LIST_T;
+
+#if CFG_SUPPORT_CFG80211_AUTH
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+typedef struct _PARAM_WDEV_LOCK_THREAD_T {
+	QUE_ENTRY_T rQueEntry;
+	struct net_device* pDev;
+	enum ENUM_CFG80211_WDEV_LOCK_FUNC fn;
+	UINT_8* pFrameBuf;
+	size_t frameLen;
+	struct cfg80211_bss* pBss;
+	UINT_32 uapsd_queues;
+	BOOLEAN fgIsInterruptContext;
+} PARAM_WDEV_LOCK_THREAD_T, *P_PARAM_WDEV_LOCK_THREAD_T;
+#endif
+#endif
 
 /*******************************************************************************
 *                            P U B L I C   D A T A

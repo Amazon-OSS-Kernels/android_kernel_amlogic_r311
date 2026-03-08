@@ -594,6 +594,55 @@ VOID kalReleaseMutex(IN P_GLUE_INFO_T prGlueInfo, IN ENUM_MUTEX_CATEGORY_E rMute
 
 }				/* end of kalReleaseMutex() */
 
+#if CFG_SUPPORT_CFG80211_AUTH
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief This function is provided by GLUE Layer for internal driver stack to
+ *        acquire OS MUTEX for wdev.
+ *
+ * \param[in] prGlueInfo     Pointer of GLUE Data Structure
+ *
+ * \return (none)
+ */
+/*----------------------------------------------------------------------------*/
+void kalAcquireWDevMutex(IN struct net_device *pDev)
+{
+	ASSERT(pDev);
+
+	/* for user build */
+	if(pDev == NULL)
+		return;
+
+	DBGLOG(INIT, TEMP, "WDEV_LOCK Try to acquire\n");
+	mutex_lock(&(pDev->ieee80211_ptr)->mtx);
+	DBGLOG(INIT, TEMP, "WDEV_LOCK Acquired\n");
+}				/* end of kalAcquireWDevMutex() */
+
+/*----------------------------------------------------------------------------*/
+/*!
+ * \brief This function is provided by GLUE Layer for internal driver stack to
+ *        release OS MUTEXfor wdev.
+ *
+ * \param[in] prGlueInfo     Pointer of GLUE Data Structure
+ *
+ * \return (none)
+ */
+/*----------------------------------------------------------------------------*/
+void kalReleaseWDevMutex(IN struct net_device *pDev)
+{
+	ASSERT(pDev);
+
+	/* for user build */
+	if(pDev == NULL)
+		return;
+
+	mutex_unlock(&(pDev->ieee80211_ptr)->mtx);
+	DBGLOG(INIT, TEMP, "WDEV_UNLOCK\n");
+}				/* end of kalReleaseWDevMutex() */
+#endif
+#endif
+
 /*----------------------------------------------------------------------------*/
 /*!
 * \brief This function is provided by GLUE Layer for internal driver stack to update
@@ -1001,7 +1050,10 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 
 		/* switch netif on */
 		netif_carrier_on(prGlueInfo->prDevHandler);
-
+#if CFG_SUPPORT_CFG80211_AUTH /* Report RX association response frame */
+		DBGLOG(INIT, INFO, "Skip report CONNECTED when using supplicant SME\n");
+		return;
+#endif
 		do {
 			/* print message on console */
 			wlanQueryInformation(prGlueInfo->prAdapter, wlanoidQuerySsid, &ssid, sizeof(ssid), &bufLen);
@@ -1028,11 +1080,13 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 							  ieee80211_channel_to_frequency
 							  (ucChannelNum, KAL_BAND_5GHZ));
 			}
-
-			/* ensure BSS exists */
+#if KERNEL_VERSION(4, 1, 0) <= CFG80211_VERSION_CODE
+			bss = cfg80211_get_bss(priv_to_wiphy(prGlueInfo), prChannel, arBssid,
+					       ssid.aucSsid, ssid.u4SsidLen, IEEE80211_BSS_TYPE_ESS, IEEE80211_PRIVACY_ANY);
+#else
 			bss = cfg80211_get_bss(priv_to_wiphy(prGlueInfo), prChannel, arBssid,
 					       ssid.aucSsid, ssid.u4SsidLen, WLAN_CAPABILITY_ESS, WLAN_CAPABILITY_ESS);
-
+#endif
 			if (bss == NULL) {
 				/* create BSS on-the-fly */
 				prBssDesc = ((P_AIS_FSM_INFO_T)
@@ -1045,7 +1099,7 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 								CFG80211_BSS_FTYPE_PRESP,
 								arBssid,
 								0,	/* TSF */
-								WLAN_CAPABILITY_ESS,
+								prBssDesc->u2CapInfo,
 								prBssDesc->u2BeaconInterval,	/* beacon interval */
 								prBssDesc->aucIEBuf,	/* IE */
 								prBssDesc->u2IELength,	/* IE Length */
@@ -1054,7 +1108,7 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 #else
 					bss = cfg80211_inform_bss(priv_to_wiphy(prGlueInfo), prChannel,
 								  arBssid, 0,	/* TSF */
-								  WLAN_CAPABILITY_ESS,
+								  prBssDesc->u2CapInfo,
 								  prBssDesc->u2BeaconInterval,	/* beacon interval */
 								  prBssDesc->aucIEBuf,	/* IE */
 								  prBssDesc->u2IELength,	/* IE Length */
@@ -1120,6 +1174,10 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 			flags = GFP_ATOMIC;
 
 		netif_carrier_off(prGlueInfo->prDevHandler);
+#if CFG_SUPPORT_CFG80211_AUTH
+		/* Report T/RX deauth/disassociation frame */
+		DBGLOG(INIT, INFO, "Skip report DISCONNECTED when using supplicant SME\n");
+#else
 		if (prGlueInfo->fgIsRegistered == TRUE) {
 			P_BSS_INFO_T prBssInfo = prGlueInfo->prAdapter->prAisBssInfo;
 			UINT_16 u2DeauthReason = 0;
@@ -1156,7 +1214,7 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 
 #endif
 		}
-
+#endif
 
 		prGlueInfo->eParamMediaStateIndicated = PARAM_MEDIA_STATE_DISCONNECTED;
 
@@ -1260,11 +1318,52 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 
 #endif
 	case WLAN_STATUS_JOIN_TIMEOUT:
+	case WLAN_STATUS_JOIN_ABORT:
 		{
 			P_BSS_DESC_T prBssDesc = prGlueInfo->prAdapter->rWifiVar.rAisFsmInfo.prTargetBssDesc;
 #if CFG_KEEP_SAA_STATUS_CODE
 			P_STA_RECORD_T prStaRec = prGlueInfo->prAdapter->rWifiVar.rAisFsmInfo.prTargetStaRec;
 #endif
+
+#if CFG_SUPPORT_CFG80211_AUTH /* Report assoc fail or abort. */
+			P_CONNECTION_SETTINGS_T prConnSettings = &prGlueInfo->prAdapter->rWifiVar.rConnSettings;
+			DBGLOG(INIT, INFO, "Skip report CONNECTED when using supplicant SME\n");
+			if (prConnSettings->bss) {
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+				kalWDevLockThread(prGlueInfo,
+						prGlueInfo->prDevHandler,
+						(eStatus == WLAN_STATUS_JOIN_TIMEOUT)?
+							(CFG80211_ASSOC_TIMEOUT):(CFG80211_ABANDON_ASSOC),
+						NULL,
+						0,
+						prConnSettings->bss,
+						0,
+						FALSE);
+#else
+	#if (KERNEL_VERSION(4, 4, 41) <= CFG80211_VERSION_CODE)
+				if (eStatus == WLAN_STATUS_JOIN_ABORT) {
+					cfg80211_abandon_assoc(prGlueInfo->prDevHandler,
+							prConnSettings->bss);
+				} else
+	#endif
+				{
+	#if (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
+					cfg80211_assoc_timeout(prGlueInfo->prDevHandler,
+							prConnSettings->bss);
+	#else
+					cfg80211_send_assoc_timeout(prGlueInfo->prDevHandler,
+							prConnSettings->bss->bssid);
+	#endif
+
+				}
+#endif
+				cfg80211_put_bss(priv_to_wiphy(prGlueInfo),
+						prConnSettings->bss);
+				prConnSettings->bss = NULL;
+			}
+			return;
+#endif
+
 			if (prBssDesc)
 				COPY_MAC_ADDR(arBssid, prBssDesc->aucBSSID);
 #if !CFG_KEEP_SAA_STATUS_CODE
@@ -1288,6 +1387,78 @@ kalIndicateStatusAndComplete(IN P_GLUE_INFO_T prGlueInfo, IN WLAN_STATUS eStatus
 #endif
 			break;
 		}
+	case WLAN_STATUS_BEACON_TIMEOUT:
+#if (KERNEL_VERSION(3, 19, 0) <= CFG80211_VERSION_CODE)
+		cfg80211_cqm_beacon_loss_notify(prGlueInfo->prDevHandler, GFP_KERNEL);
+#endif
+		break;
+	case WLAN_STATUS_ASSOC_RESP:
+		{
+#if CFG_SUPPORT_CFG80211_AUTH /* Report RX association response frame */
+			P_CONNECTION_SETTINGS_T prConnSettings = &prGlueInfo->prAdapter->rWifiVar.rConnSettings;
+
+			DBGLOG(INIT, INFO, "Report ASSOC response frame when using supplicant SME\n");
+
+			if (prConnSettings->bss) {
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+				PUINT_8 prFrameBuf = NULL;
+				BOOLEAN fgIsInterruptContext = FALSE;
+
+				if (in_interrupt()) {
+					prFrameBuf = kalMemAlloc(u4BufLen, PHY_MEM_TYPE);
+					fgIsInterruptContext = TRUE;
+				} else {
+					prFrameBuf = kalMemAlloc(u4BufLen, VIR_MEM_TYPE);
+					fgIsInterruptContext = FALSE;
+				}
+
+				if (!prFrameBuf) {
+					DBGLOG(INIT, ERROR, "Alloc buffer for frame failed\n");
+					return;
+				}
+
+				kalMemCopy((PVOID)prFrameBuf,
+							(PVOID)pvBuf,
+							u4BufLen);
+
+				kalWDevLockThread(prGlueInfo,
+							prGlueInfo->prDevHandler,
+							CFG80211_RX_ASSOC_RESP,
+							prFrameBuf,
+							u4BufLen,
+							prConnSettings->bss,
+							0,
+							fgIsInterruptContext);
+#else
+	#if (KERNEL_VERSION(3, 18, 0) <= CFG80211_VERSION_CODE)
+				cfg80211_rx_assoc_resp(prGlueInfo->prDevHandler,
+									prConnSettings->bss,
+									(const u8 *)pvBuf,
+									(size_t)u4BufLen,
+									0);
+	#elif (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
+				cfg80211_rx_assoc_resp(prGlueInfo->prDevHandler,
+									prConnSettings->bss,
+									(const u8 *)pvBuf,
+									(size_t)u4BufLen);
+	#else
+				cfg80211_send_rx_assoc(prGlueInfo->prDevHandler,
+									prConnSettings->bss,
+									(const u8 *)pvBuf,
+									(size_t)u4BufLen);
+	#endif
+#endif
+				cfg80211_put_bss(priv_to_wiphy(prGlueInfo),
+								prConnSettings->bss);
+
+				prConnSettings->bss = NULL;
+			}
+			else
+				DBGLOG(SAA, WARN, "Rx Assoc Resp without specific BSS\n");
+#endif
+		break;
+		}
+
 	default:
 		/*
 		 *  printk(KERN_WARNING "unknown indication:%lx\n", eStatus);
@@ -1829,11 +2000,23 @@ kalIPv4FrameClassifier(IN P_GLUE_INFO_T prGlueInfo,
 	/* WLAN_GET_FIELD_16(&pucIpHdr[IPV4_HDR_IP_IDENTIFICATION_OFFSET], &u2IpId); */
 
 	if (pucIpHdr[IPV4_HDR_IP_PROTOCOL_OFFSET] == IP_PROTOCOL_UDP) {
-		PUINT_8 pucUdpHdr = &pucIpHdr[IPV4_HDR_LEN];
+		struct sk_buff *prSkb = (struct sk_buff *)prPacket;
+		UINT_32 u4PacketLen = prSkb->len;
+		UINT_8 ucIHL = (pucIpHdr[0] & 0xF) * 4; /* IHL unit: DW = 4bytes */
+		PUINT_8 pucUdpHdr = &pucIpHdr[ucIHL];
 		UINT_16 u2DstPort;
 		/* UINT_16 u2SrcPort; */
 
 		/* DBGLOG_MEM8(INIT, INFO, pucUdpHdr, 256); */
+		DBGLOG(INIT, INFO, "IP header parsed, ucIHL: %u\n", ucIHL);
+
+		/* UDP packet should have 8 byte header at least */
+		if ((ETHER_HEADER_LEN+ucIHL+UDP_HDR_LEN) > u4PacketLen)
+		{
+			DBGLOG(INIT, WARN, "Invalid UDP packet, should include 8 bytes header at least, packet length too small: %u < %u\n",
+				u4PacketLen, ETHER_HEADER_LEN+ucIHL+UDP_HDR_LEN);
+			return FALSE;
+		}
 
 		/* Get UDP DST port */
 		WLAN_GET_FIELD_BE16(&pucUdpHdr[UDP_HDR_DST_PORT_OFFSET], &u2DstPort);
@@ -1849,6 +2032,12 @@ kalIPv4FrameClassifier(IN P_GLUE_INFO_T prGlueInfo,
 			P_BOOTP_PROTOCOL_T prBootp = (P_BOOTP_PROTOCOL_T) &pucUdpHdr[UDP_HDR_LEN];
 
 			UINT_32 u4DhcpMagicCode;
+
+			if ((ETHER_HEADER_LEN+ucIHL+UDP_HDR_LEN+sizeof(BOOTP_PROTOCOL_T)+sizeof(UINT_32)) > u4PacketLen) {
+				DBGLOG(INIT, WARN, "Invalid bootp packet w/ DHCP magic code, packet length too small: %u < %u\n",
+				       u4PacketLen, ETHER_HEADER_LEN+ucIHL+UDP_HDR_LEN+sizeof(BOOTP_PROTOCOL_T)+sizeof(UINT_32));
+				return FALSE;
+			}
 
 			WLAN_GET_FIELD_BE32(&prBootp->aucOptions[0], &u4DhcpMagicCode);
 #if 0
@@ -1935,7 +2124,10 @@ kalQoSFrameClassifierAndPacketInfo(IN P_GLUE_INFO_T prGlueInfo,
 		/* IPv4 header length check */
 		if (u4PacketLen < (ucEthTypeLenOffset + ETHER_TYPE_LEN + IPV4_HDR_LEN)) {
 			DBGLOG(INIT, WARN, "Invalid IPv4 packet length: %lu\n", u4PacketLen);
-			break;
+			/* Supplicant trying to TX keep alive NULL frame.
+			 * This behavior would cause some AP issue.
+			 */
+			return FALSE;
 		}
 
 		kalIPv4FrameClassifier(prGlueInfo, prPacket, pucNextProtocol, prTxPktInfo);
@@ -4112,9 +4304,26 @@ BOOL kalIsAPmode(IN P_GLUE_INFO_T prGlueInfo)
 /*----------------------------------------------------------------------------*/
 UINT_32 kalGetMfpSetting(IN P_GLUE_INFO_T prGlueInfo)
 {
+	UINT_32 u4RsnMfp = RSN_AUTH_MFP_DISABLED;
+
 	ASSERT(prGlueInfo);
 
-	return prGlueInfo->rWpaInfo.u4Mfp;
+	switch (prGlueInfo->rWpaInfo.u4Mfp) {
+	case IW_AUTH_MFP_DISABLED:
+		u4RsnMfp = RSN_AUTH_MFP_DISABLED;
+		break;
+	case IW_AUTH_MFP_OPTIONAL:
+		u4RsnMfp = RSN_AUTH_MFP_OPTIONAL;
+		break;
+	case IW_AUTH_MFP_REQUIRED:
+		u4RsnMfp = RSN_AUTH_MFP_REQUIRED;
+		break;
+	default:
+		u4RsnMfp = RSN_AUTH_MFP_DISABLED;
+		break;
+	}
+
+	return u4RsnMfp;
 }
 
 /*----------------------------------------------------------------------------*/
@@ -4190,15 +4399,17 @@ UINT_32 kalFileWrite(struct file *file, unsigned long long offset, unsigned char
 UINT_32 kalWriteToFile(const PUINT_8 pucPath, BOOLEAN fgDoAppend, PUINT_8 pucData, UINT_32 u4Size)
 {
 	struct file *file = NULL;
-	UINT_32 ret;
+	UINT_32 ret = 0; /* size been written */
 	UINT_32 u4Flags = 0;
 
 	if (fgDoAppend)
 		u4Flags = O_APPEND;
 
 	file = kalFileOpen(pucPath, O_WRONLY | O_CREAT | u4Flags, S_IRWXU);
-	ret = kalFileWrite(file, 0, pucData, u4Size);
-	kalFileClose(file);
+	if (file) {
+		ret = kalFileWrite(file, 0, pucData, u4Size);
+		kalFileClose(file);
+	}
 
 	return ret;
 }
@@ -4678,6 +4889,65 @@ VOID kalSchedScanStopped(IN P_GLUE_INFO_T prGlueInfo)
 	DBGLOG(SCN, INFO, "main_thread return from kalSchedScanStoppped\n");
 }
 
+#if CFG_SUPPORT_CFG80211_AUTH
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+VOID kalWDevLockThread(IN P_GLUE_INFO_T prGlueInfo,
+	IN struct net_device* pDev,
+	IN enum ENUM_CFG80211_WDEV_LOCK_FUNC fn,
+	IN PUINT_8 pFrameBuf,
+	IN size_t frameLen,
+	IN struct cfg80211_bss *pBss,
+	IN INT_32 uapsd_queues,
+	IN BOOLEAN fgIsInterruptContext)
+{
+	P_PARAM_WDEV_LOCK_THREAD_T pParamWDevLock = NULL;
+	GLUE_SPIN_LOCK_DECLARATION();
+
+	ASSERT(prGlueInfo);
+
+	DBGLOG(REQ, INFO, "kalWDevLockThread\n");
+
+	if (in_interrupt() && fgIsInterruptContext) {
+		DBGLOG(REQ, STATE, "pParamWDevLock is allocated as PHY_MEM_TYPE in intr context\n");
+		pParamWDevLock =
+			(P_PARAM_WDEV_LOCK_THREAD_T)kalMemAlloc(sizeof(PARAM_WDEV_LOCK_THREAD_T), PHY_MEM_TYPE);
+	} else {
+		pParamWDevLock =
+			(P_PARAM_WDEV_LOCK_THREAD_T)kalMemAlloc(sizeof(PARAM_WDEV_LOCK_THREAD_T), VIR_MEM_TYPE);
+	}
+
+	if (pParamWDevLock == NULL) {
+		DBGLOG(REQ, ERROR, "pParamWDevLock Alloc Failed\n");
+		return;
+	}
+
+	pParamWDevLock->pDev = pDev;
+	pParamWDevLock->fn = fn;
+	pParamWDevLock->pFrameBuf = pFrameBuf;
+	pParamWDevLock->frameLen = frameLen;
+	pParamWDevLock->fgIsInterruptContext = fgIsInterruptContext;
+	if (pBss) {
+		cfg80211_ref_bss(priv_to_wiphy(prGlueInfo),
+						pBss);
+		pParamWDevLock->pBss = pBss;
+	}
+	else {
+		pParamWDevLock->pBss = NULL;
+	}
+
+	pParamWDevLock->uapsd_queues = uapsd_queues;
+
+	GLUE_ACQUIRE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_WDEV_LOCK);
+	QUEUE_INSERT_TAIL(&prGlueInfo->prAdapter->rWDevLockQueue,
+						&pParamWDevLock->rQueEntry);
+	GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_WDEV_LOCK);
+
+	if (!schedule_delayed_work(&wdev_lock_workq, 0))
+		DBGLOG(REQ, INFO, "work is already in wdev_lock_workq\n");
+}
+#endif
+#endif
+
 BOOLEAN
 kalGetIPv4Address(IN struct net_device *prDev,
 		  IN UINT_32 u4MaxNumOfAddr, OUT PUINT_8 pucIpv4Addrs, OUT PUINT_32 pu4NumOfIpv4Addr)
@@ -5018,10 +5288,12 @@ static ssize_t kalMetWriteProcfs(struct file *file, const char __user *buffer, s
 	int u8MetProfEnable;
 
 	IN P_GLUE_INFO_T prGlueInfo;
-	ssize_t result;
 
 	u4CopySize = (count < (sizeof(acBuf) - 1)) ? count : (sizeof(acBuf) - 1);
-	result = copy_from_user(acBuf, buffer, u4CopySize);
+	if (copy_from_user(acBuf, buffer, u4CopySize)) {
+		DBGLOG(INIT, ERROR, "error of copy from user\n");
+		return -EFAULT;
+	}
 	acBuf[u4CopySize] = '\0';
 
 	if (sscanf(acBuf, " %d %d", &u8MetProfEnable, &u16MetUdpPort) == 2)
@@ -5039,12 +5311,14 @@ static ssize_t kalMetCtrlWriteProcfs(struct file *file, const char __user *buffe
 	char acBuf[128 + 1];	/* + 1 for "\0" */
 	UINT_32 u4CopySize;
 	int u8MetProfEnable;
-	ssize_t result;
 
 	IN P_GLUE_INFO_T prGlueInfo;
 
 	u4CopySize = (count < (sizeof(acBuf) - 1)) ? count : (sizeof(acBuf) - 1);
-	result = copy_from_user(acBuf, buffer, u4CopySize);
+	if (copy_from_user(acBuf, buffer, u4CopySize)) {
+		DBGLOG(INIT, ERROR, "error of copy from user\n");
+		return -EFAULT;
+	}
 	acBuf[u4CopySize] = '\0';
 
 	if (sscanf(acBuf, " %d", &u8MetProfEnable) == 1)
@@ -5061,12 +5335,14 @@ static ssize_t kalMetPortWriteProcfs(struct file *file, const char __user *buffe
 	char acBuf[128 + 1];	/* + 1 for "\0" */
 	UINT_32 u4CopySize;
 	int u16MetUdpPort;
-	ssize_t result;
 
 	IN P_GLUE_INFO_T prGlueInfo;
 
 	u4CopySize = (count < (sizeof(acBuf) - 1)) ? count : (sizeof(acBuf) - 1);
-	result = copy_from_user(acBuf, buffer, u4CopySize);
+	if (copy_from_user(acBuf, buffer, u4CopySize)) {
+		DBGLOG(INIT, ERROR, "error of copy from user\n");
+		return -EFAULT;
+	}
 	acBuf[u4CopySize] = '\0';
 
 	if (sscanf(acBuf, " %d", &u16MetUdpPort) == 1)

@@ -332,6 +332,49 @@ scanSearchBssDescByBssidAndSsid(IN P_ADAPTER_T prAdapter,
 
 }				/* end of scanSearchBssDescByBssid() */
 
+#if CFG_SUPPORT_CFG80211_AUTH
+/*----------------------------------------------------------------------------*/
+/*!
+* @brief Find the corresponding BSS Descriptor
+*        according to given BSSID & ChanNum
+*
+* @param[in] prAdapter          Pointer to the Adapter structure.
+* @param[in] aucBSSID           Given BSSID.
+* @param[in] fgCheckChanNum     Need to check ChanNum or not.
+* @param[in] ucChannelNum       Specified Channel Num
+*
+* @return   Pointer to BSS Descriptor, if found. NULL, if not found
+*/
+/*----------------------------------------------------------------------------*/
+P_BSS_DESC_T scanSearchBssDescByBssidAndChanNum(IN P_ADAPTER_T prAdapter,
+	IN UINT_8 aucBSSID[], IN BOOLEAN fgCheckChanNum, IN UINT_8 ucChannelNum)
+{
+	P_SCAN_INFO_T prScanInfo;
+	P_LINK_T prBSSDescList;
+	P_BSS_DESC_T prBssDesc = (P_BSS_DESC_T) NULL;
+
+	ASSERT(prAdapter);
+	ASSERT(aucBSSID);
+	ASSERT(ucChannelNum);
+
+	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
+
+	prBSSDescList = &prScanInfo->rBSSDescList;
+
+	/* Search BSS Desc from current SCAN result list. */
+	LINK_FOR_EACH_ENTRY(prBssDesc, prBSSDescList, rLinkEntry, BSS_DESC_T) {
+		if (!(EQUAL_MAC_ADDR(prBssDesc->aucBSSID, aucBSSID)))
+			continue;
+		if (fgCheckChanNum == FALSE || ucChannelNum == 0)
+			return prBssDesc;
+		if (prBssDesc->ucChannelNum == ucChannelNum)
+			return prBssDesc;
+	}
+
+	return prBssDesc;
+}
+#endif
+
 /*----------------------------------------------------------------------------*/
 /*!
 * @brief Find the corresponding BSS Descriptor according to given Transmitter Address.
@@ -1335,15 +1378,23 @@ P_BSS_DESC_T scanAddToBssDesc(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 		}
 	}
 #if 1
-	/* 2018/04/17 frog: always update IE is not a good choice. */
-	/* Because of not considering hidden BSS.                  */
-        /* Hidden BSS Beacon v.s. hidden BSS probe response.       */
-	if ((prBssDesc->u2RawLength == 0) || (fgIsValidSsid)) {
-		prBssDesc->u2RawLength = prSwRfb->u2PacketLen;
-		if (prBssDesc->u2RawLength > CFG_RAW_BUFFER_SIZE)
-			prBssDesc->u2RawLength = CFG_RAW_BUFFER_SIZE;
-		kalMemCopy(prBssDesc->aucRawBuf, prWlanBeaconFrame, prBssDesc->u2RawLength);
-		fgIsCopy = TRUE;
+	/* 2021/04/18 frog: Only update IE when in scan state. */
+	/* Driver would still RX BCN/Probe RSP under other state. */
+	/* It would cause driver cache some scan result till next scan done. */
+	if (scnFsmIsScanning(prAdapter)) {
+		/* 2018/04/17 frog: always update IE is not a good choice. */
+		/* Because of not considering hidden BSS.				   */
+		/* Hidden BSS Beacon v.s. hidden BSS probe response.	   */
+		if ((prBssDesc->u2RawLength == 0) || (fgIsValidSsid)) {
+			prBssDesc->u2RawLength = prSwRfb->u2PacketLen;
+			if (prBssDesc->u2RawLength > CFG_RAW_BUFFER_SIZE)
+				prBssDesc->u2RawLength = CFG_RAW_BUFFER_SIZE;
+			kalMemCopy(prBssDesc->aucRawBuf, prWlanBeaconFrame, prBssDesc->u2RawLength);
+			fgIsCopy = TRUE;
+		}
+	}
+	else {
+		prBssDesc->u2RawLength = 0;
 	}
 #endif
 
@@ -1998,7 +2049,9 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 	BOOLEAN fgIsFindFirst = (BOOLEAN) FALSE;
 
 	BOOLEAN fgIsFindBestRSSI = (BOOLEAN) FALSE;
+#if !CFG_SUPPORT_CFG80211_AUTH
 	BOOLEAN fgIsFindBestEncryptionLevel = (BOOLEAN) FALSE;
+#endif
 #if CFG_ROAMING_5G_PREFER
 	BOOLEAN fgPrimaryIs5G = (BOOLEAN) FALSE;
 	BOOLEAN fgCandidateIs5G = (BOOLEAN) FALSE;
@@ -2373,7 +2426,14 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 					 EQUAL_SSID(prBssDesc->aucSSID, prBssDesc->ucSSIDLen,
 								prConnSettings->aucSSID, prConnSettings->ucSSIDLen)) ||
 					prConnSettings->ucSSIDLen == 0)
+#if CFG_SUPPORT_CFG80211_AUTH
+					if (prBssDesc->ucChannelNum == prConnSettings->ucChannelNum) {
+						prPrimaryBssDesc = prBssDesc;
+						fgIsFindFirst = TRUE;
+					}
+#else
 					prPrimaryBssDesc = prBssDesc;
+#endif
 			}
 			break;
 
@@ -2386,6 +2446,7 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 			continue;
 		/* 4 <7> Check the Encryption Status. */
 		if (prPrimaryBssDesc->eBSSType == BSS_TYPE_INFRASTRUCTURE) {
+#if !CFG_SUPPORT_CFG80211_AUTH
 #if CFG_SUPPORT_WAPI
 			if (prAdapter->rWifiVar.rConnSettings.fgWapiMode) {
 				if (wapiPerformPolicySelection(prAdapter, prPrimaryBssDesc)) {
@@ -2413,6 +2474,7 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 				DBGLOG(RSN, INFO, "Ignore BSS can't pass Encryption Status Check\n");
 				continue;
 			}
+#endif
 		} else {
 			/* Todo:: P2P and BOW Policy Selection */
 		}
@@ -2684,6 +2746,9 @@ VOID scanReportBss2Cfg80211(IN P_ADAPTER_T prAdapter, IN ENUM_BSS_TYPE_T eBSSTyp
 					}
 #endif
 				}
+			}
+			else {
+				prBssDesc->u2RawLength = 0;
 			}
 
 		}
