@@ -280,6 +280,8 @@ static ssize_t _esparser_write_s(const char __user *buf,
 	buf_start = get_buf_start(type);
 	/*pr_info("write wp 0x%x, count %d, start 0x%x, end 0x%x\n",
 	*		 wp, (u32)count, buf_start, buf_end);*/
+	if (wp == 0 || buf_start == 0 || buf_end == 8)
+		return -EAGAIN;
 	if (wp + count > buf_end) {
 		if (wp == buf_end) {
 			wp = buf_start;

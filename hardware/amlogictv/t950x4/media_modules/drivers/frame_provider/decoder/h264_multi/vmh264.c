@@ -617,6 +617,7 @@ static const struct vframe_operations_s vf_provider_ops = {
 	/*
 	NAL_SEARCH_CTL: bit 0, enable itu_t35
 	NAL_SEARCH_CTL: bit 1, enable mmu
+	NAL_SEARCH_CTL: bit 2, detect frame_mbs_only_flag whether switch resolution
 	*/
 #define NAL_SEARCH_CTL		AV_SCRATCH_9
 #define MBY_MBX                 MB_MOTION_MODE /*0xc07*/
@@ -945,6 +946,7 @@ struct vdec_h264_hw_s {
 	u32 error_frame_width;
 	u32 error_frame_height;
 	u32 scaling_freeze_mode;
+	u32 no_decoder_buffer_flag;
 };
 
 static u32 again_threshold;
@@ -3134,6 +3136,7 @@ static int post_video_frame(struct vdec_s *vdec, struct FrameStore *frame)
 			}
 		}
 #endif
+		vf->type_original = vf->type;
 		kfifo_put(&hw->display_q, (const struct vframe_s *)vf);
 		ATRACE_COUNTER(MODULE_NAME, vf->pts);
 		hw->vf_pre_count++;
@@ -4279,10 +4282,10 @@ static struct vframe_s *vh264_vf_get(void *op_arg)
 						__func__, vf->index);
 			} else {
 				dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_DETAIL,
-				"%s buf_spec_num %d vf %p poc %d dur %d pts %d interval %dms\n",
+				"%s buf_spec_num %d vf %p poc %d dur %d pts %d interval %dms, type=%d\n",
 				__func__, BUFSPEC_INDEX(vf->index), vf,
 				p_H264_Dpb->mFrameStore[frame_index].poc,
-				vf->duration, vf->pts, frame_interval);
+				vf->duration, vf->pts, frame_interval, vf->type);
 			}
 		}
 		if (hw->last_frame_time > 0) {
@@ -5069,7 +5072,7 @@ static int vh264_set_params(struct vdec_h264_hw_s *hw,
 	hw->error_frame_height = 0;
 
 	if (seq_info2 != 0 &&
-		hw->seq_info2 != (seq_info2 & (~0x80000000)) &&
+		hw->seq_info2 != seq_info2  &&
 		hw->seq_info2 != 0
 		) /*picture size changed*/
 		h264_reconfig(hw);
@@ -5084,7 +5087,7 @@ static int vh264_set_params(struct vdec_h264_hw_s *hw,
 		hw->cfg_param3 = param3;
 		hw->cfg_param4 = param4;
 
-		hw->seq_info2 = seq_info2 & (~0x80000000);
+		hw->seq_info2 = seq_info2 ;
 		dpb_print(DECODE_ID(hw), 0,
 			"AV_SCRATCH_1 = %x, AV_SCRATCH_2 %x\r\n",
 			seq_info2, hw->seq_info);
@@ -6310,7 +6313,13 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 		unsigned mb_width = hw->seq_info2 & 0xff;
 		unsigned short first_mb_in_slice;
 		unsigned int decode_mb_count, mby_mbx;
+		struct StorablePicture *pic = p_H264_Dpb->mVideo.dec_picture;
 		reset_process_time(hw);
+		
+		if ((pic != NULL) && (pic->mb_aff_frame_flag == 1))
+					first_mb_in_slice = p[FIRST_MB_IN_SLICE + 3] * 2;
+				else
+					first_mb_in_slice = p[FIRST_MB_IN_SLICE + 3];
 
 #ifdef DETECT_WRONG_MULTI_SLICE
 		hw->cur_picture_slice_count++;
@@ -6319,9 +6328,15 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			(error_proc_policy & 0x10000)) {
 			hw->first_pre_frame_num = p_H264_Dpb->mVideo.pre_frame_num;
 		}
-		if (hw->multi_slice_pic_flag == 1 &&
-			hw->cur_picture_slice_count > 1 &&
-			(error_proc_policy & 0x10000)) {
+		if ((error_proc_policy & 0x10000) &&
+			(hw->cur_picture_slice_count > 1) &&
+			(first_mb_in_slice == 0) &&
+			(hw->multi_slice_pic_flag == 0))
+				hw->multi_slice_pic_check_count = 0;
+
+		if ((error_proc_policy & 0x10000) &&
+			(hw->cur_picture_slice_count > 1) &&
+			(hw->multi_slice_pic_flag == 1)) {
 			dpb_print(DECODE_ID(hw), 0,
 			"%s MULTI_SLICE_DETECT (check_count %d slice_count %d cur_slice_count %d flag %d), WRONG_MULTI_SLICE detected, insert picture\n",
 			__func__,
@@ -6330,7 +6345,7 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 			hw->cur_picture_slice_count,
 			hw->multi_slice_pic_flag);
 
-			first_mb_in_slice = p[FIRST_MB_IN_SLICE + 3];
+			
 			mby_mbx = READ_VREG(MBY_MBX);
 			decode_mb_count = ((mby_mbx & 0xff) * mb_width +
 					(((mby_mbx >> 8) & 0xff) + 1));
@@ -6343,8 +6358,19 @@ static irqreturn_t vh264_isr_thread_fn(struct vdec_s *vdec, int irq)
 
 				hw->multi_slice_pic_flag = 0;
 				hw->multi_slice_pic_check_count = 0;
-			} else if (hw->cur_picture_slice_count > hw->last_picture_slice_count)
+			} else if (hw->cur_picture_slice_count > hw->last_picture_slice_count) {
 				vh264_pic_done_proc(vdec);
+				//if (p_H264_Dpb->mDPB.used_size == p_H264_Dpb->mDPB.size) {
+				if (!have_free_buf_spec(vdec)) {
+					dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS, "dpb full, wait buffer\n");
+					p_H264_Dpb->mVideo.pre_frame_num = hw->first_pre_frame_num;
+					hw->last_picture_slice_count = hw->cur_picture_slice_count;
+					hw->no_decoder_buffer_flag = 1;
+					hw->dec_result = DEC_RESULT_AGAIN;
+					vdec_schedule_work(&hw->work);
+					return IRQ_HANDLED;
+				}
+			}
 			else {
 				if (p_H264_Dpb->mVideo.dec_picture) {
 					if (p_H264_Dpb->mVideo.dec_picture->colocated_buf_index >= 0) {
@@ -6877,9 +6903,7 @@ empty_proc:
 		} else {
 			/* WRITE_VREG(DPB_STATUS_REG, H264_ACTION_INIT); */
 #ifdef DETECT_WRONG_MULTI_SLICE
-			if (hw->multi_slice_pic_flag == 1 &&
-				hw->cur_picture_slice_count > 1 &&
-				(error_proc_policy & 0x10000)) {
+			if (error_proc_policy & 0x10000) {
 				p_H264_Dpb->mVideo.pre_frame_num = hw->first_pre_frame_num;
 			}
 			hw->last_picture_slice_count = hw->cur_picture_slice_count;
@@ -8823,7 +8847,7 @@ static int v4l_res_change(struct vdec_h264_hw_s *hw,
 	if (ctx->param_sets_from_ucode &&
 			hw->res_ch_flag == 0) {
 		if (param1 != 0 &&
-			hw->seq_info2 != (param1 & (~0x80000000)) &&
+			hw->seq_info2 != param1  &&
 			hw->seq_info2 != 0) /*picture size changed*/ {
 			struct aml_vdec_ps_infos ps;
 			dpb_print(DECODE_ID(hw), PRINT_FLAG_DEC_DETAIL,
@@ -9110,11 +9134,12 @@ result_done:
 			frame base: vdec_prepare_input fail
 		*/
 		if (!vdec_has_more_input(vdec) && (hw_to_vdec(hw)->next_status !=
-			VDEC_STATUS_DISCONNECTED)) {
+			VDEC_STATUS_DISCONNECTED) && (hw->no_decoder_buffer_flag == 0)) {
 			hw->dec_result = DEC_RESULT_EOS;
 			vdec_schedule_work(&hw->work);
 			return;
 		}
+		hw->no_decoder_buffer_flag = 0;
 		hw->next_again_flag = 1;
 	} else if (hw->dec_result == DEC_RESULT_EOS) {
 		struct h264_dpb_stru *p_H264_Dpb = &hw->dpb;
@@ -9598,6 +9623,7 @@ static void run(struct vdec_s *vdec, unsigned long mask,
 			WRITE_VREG(NAL_SEARCH_CTL,
 					READ_VREG(NAL_SEARCH_CTL) & (~0x2));
 	}
+	WRITE_VREG(NAL_SEARCH_CTL, READ_VREG(NAL_SEARCH_CTL) | (1 << 2));
 	if (udebug_flag)
 		WRITE_VREG(AV_SCRATCH_K, udebug_flag);
 	mod_timer(&hw->check_timer, jiffies + CHECK_INTERVAL);

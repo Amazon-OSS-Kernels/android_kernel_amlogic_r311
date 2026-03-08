@@ -32,6 +32,9 @@
 #include <linux/slab.h>
 #include <linux/of_irq.h>
 #include <linux/irq.h>
+#include <linux/wait.h>
+#include <linux/sched.h>
+#include <linux/compat.h>
 #include "aml_ci_bus.h"
 #include "aml_ci.h"
 #include "amci.h"
@@ -1060,9 +1063,10 @@ int aml_ci_bus_init(struct platform_device *pdev, struct aml_ci *ci_dev)
 	aml_ci_bus_get_config_from_dts(ci_bus_dev);
 	//iomap ci reg
 	ci_bus_dev->ci_reg.phys_addr = CI_REG_BASE_ADDR;
-	ci_bus_dev->ci_reg.base =
-			(ulong)ioremap_nocache(
-			ci_bus_dev->ci_reg.phys_addr, CI_REG_SIZE);
+	if (!ci_bus_dev->ci_reg.base)
+		ci_bus_dev->ci_reg.base =
+				(ulong)ioremap_nocache(
+				ci_bus_dev->ci_reg.phys_addr, CI_REG_SIZE);
 
 	ci_bus_dev->ci_reg.size = CI_REG_SIZE;
 	s_ci_register_base = ci_bus_dev->ci_reg.base;
@@ -1123,8 +1127,8 @@ int aml_ci_bus_init(struct platform_device *pdev, struct aml_ci *ci_dev)
 		pr_error("aml_pcmcia_init failed\n");
 		goto fail1;
 	}
-	pr_dbg("*********ci bus aml_ci_bus_mod_init---\n");
-	aml_ci_bus_mod_init();
+	//pr_dbg("*********ci bus aml_ci_bus_mod_init---\n");
+	//aml_ci_bus_mod_init();
 	return 0;
 fail1:
 	kfree(ci_bus_dev);
@@ -1139,11 +1143,12 @@ EXPORT_SYMBOL(aml_ci_bus_init);
 */
 int aml_ci_bus_exit(struct aml_ci *ci)
 {
-	aml_ci_bus_mod_exit();
+	//aml_ci_bus_mod_exit();
 	/*exit pc card*/
 	aml_pcmcia_exit(&ci_bus.pc);
 	/*free gpio*/
 	aml_ci_free_gpio(&ci_bus);
+	//iounmap((void *)ci_bus.ci_reg.base);
 
 	return 0;
 }
@@ -1933,6 +1938,10 @@ static long rawci_ioctl(struct file *file, unsigned int cmd, ulong arg)
 		{
 			cr = copy_from_user(&param, (void *)arg,
 			sizeof(struct ci_rw_param));
+			if (cr) {
+				pr_error("copy data from user space failed\n");
+				return -EFAULT;
+			}
 			if (param.mode == AM_CI_IOW)
 				aml_ci_bus_io_write(ci_bus_dev->priv, 0, param.addr, param.value);
 			else if (param.mode == AM_CI_IOR)
@@ -1960,6 +1969,10 @@ static long rawci_ioctl(struct file *file, unsigned int cmd, ulong arg)
 		{
 			int value = 0;
 			cr = copy_from_user(&value, (void *)arg, sizeof(int));
+			if (cr) {
+				pr_error("copy data from user space failed\n");
+				return -EFAULT;
+			}
 			aml_gio_power(&(ci_bus_dev->pc), value > 0 ? AML_PWR_OPEN : AML_PWR_CLOSE);
 		}
 		break;
@@ -2018,6 +2031,7 @@ int  aml_ci_bus_mod_init(void)
 
 	return 0;
 }
+EXPORT_SYMBOL(aml_ci_bus_mod_init);
 
 void  aml_ci_bus_mod_exit(void)
 {
@@ -2029,6 +2043,7 @@ void  aml_ci_bus_mod_exit(void)
 		unregister_chrdev(rawci_major, RAWCI_DEV_NAME);
 	class_unregister(&(ci_bus.cls));
 }
+EXPORT_SYMBOL(aml_ci_bus_mod_exit);
 
 #endif
 #if 0

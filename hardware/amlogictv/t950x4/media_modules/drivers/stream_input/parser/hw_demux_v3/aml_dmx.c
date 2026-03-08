@@ -150,6 +150,11 @@ MOD_PARAM_DECLARE_CHANPIDS_TYPES(2);
 	} while (0)
 
 
+MODULE_PARM_DESC(sec_end_with_tid, "\n\t\t Enable 'tid==0xff means section_end', bit:0/1/2 for dmx:0/1/2");
+static int sec_end_with_tid = 0x3;
+module_param(sec_end_with_tid, int, 0644);
+
+
 static int npids = CHANNEL_COUNT;
 #define MOD_PARAM_DECLARE_CHANPIDS(_dmx) \
 MODULE_PARM_DESC(debug_dmx##_dmx##_chanpids, "\n\t\t pids of dmx channels"); \
@@ -3525,7 +3530,7 @@ static int dmx_enable(struct aml_dmx *dmx)
 			      ((!!dmx->dump_ts_select) << TS_RECORDER_SELECT) |
 			      (record << TS_RECORDER_ENABLE) |
 			      (keep_duplicate_packet << KEEP_DUPLICATE_PACKAGE) |
-			      (1 << SECTION_END_WITH_TABLE_ID) |
+			      (((sec_end_with_tid >> dmx->id) & 0x1) << SECTION_END_WITH_TABLE_ID) |
 			      (1 << ENABLE_FREE_CLK_FEC_DATA_VALID) |
 			      (1 << ENABLE_FREE_CLK_STB_REG) |
 			      (1 << STB_DEMUX_ENABLE) |

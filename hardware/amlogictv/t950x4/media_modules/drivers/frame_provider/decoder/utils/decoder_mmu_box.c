@@ -26,6 +26,7 @@
 #include <linux/kfifo.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
+#include <linux/amlogic/media/codec_mm/codec_mm.h>
 #include <linux/amlogic/media/codec_mm/codec_mm_scatter.h>
 #include <linux/platform_device.h>
 
@@ -33,7 +34,11 @@ struct decoder_mmu_box {
 	int max_sc_num;
 	const char *name;
 	int channel_id;
+#ifdef CONFIG_OSD_MEMORY
+	int mem_flag;
+#else
 	int tvp_mode;
+#endif
 	int box_ref_cnt;
 	struct mutex mutex;
 	struct list_head list;
@@ -112,10 +117,15 @@ void decoder_mmu_try_to_release_box(void *handle)
 		}
 	}
 	mutex_unlock(&box->mutex);
-
+#ifdef CONFIG_OSD_MEMORY
+	if (!is_keep) {
+                decoder_mmu_box_mgr_del_box(box);
+                codec_mm_scatter_mgt_delay_free_swith(0, 0, 0, box->mem_flag);
+#else
 	if (!is_keep) {
 		decoder_mmu_box_mgr_del_box(box);
 		codec_mm_scatter_mgt_delay_free_swith(0, 0, 0, box->tvp_mode);
+#endif
 		kfree(box);
 	}
 }
@@ -157,18 +167,35 @@ void *decoder_mmu_box_alloc_box(const char *name,
 	box->max_sc_num = max_num;
 	box->name = name;
 	box->channel_id = channel_id;
+#ifdef CONFIG_OSD_MEMORY
+	box->mem_flag = mem_flags;
+#else
 	box->tvp_mode = mem_flags;
-
+#endif
 	mutex_init(&box->mutex);
 	INIT_LIST_HEAD(&box->list);
+#ifdef CONFIG_OSD_MEMORY
+	if (mem_flags & CODEC_MM_FLAGS_TVP)
+		box->mem_flag &= ~CODEC_MM_FLAGS_SYS_FIRST;
+#endif
 	decoder_mmu_box_mgr_add_box(box);
+#ifdef CONFIG_OSD_MEMORY
+	codec_mm_scatter_mgt_delay_free_swith(1, 2000,
+		min_size_M, box->mem_flag & CODEC_MM_FLAGS_TVP);
+#else
 	codec_mm_scatter_mgt_delay_free_swith(1, 2000,
 		min_size_M, box->tvp_mode);
+#endif
 	return (void *)box;
 }
 EXPORT_SYMBOL(decoder_mmu_box_alloc_box);
 
-extern int is_osd_mod(void);
+#ifdef CONFIG_OSD_MEMORY
+int debug_mem_flag = 0;
+module_param(debug_mem_flag, uint, 0664);
+MODULE_PARM_DESC(debug_mem_flag, "\n mmu box alloc mem flag\n");
+#endif
+
 int decoder_mmu_box_alloc_idx(
 	void *handle, int idx, int num_pages,
 	unsigned int *mmu_index_adr)
@@ -177,7 +204,6 @@ int decoder_mmu_box_alloc_idx(
 	struct codec_mm_scatter *sc;
 	int ret;
 	int i;
-	int osd_flag = 0;
 
 	if (!box || idx < 0 || idx >= box->max_sc_num) {
 		pr_err("can't alloc mmu box(%p),idx:%d\n",
@@ -198,14 +224,21 @@ int decoder_mmu_box_alloc_idx(
 		}
 
 	}
-	#ifdef CONFIG_OSD_MEMORY
-	osd_flag = box->tvp_mode | is_osd_mod();
-	#else
-	osd_flag = box->tvp_mode;
-	#endif
+#ifdef CONFIG_OSD_MEMORY
+	if (box->mem_flag & CODEC_MM_FLAGS_TVP)
+		debug_mem_flag = 0;
+#endif
 	if (!sc) {
+#ifdef CONFIG_OSD_MEMORY
+		pr_crit("[%s]from sys:%d, debug_mem_flag:%d", __func__,
+			(box->mem_flag | debug_mem_flag),
+			debug_mem_flag);
 		sc = codec_mm_scatter_alloc(num_pages + 64, num_pages,
-			osd_flag);
+			(box->mem_flag | debug_mem_flag));
+#else
+		sc = codec_mm_scatter_alloc(num_pages + 64, num_pages,
+                       box->tvp_mode);
+#endif
 		if (!sc) {
 			mutex_unlock(&box->mutex);
 			pr_err("alloc mmu failed, need pages=%d\n",
@@ -267,10 +300,13 @@ int decoder_mmu_box_free_idx(void *handle, int idx)
 		box->box_ref_cnt--;
 	}
 	mutex_unlock(&box->mutex);
-
+#ifdef CONFIG_OSD_MEMORY
+	if (sc && box->box_ref_cnt == 0)
+                codec_mm_scatter_mgt_delay_free_swith(0, 0, 0, box->mem_flag);
+#else
 	if (sc && box->box_ref_cnt == 0)
 		codec_mm_scatter_mgt_delay_free_swith(0, 0, 0, box->tvp_mode);
-
+#endif
 	return 0;
 }
 EXPORT_SYMBOL(decoder_mmu_box_free_idx);
@@ -295,7 +331,11 @@ int decoder_mmu_box_free(void *handle)
 	}
 	mutex_unlock(&box->mutex);
 	decoder_mmu_box_mgr_del_box(box);
+#ifdef CONFIG_OSD_MEMORY
+	codec_mm_scatter_mgt_delay_free_swith(0, 0, 0, box->mem_flag & CODEC_MM_FLAGS_TVP);
+#else
 	codec_mm_scatter_mgt_delay_free_swith(0, 0, 0, box->tvp_mode);
+#endif
 	kfree(box);
 	return 0;
 }
@@ -377,12 +417,24 @@ static int decoder_mmu_box_dump_all(void *buf, int size)
 		struct decoder_mmu_box *box;
 		box = list_entry(list, struct decoder_mmu_box,
 							list);
+#ifdef CONFIG_OSD_MEMORY
+		BUFPRINT("box[%d]: %s, %s, %splayer_id:%d, max_num:%d\n",
+			i,
+			box->name,
+			(box->mem_flag & CODEC_MM_FLAGS_TVP) ? "TVP mode " : "",
+			(box->mem_flag & CODEC_MM_FLAGS_SYS_FIRST) ? "sys_first " : "",
+			box->channel_id,
+			box->max_sc_num
+			);
+#else
 		BUFPRINT("box[%d]: %s, %splayer_id:%d, max_num:%d\n",
 			i,
 			box->name,
 			box->tvp_mode ? "TVP mode " : "",
 			box->channel_id,
-			box->max_sc_num);
+			box->max_sc_num
+			);
+#endif
 		if (buf) {
 			s += decoder_mmu_box_dump(box, pbuf, size - tsize);
 			if (s > 0) {

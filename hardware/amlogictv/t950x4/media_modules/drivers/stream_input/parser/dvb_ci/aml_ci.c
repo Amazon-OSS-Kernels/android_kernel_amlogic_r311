@@ -28,9 +28,12 @@
 #include <linux/platform_device.h>
 #include <linux/sysfs.h>
 #include <linux/of.h>
+#include <linux/pm.h>
 #include "aml_ci.h"
+
 //#include "aml_spi.h"
 #include "aml_ci_bus.h"
+#include "aml_pcmcia.h"
 //#include "cimax/aml_cimax.h"
 
 //#include "dvb_ca_en50221.h"
@@ -709,6 +712,11 @@ static int aml_ci_probe(struct platform_device *pdev)
 	err = aml_ci_init(pdev, dvb_adapter, &ci_dev);
 	if (err < 0)
 		return err;
+
+	if (ci_dev->io_type == AML_DVB_IO_TYPE_CIBUS) {
+		aml_ci_bus_mod_init();
+	}
+
 	platform_set_drvdata(pdev, ci_dev);
 	aml_ci_register_class(ci_dev);
 #if 0
@@ -733,10 +741,12 @@ static int aml_ci_remove(struct platform_device *pdev)
 		aml_cimax_exit(ci_dev);
 	else
 #endif
-	if (ci_dev->io_type == AML_DVB_IO_TYPE_CIBUS)
+	if (ci_dev->io_type == AML_DVB_IO_TYPE_CIBUS) {
+		aml_ci_bus_mod_exit();
 		aml_ci_bus_exit(ci_dev);
-	else
+	} else {
 		pr_dbg("---Amlogic CI remove unkown io type---\n");
+	}
 
 	aml_ci_exit(ci_dev);
 	return 0;
@@ -775,10 +785,13 @@ static int aml_ci_resume(struct platform_device *pdev)
 		aml_cimax_init(pdev, ci_dev);
 	else
 #endif
-	if (ci_dev->io_type == AML_DVB_IO_TYPE_CIBUS)
+	if (ci_dev->io_type == AML_DVB_IO_TYPE_CIBUS) {
 		aml_ci_bus_init(pdev, ci_dev);
-	else
+		pr_dbg("---Amlogic CI resume aml ci bus mod init---\n");
+
+	} else {
 		pr_dbg("---Amlogic CI remove unkown io type---\n");
+	}
 	return err;
 }
 
