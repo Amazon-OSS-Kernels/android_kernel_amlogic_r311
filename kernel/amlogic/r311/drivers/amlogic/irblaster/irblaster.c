@@ -43,7 +43,7 @@
 #include <linux/of_irq.h>
 
 
-#ifdef CONFIG_AMAZON_METRICS_LOG
+#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
 #include <linux/metricslog.h>
 #include <linux/vmalloc.h>
 #ifndef BLASTER_METRICS_STR_LEN
@@ -459,7 +459,7 @@ static int send(const char * buf, int len)
 	int i = 0, j = 0, m = 0, ret = 0;
 	int val;
 	char tone[PS_SIZE];
-#ifdef CONFIG_AMAZON_METRICS_LOG
+#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
 	char *blaster_metric_prefix = "blaster:def:monitor=1;CT;1";
 	char mbuf[BLASTER_METRICS_STR_LEN + 1];
 	static char jack_print = 0;
@@ -492,22 +492,36 @@ static int send(const char * buf, int len)
 	send_all_frame(irblaster);
 	memset(irblaster->winArray, 0, sizeof(irblaster->winArray));
 
-#ifdef CONFIG_AMAZON_METRICS_LOG
+#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
 	if(jackdetect_flag && !jack_print){
 		jack_print = 1;
 		jackdetect_flag = 0;
+#if defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
+		snprintf(mbuf, BLASTER_METRICS_STR_LEN,
+			"%s:%s:100:%s,irjack_dtected_%d;CT;",
+			KERNEL_METRICS_GROUP_ID, KERNEL_METRICS_TEST_SCHEMA_ID,
+			blaster_metric_prefix, jack_print);
+#elif defined(CONFIG_AMAZON_METRICS_LOG)
 		snprintf(mbuf, BLASTER_METRICS_STR_LEN,
 			"%s,irjack_dtected_%d;CT;",
 			blaster_metric_prefix, jack_print);
+#endif
 		log_to_metrics(ANDROID_LOG_INFO, "BlasterEvent", mbuf);
 	}
 
 	if(jack_fault_detect_flag && !jack_fault_print){
 		jack_fault_print = 1;
 		jack_fault_detect_flag = 0;
+#if defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
+		snprintf(mbuf, BLASTER_METRICS_STR_LEN,
+			"%s:%s:100:%s,irjack_fault_dtected_%d;CT;",
+			KERNEL_METRICS_GROUP_ID, KERNEL_METRICS_TEST_SCHEMA_ID,
+			blaster_metric_prefix, jack_fault_print);
+#elif defined(CONFIG_AMAZON_METRICS_LOG)
 		snprintf(mbuf, BLASTER_METRICS_STR_LEN,
 			"%s,irjack_fault_dtected_%d;CT;",
 			blaster_metric_prefix, jack_fault_print);
+#endif
 		log_to_metrics(ANDROID_LOG_INFO, "BlasterEvent", mbuf);
     }
 #endif
@@ -745,7 +759,7 @@ static irqreturn_t ir_remove_handler(int irq, void *data)
 static irqreturn_t ir_fault_detect_handler(int irq, void *data)
 {
 //	struct irtx_dev *dev = (struct irtx_dev *)data;
-#ifdef CONFIG_AMAZON_METRICS_LOG
+#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
 	if(handlerinit)
 		jack_fault_detect_flag = 1;
 #endif
