@@ -6294,13 +6294,11 @@ static ssize_t kalMetWriteProcfs(struct file *file,
 	int u8MetProfEnable;
 
 	IN struct GLUE_INFO *prGlueInfo;
+	ssize_t result;
 
 	u4CopySize = (count < (sizeof(acBuf) - 1)) ? count :
 		     (sizeof(acBuf) - 1);
-	if (copy_from_user(acBuf, buffer, u4CopySize)) {
-		DBGLOG(INIT, ERROR, "error of copy from user\n");
-		return -EFAULT;
-	}
+	result = copy_from_user(acBuf, buffer, u4CopySize);
 	acBuf[u4CopySize] = '\0';
 
 	if (sscanf(acBuf, " %d %d", &u8MetProfEnable,
@@ -6322,15 +6320,13 @@ static ssize_t kalMetCtrlWriteProcfs(struct file *file,
 	char acBuf[128 + 1];	/* + 1 for "\0" */
 	uint32_t u4CopySize;
 	int u8MetProfEnable;
+	ssize_t result;
 
 	IN struct GLUE_INFO *prGlueInfo;
 
 	u4CopySize = (count < (sizeof(acBuf) - 1)) ? count :
 		     (sizeof(acBuf) - 1);
-	if (copy_from_user(acBuf, buffer, u4CopySize)) {
-		DBGLOG(INIT, ERROR, "error of copy from user\n");
-		return -EFAULT;
-	}
+	result = copy_from_user(acBuf, buffer, u4CopySize);
 	acBuf[u4CopySize] = '\0';
 
 	if (sscanf(acBuf, " %d", &u8MetProfEnable) == 1)
@@ -6349,15 +6345,13 @@ static ssize_t kalMetPortWriteProcfs(struct file *file,
 	char acBuf[128 + 1];	/* + 1 for "\0" */
 	uint32_t u4CopySize;
 	int u16MetUdpPort;
+	ssize_t result;
 
 	IN struct GLUE_INFO *prGlueInfo;
 
 	u4CopySize = (count < (sizeof(acBuf) - 1)) ? count :
 		     (sizeof(acBuf) - 1);
-	if (copy_from_user(acBuf, buffer, u4CopySize)) {
-		DBGLOG(INIT, ERROR, "error of copy from user\n");
-		return -EFAULT;
-	}
+	result = copy_from_user(acBuf, buffer, u4CopySize);
 	acBuf[u4CopySize] = '\0';
 
 	if (sscanf(acBuf, " %d", &u16MetUdpPort) == 1)

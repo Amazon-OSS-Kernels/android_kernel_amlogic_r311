@@ -11441,7 +11441,7 @@ priv_set_ap(IN struct net_device *prNetDev,
 			return -EFAULT;
 		}
 
-		if (copy_from_user(aucOidBuf,
+		if (copy_from_user(&pcExtra,
 			prIwReqData->data.pointer,
 			prIwReqData->data.length)) {
 			DBGLOG(REQ, INFO,
@@ -11454,7 +11454,7 @@ priv_set_ap(IN struct net_device *prNetDev,
 		//pcExtra[prIwReqData->data.length - 1] = 0;
 	}
 
-	DBGLOG(REQ, INFO, "%s aucOidBuf %s\n", __func__, aucOidBuf);
+	DBGLOG(REQ, INFO, "%s pcExtra %s\n", __func__, pcExtra);
 
 	if (!pcExtra)
 		goto exit;
@@ -11465,28 +11465,28 @@ priv_set_ap(IN struct net_device *prNetDev,
 	i4BytesWritten =
 		priv_driver_set_ap_get_sta_list(
 		prNetDev,
-		aucOidBuf,
+		pcExtra,
 		i4TotalFixLen);
 		break;
 	case IOC_AP_SET_MAC_FLTR:
 	i4BytesWritten =
 		priv_driver_set_ap_set_mac_acl(
 		prNetDev,
-		aucOidBuf,
+		pcExtra,
 		i4TotalFixLen);
 	  break;
 	case IOC_AP_SET_CFG:
 	i4BytesWritten =
 		priv_driver_set_ap_set_cfg(
 		prNetDev,
-		aucOidBuf,
+		pcExtra,
 		i4TotalFixLen);
 	  break;
 	case IOC_AP_STA_DISASSOC:
 	i4BytesWritten =
 		priv_driver_set_ap_sta_disassoc(
 		prNetDev,
-		aucOidBuf,
+		pcExtra,
 		i4TotalFixLen);
 	  break;
 	default:
@@ -17829,7 +17829,7 @@ int android_private_support_driver_cmd(IN struct net_device *prNetDev,
 	if (copy_from_user(&priv_cmd, prReq->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
 	/* total_len is controlled by the user. need check length */
-	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > PRIV_CMD_SIZE)
+	if (priv_cmd.total_len <= 0)
 		return -EINVAL;
 
 	command = kzalloc(priv_cmd.total_len, GFP_KERNEL);

@@ -1505,7 +1505,6 @@ authProcessRxAuth1Frame(IN struct ADAPTER *prAdapter,
 			OUT uint16_t *pu2ReturnStatusCode)
 {
 	struct WLAN_AUTH_FRAME *prAuthFrame;
-	uint16_t u2RxStatusCode;
 	uint16_t u2ReturnStatusCode = STATUS_CODE_SUCCESSFUL;
 
 	ASSERT(prSwRfb);
@@ -1528,17 +1527,6 @@ authProcessRxAuth1Frame(IN struct ADAPTER *prAdapter,
 	}
 
 	/* 4 <4> Parse the Fixed Fields of Authentication Frame Body. */
-#if CFG_SUPPORT_CFG80211_AUTH
-	u2RxStatusCode = (prAuthFrame->aucAuthData[3] << 8) +
-						 prAuthFrame->aucAuthData[2];
-#else
-	u2RxStatusCode = prAuthFrame->u2StatusCode;
-#endif
-	if (u2RxStatusCode != STATUS_CODE_RESERVED) {
-		DBGLOG(AAA, LOUD, "Invalid Status code %d\n", u2RxStatusCode);
-		return WLAN_STATUS_FAILURE;
-	}
-
 	if (prAuthFrame->u2AuthAlgNum != u2ExpectedAuthAlgNum)
 		u2ReturnStatusCode = STATUS_CODE_AUTH_ALGORITHM_NOT_SUPPORTED;
 

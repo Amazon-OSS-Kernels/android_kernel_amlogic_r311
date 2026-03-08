@@ -751,12 +751,6 @@ static void cnmStaRoutinesForAbort(struct ADAPTER *prAdapter,
 		prStaRec->u2AssocReqIeLen = 0;
 	}
 
-	/* Free previous allocated TCM memory */
-	if (prStaRec->prChallengeText) {
-		cnmMemFree(prAdapter, prStaRec->prChallengeText);
-		prStaRec->prChallengeText = (struct IE_CHALLENGE_TEXT *) NULL;
-	}
-
 	qmDeactivateStaRec(prAdapter, prStaRec);
 
 	/* Update the driver part table setting */

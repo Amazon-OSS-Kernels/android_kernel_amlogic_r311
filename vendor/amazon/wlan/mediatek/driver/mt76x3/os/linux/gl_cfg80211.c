@@ -3061,10 +3061,6 @@ int mtk_cfg80211_testmode_set_key_ext(IN struct wiphy
 	DBGLOG(INIT, INFO, "--> %s()\n", __func__);
 #endif
 
-	if (len < sizeof(struct NL80211_DRIVER_SET_KEY_EXTS)) {
-		DBGLOG(REQ, ERROR, "len [%d] is invalid!\n", len);
-		return -EINVAL;
-	}
 	if (data == NULL || len == 0) {
 		DBGLOG(INIT, TRACE, "%s data or len is invalid\n", __func__);
 		return -EINVAL;
@@ -3144,11 +3140,6 @@ mtk_cfg80211_testmode_get_sta_statistics(IN struct wiphy
 
 	ASSERT(wiphy);
 	ASSERT(prGlueInfo);
-
-	if (len < sizeof(struct NL80211_DRIVER_GET_STA_STATISTICS_PARAMS)) {
-		DBGLOG(OID, WARN, "len [%d] is invalid!\n", len);
-		return -EINVAL;
-	}
 
 	if (data && len)
 		prParams = (struct NL80211_DRIVER_GET_STA_STATISTICS_PARAMS
@@ -3713,11 +3704,6 @@ int mtk_cfg80211_testmode_sw_cmd(IN struct wiphy *wiphy,
 	DBGLOG(INIT, INFO, "--> %s()\n", __func__);
 #endif
 
-	if (len < sizeof(struct NL80211_DRIVER_SW_CMD_PARAMS)) {
-		DBGLOG(REQ, ERROR, "len [%d] is invalid!\n", len);
-		return -EINVAL;
-	}
-
 	if (data && len)
 		prParams = (struct NL80211_DRIVER_SW_CMD_PARAMS *) data;
 
@@ -3745,10 +3731,6 @@ static int mtk_wlan_cfg_testmode_cmd(struct wiphy *wiphy,
 
 	ASSERT(wiphy);
 
-	if (len < sizeof(struct NL80211_DRIVER_TEST_MODE_PARAMS)) {
-		DBGLOG(REQ, ERROR, "len [%d] is invalid!\n", len);
-		return -EINVAL;
-	}
 	if (!data || !len) {
 		DBGLOG(REQ, ERROR, "mtk_cfg80211_testmode_cmd null data\n");
 		return -EINVAL;

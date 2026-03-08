@@ -504,8 +504,12 @@ static ssize_t procDriverCmdRead(struct file *filp, char __user *buf,
 static ssize_t procDriverCmdWrite(struct file *file, const char __user *buffer,
 	size_t count, loff_t *data)
 {
+/*	UINT_32 u4DriverCmd, u4DriverValue;
+ *	UINT_8 *temp = &g_aucProcBuf[0];
+ */
 	uint32_t u4CopySize = sizeof(g_aucProcBuf);
 	struct GLUE_INFO *prGlueInfo;
+/*	PARAM_CUSTOM_P2P_SET_STRUCT_T rSetP2P; */
 
 	kalMemSet(g_aucProcBuf, 0, u4CopySize);
 	u4CopySize = (count < u4CopySize) ? count : (u4CopySize - 1);
@@ -1938,10 +1942,10 @@ static ssize_t procMCRRead(struct file *filp, char __user *buf,
 		"MCR (0x%08xh): 0x%08x\n", rMcrInfo.u4McrOffset,
 		rMcrInfo.u4McrData);
 
-	u4Count = kalStrLen(g_aucProcBuf);
 	if (u4Count > count)
-		u4Count = count;
+        u4Count = count;
 
+	u4Count = kalStrLen(g_aucProcBuf);
 	if (copy_to_user(buf, g_aucProcBuf, u4Count)) {
 		DBGLOG(INIT, ERROR, "copy to user failed\n");
 		return -EFAULT;
@@ -2329,9 +2333,9 @@ static ssize_t procCountryRead(struct file *filp, char __user *buf,
 
 	u4CopySize = kalStrLen(g_aucProcBuf);
 
-	if (u4CopySize > count) {
-		u4CopySize = count;
-	}
+    if (u4CopySize > count) {
+        u4CopySize = count;
+    }
 
 	if (copy_to_user(buf, g_aucProcBuf, u4CopySize)) {
 		DBGLOG(INIT, ERROR, "copy to user failed\n");
@@ -2799,10 +2803,7 @@ static int procRxStatisticsWrite(struct file *file, const char *buffer,
 
 	u4CopySize =
 		(count < (sizeof(acBuf) - 1)) ? count : (sizeof(acBuf) - 1);
-	if (copy_from_user(acBuf, buffer, u4CopySize)) {
-		DBGLOG(INIT, ERROR, "error of copy from user\n");
-		return -EFAULT;
-	}
+	copy_from_user(acBuf, buffer, u4CopySize);
 	acBuf[u4CopySize] = '\0';
 
 	rv = kstrtoint(acBuf, 0, &u4ClearCounter);
@@ -2897,10 +2898,7 @@ static int procTxStatisticsWrite(struct file *file, const char *buffer,
 
 	u4CopySize =
 		(count < (sizeof(acBuf) - 1)) ? count : (sizeof(acBuf) - 1);
-	if (copy_from_user(acBuf, buffer, u4CopySize)) {
-		DBGLOG(INIT, ERROR, "error of copy from user\n");
-		return -EFAULT;
-	}
+	copy_from_user(acBuf, buffer, u4CopySize);
 	acBuf[u4CopySize] = '\0';
 
 	rv = kstrtoint(acBuf, 0, &u4ClearCounter);

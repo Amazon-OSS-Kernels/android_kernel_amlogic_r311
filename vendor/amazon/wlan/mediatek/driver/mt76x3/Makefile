@@ -724,9 +724,6 @@ ccflags-y += -Wno-implicit-function-declaration
 ccflags-y += -Wno-implicit-fallthrough
 ccflags-y += -Wno-misleading-indentation
 ccflags-y += -D_FORTIFY_SOURCE=0
-ifeq ($(CFG_SUPPORT_EMPTY_MAC), y)
-ccflags-y += -DCFG_SUPPORT_EMPTY_MAC
-endif
 else
 ccflags-y += -Werror
 endif

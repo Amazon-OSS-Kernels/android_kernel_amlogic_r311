@@ -2566,15 +2566,12 @@ static int btmtk_usb_send_wmt_cmd(const u8 *cmd, const int cmd_len,
 	if (ret < 0) {
 		BTUSB_ERR("%s: command send failed(%d)", __func__, ret);
 		return ret;
-	}else{
-		goto check_response;
 	}
 
 get_response_again:
 	/* ms delay */
-	msleep(delay);
+	mdelay(delay);
 
-check_response:
 	/* check WMT event */
 	memset(g_data->io_buf, 0, USB_IO_BUF_SIZE);
 	ret = usb_control_msg(g_data->udev, usb_rcvctrlpipe(g_data->udev, 0),
@@ -3949,7 +3946,7 @@ load_patch_protect:
 
 			memcpy(&pos[9], g_data->rom_patch + PATCH_INFO_SIZE + cur_len, sent_len);
 
-			BTUSB_DBG("%s: sent_len = %d, cur_len = %d, phase = %d", __func__, sent_len, cur_len, phase);
+			BTUSB_INFO("%s: sent_len = %d, cur_len = %d, phase = %d", __func__, sent_len, cur_len, phase);
 
 			usb_fill_bulk_urb(g_data->urb[LOAD_PATCH_URB],
 					g_data->udev,
@@ -4640,7 +4637,7 @@ static int btmtk_usb_load_partial_rom_patch_7668(u32 patch_len, int offset)
 			memcpy(&pos[9], g_data->rom_patch + offset + cur_len,
 					sent_len);
 
-			BTUSB_DBG("%s: sent_len = %d, cur_len = %d, phase = %d", __func__, sent_len,
+			BTUSB_INFO("%s: sent_len = %d, cur_len = %d, phase = %d", __func__, sent_len,
 					cur_len, phase);
 
 			usb_fill_bulk_urb(g_data->urb[LOAD_PATCH_URB],
@@ -5230,7 +5227,7 @@ static int btmtk_usb_get_rom_patch_result(void)
 
 	/* ret should be 16 bytes */
 	if (ret >= sizeof(event) && !memcmp(g_data->io_buf, event, sizeof(event))) {
-		BTUSB_DBG("Get rom patch result: OK");
+		BTUSB_INFO("Get rom patch result: OK");
 		ret = 0;
 		goto exit;
 	} else {
