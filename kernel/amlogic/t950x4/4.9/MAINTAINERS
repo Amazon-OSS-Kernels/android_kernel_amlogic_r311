@@ -15448,3 +15448,12 @@ AMLOGIC WIRELESS DRIVER
 M: Devidas Puranik <puranikd@amazon.com>
 F: net/wireless/Makefile
 F: net/wireless/db-dfs-IN.txt
+
+AMLOGIC WIRELESS DRIVER
+M: Devidas Puranik <puranikd@amazon.com>
+F: net/wireless/db-dfs-noCH144.txt
+
+AMLOGIC WIRELESS DRIVER
+M: Devidas Puranik <puranikd@amazon.com>
+F: net/wireless/db-dfs-IN.txt
+F: net/wireless/db-dfs-IN-NA.txt

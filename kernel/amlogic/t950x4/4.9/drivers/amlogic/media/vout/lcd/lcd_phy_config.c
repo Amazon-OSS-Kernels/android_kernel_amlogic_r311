@@ -150,15 +150,23 @@ static void lcd_phy_cntl_set_t5(int status, unsigned int chreg, int bypass,
 {
 	unsigned int cntl15 = 0, cntl16 = 0;
 	unsigned int data = 0;
-	unsigned int tmp = 0;
+	unsigned int tmp[6] = { 0 };
+	unsigned int i = 0, j = 0;
 
 	if (lcd_debug_print_flag)
 		LCDPR("%s: %d\n", __func__, status);
 
+	memset(tmp, 0, sizeof(tmp));
 	if (status) {
 		chreg |= ((phy_ctrl_bit_on << 16) | (phy_ctrl_bit_on << 0));
-		if (bypass)
-			tmp |= ((1 << 18) | (1 << 2));
+		if (bypass) {
+			for (i = 0, j = 0; i < 12; i += 2, j++) {
+				if (((ckdi >> 12) & (1 << i)) == 0)
+					tmp[j] |= (1 << 2);
+				if (((ckdi >> 12) & (1 << (i + 1))) == 0)
+					tmp[j] |= (1 << 18);
+			}
+		}
 		if (mode)
 			cntl15 = 0x00070000;
 		else
@@ -177,17 +185,17 @@ static void lcd_phy_cntl_set_t5(int status, unsigned int chreg, int bypass,
 
 	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL15, cntl15);
 	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL16, cntl16);
-	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL8, tmp);
+	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL8, tmp[0]);
 	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL1, chreg);
-	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL9, tmp);
+	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL9, tmp[1]);
 	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL2, chreg);
-	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL10, tmp);
+	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL10, tmp[2]);
 	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL3, chreg);
-	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL11, tmp);
+	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL11, tmp[3]);
 	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL4, chreg);
-	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL12, tmp);
+	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL12, tmp[4]);
 	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL6, chreg);
-	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL13, tmp);
+	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL13, tmp[5]);
 	lcd_ana_write(HHI_DIF_CSI_PHY_CNTL7, chreg);
 }
 
@@ -551,9 +559,9 @@ static void lcd_mlvds_phy_set_t5(struct lcd_config_s *pconf, int status)
 		data32 = lvds_vx1_p2p_phy_preem_tl1[preem];
 		lcd_ana_write(HHI_DIF_CSI_PHY_CNTL14, 0xff2027e0 | vswing);
 		ckdi = (mlvds_conf->pi_clk_sel << 12);
-		lcd_phy_cntl_set_t5(status, data32, 0, 1, ckdi);
+		lcd_phy_cntl_set_t5(status, data32, 1, 1, ckdi);
 	} else {
-		lcd_phy_cntl_set_t5(status, data32, 0, 0, 0);
+		lcd_phy_cntl_set_t5(status, data32, 1, 0, 0);
 	}
 }
 

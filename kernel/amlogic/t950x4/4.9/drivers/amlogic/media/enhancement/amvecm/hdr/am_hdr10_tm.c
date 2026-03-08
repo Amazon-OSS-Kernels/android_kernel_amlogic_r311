@@ -89,6 +89,13 @@ int bypass_tm[149] = {
 	64, 64, 64, 64, 64, 64
 };
 
+int is_hdr_tmo_support(void)
+{
+	if (get_cpu_type() >= MESON_CPU_MAJOR_ID_SM1)
+		return 1;
+	return 0;
+}
+
 int time_iir(u32 *maxl)
 {
 	int i;
@@ -457,6 +464,7 @@ int hdr10_tm_dynamic_proc(struct vframe_master_display_colour_s *p)
 		181, 406, 607, 796, 834, 863, 890, 917, 938
 	};
 	int scn_chang_flag = 1;
+	struct aml_tmo_reg_sw *pre_tmo_reg;
 
 	if (p->luminance[0] > 10000)
 		p->luminance[0] /= 10000;
@@ -495,6 +503,18 @@ int hdr10_tm_dynamic_proc(struct vframe_master_display_colour_s *p)
 
 	for (i = 0; i < MAX_BEIZER_ORDER - 1; i++)
 		anchor[i] = P_init[i] << 2;
+
+	pre_tmo_reg = tmo_fw_param_get();
+
+	if (!is_hdr_tmo_support() || !pre_tmo_reg->pre_hdr10_tmo_alg) {
+		/*used old hdr alg*/
+		pr_hdr_tm("used old hdr alg - ");
+		if (!pre_tmo_reg->pre_hdr10_tmo_alg)
+			pr_hdr_tm("hdr alg ko insmod failed.\n");
+		else
+			pr_hdr_tm("the chip is not support.\n");
+		hdr10_tm_enable = 1;
+	}
 
 	if (hdr10_tm_enable == 0)
 		memcpy(
