@@ -82,7 +82,7 @@ execution environment to the root of the installed JDK.
 
 2. Download repo and the source code for AOSP per the instructions in
 https://source.android.com/source/downloading.html .  For the libraries
-packaged in this tarball, you should use "android-9.0.0_r1" as the tagged branch
+packaged in this tarball, you should use "android-7.1.2_r6" as the tagged branch
 for checkout, by passing the value above into repo with the -b switch.
 
 3. After completing the 'repo sync' command in the above instructions, copy in
@@ -91,7 +91,7 @@ checked out source code, modifying files in place if needed.
 
 4. Build the source code per the instructions in
 https://source.android.com/source/building.html .  For the purposes of testing
-the libraries, we used the target "aosp_walleye-userdebug" as the target of the 'lunch'
+the libraries, we used the target "aosp_flo-userdebug" as the target of the 'lunch'
 command.
 
 5. Upon completion of the build, the relevant libraries can be found under the
