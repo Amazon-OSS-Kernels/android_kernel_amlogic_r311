@@ -8651,6 +8651,10 @@ int priv_driver_set_chip_config(IN struct net_device *prNetDev, IN char *pcComma
 	UINT_32 u4PrefixLen = 0;
 	/* INT_32 i4Argc = 0; */
 	/* PCHAR  apcArgv[WLAN_CFG_ARGV_MAX] = {0}; */
+	int32_t i4Argc = 0;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX] = { 0 };
+	char *pcTmpCommand;
+	uint32_t u4StrLen;
 
 	PARAM_CUSTOM_CHIP_CONFIG_STRUCT_T rChipConfigInfo;
 
@@ -8664,6 +8668,34 @@ int priv_driver_set_chip_config(IN struct net_device *prNetDev, IN char *pcComma
 	/* wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv); */
 	/* DBGLOG(REQ, LOUD,("argc is %i\n",i4Argc)); */
 	/*  */
+
+	u4StrLen = kalStrLen(pcCommand);
+	pcTmpCommand = (char *) kalMemAlloc(u4StrLen + 1, VIR_MEM_TYPE);
+
+	if (!pcTmpCommand) {
+		DBGLOG(REQ, ERROR, "TmpCmd : Memory alloc failed\n");
+		return -1;
+	}
+
+	kalStrnCpy(pcTmpCommand, pcCommand, u4StrLen);
+	pcTmpCommand[u4StrLen] = '\0';
+
+	wlanCfgParseArgument(pcTmpCommand, &i4Argc, apcArgv);
+
+	/* KeepFullPower Enable cmd is blocked when entering suspend mode */
+	if ((i4Argc == 3) && (apcArgv[0] != NULL) &&
+		(apcArgv[1] != NULL) && (apcArgv[2] != NULL)) {
+		if ((kalStrnCmp("KeepFullPwr", apcArgv[1], 11) == 0) &&
+				(kalStrnCmp("1", apcArgv[2], 1) == 0) &&
+				(prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap & BLOCK_KEEP_FULL_PWR)) {
+			DBGLOG(REQ, STATE, "KeepFullPower Enable Command is blocked\n");
+			kalMemFree(pcTmpCommand, VIR_MEM_TYPE, u4StrLen + 1);
+			return 0;
+		}
+	}
+
+	kalMemFree(pcTmpCommand, VIR_MEM_TYPE, u4StrLen + 1);
+
 	u4CmdLen = kalStrnLen(pcCommand, i4TotalLen);
 	u4PrefixLen = kalStrLen(CMD_SET_CHIP) + 1 /*space */;
 
@@ -11873,6 +11905,11 @@ static int priv_driver_get_traffic_report(IN struct net_device *prNetDev, IN cha
 	cmd->ucBand = ucBand;
 
 	if (strnicmp(apcArgv[1], "ENABLE", strlen("ENABLE")) == 0) {
+		/* TrafficReport Enable cmd is blocked when entering suspend mode */
+		if (prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap & BLOCK_KEEP_FULL_PWR) {
+			DBGLOG(REQ, STATE, "TrafficReport Enable Command is blocked\n");
+			goto get_report_invalid;
+		}
 		prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap |= KEEP_FULL_PWR_TRAFFIC_REPORT_BIT;
 		cmd->ucAction = CMD_GET_REPORT_ENABLE;
 		cmd->u2Type |= CMD_ADV_CONTROL_SET;
@@ -13029,6 +13066,11 @@ static int priv_driver_noise_histogram(IN struct net_device *prNetDev, IN char *
 	cmd->u2Len = sizeof(*cmd);
 
 	if (strnicmp(apcArgv[1], "ENABLE", strlen("ENABLE")) == 0) {
+		/* NoiseHistogram Enable cmd is blocked when entering suspend mode */
+		if (prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap & BLOCK_KEEP_FULL_PWR) {
+			DBGLOG(REQ, STATE, "NoiseHistogram Enable Command is blocked\n");
+			goto noise_histogram_invalid;
+		}
 		prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap |= KEEP_FULL_PWR_NOISE_HISTOGRAM_BIT;
 		cmd->ucAction = CMD_NOISE_HISTOGRAM_ENABLE;
 		cmd->u2Type |= CMD_ADV_CONTROL_SET;
@@ -14860,7 +14902,13 @@ static int priv_driver_bss_transition_query(IN struct net_device *prNetDev,
 		if (strnicmp(pcCommand+20, " reason=", 8) == 0) {
 			pucQueryReason = pcCommand + 28;
 			DBGLOG(REQ, INFO, "BSS-TRANSITION-QUERY, pucQueryReason=%s\n", pucQueryReason);
+		} else {
+			DBGLOG(REQ, ERROR, "Incorrect format, please specify reason code after reason=\n");
+			return -EFAULT;
 		}
+	} else {
+		DBGLOG(REQ, ERROR, "BSS-TRANSITION-QUERY command format error");
+		return -EFAULT;
 	}
 
 	prGlueInfo = *((P_GLUE_INFO_T *) netdev_priv(prNetDev));
@@ -14897,7 +14945,13 @@ static int priv_driver_neighbor_request(IN struct net_device *prNetDev,
 		if (strnicmp(pcCommand+16, " SSID=", 6) == 0) {
 			pucSSID = pcCommand + 22;
 			DBGLOG(REQ, INFO, "NEIGHBOR-REQUEST, ssid=%s\n", pucSSID);
+		} else {
+			DBGLOG(REQ, ERROR, "Incorrect format, please specify ssid after ssid=\n");
+			return -EFAULT;
 		}
+	} else {
+		DBGLOG(REQ, ERROR, "NEIGHBOR-REQUEST command format error");
+		return -EFAULT;
 	}
 
 	prGlueInfo = *((P_GLUE_INFO_T *) netdev_priv(prNetDev));

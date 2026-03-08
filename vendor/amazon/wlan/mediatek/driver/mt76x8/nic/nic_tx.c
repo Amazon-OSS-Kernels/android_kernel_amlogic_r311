@@ -3731,7 +3731,6 @@ static UINT_8 nicTxDirectGetHifTc(P_MSDU_INFO_T prMsduInfo)
 static WLAN_STATUS nicTxDirectStartXmitMain(struct sk_buff *prSkb, P_MSDU_INFO_T prMsduInfo, P_ADAPTER_T prAdapter,
 					  UINT_8 ucCheckTc, UINT_8 ucStaRecIndex, UINT_8 ucBssIndex)
 {
-	P_STA_RECORD_T prStaRec;	/* The current focused STA */
 	P_BSS_INFO_T prBssInfo;
 	UINT_8 ucTC = 0, ucHifTc = 0;
 	P_QUE_T prTxQue;
@@ -3749,9 +3748,8 @@ static WLAN_STATUS nicTxDirectStartXmitMain(struct sk_buff *prSkb, P_MSDU_INFO_T
 		wlanTxProfilingTagMsdu(prAdapter, prMsduInfo, TX_PROF_TAG_DRV_ENQUE);
 
 		prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prMsduInfo->ucBssIndex);
-		prStaRec = cnmGetStaRecByIndex(prAdapter, prMsduInfo->ucStaRecIndex);
 
-		if (!prBssInfo || !prStaRec) {
+		if (!prBssInfo) {
 			/* No BSS_INFO or No STA_REC */
 			fgDropPacket = TRUE;
 		} else if (IS_BSS_ACTIVE(prBssInfo)) {

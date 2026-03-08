@@ -855,6 +855,21 @@ int mtk_cfg80211_get_link_statistics(struct wiphy *wiphy, struct net_device *nde
 	return 0;
 }
 
+#ifdef CFG_SUPPORT_PRIVACY_INFO
+UINT_64 inline ssid_hash_64 (char *pucSsid)
+{
+	UINT_64 h = (UINT_64)525201411107845655ull;
+	UINT_32 u4Idx = 0;
+
+	for (u4Idx = 0;(*pucSsid)&&(u4Idx < 32);++pucSsid, u4Idx++) {
+		h ^= *pucSsid;
+		h *= 0x5bd1e9955bd1e995;
+		h ^= h >> 47;
+	}
+	return h;
+}
+#endif
+
 /*----------------------------------------------------------------------------*/
 /*!
  * @brief This routine is responsible for requesting to do a scan
@@ -872,6 +887,11 @@ int mtk_cfg80211_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request
 	UINT_32 i, u4BufLen;
 	PARAM_SCAN_REQUEST_ADV_T rScanRequest;
 
+#if CFG_CHIP_RESET_SUPPORT
+	int iCount = 0;
+	BOOLEAN fgIsResetDone = FALSE;
+#endif
+
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
 	kalMemZero(&rScanRequest, sizeof(rScanRequest));
@@ -885,8 +905,22 @@ int mtk_cfg80211_scan(struct wiphy *wiphy, struct cfg80211_scan_request *request
 
 #if CFG_CHIP_RESET_SUPPORT
 	if (checkResetState()) {
-		DBGLOG(INIT, WARN, "wlan is halt, skip scan");
-		return WLAN_STATUS_FAILURE;
+		DBGLOG(INIT, WARN, "wlan is halt, wait for 500ms\n");
+		while (iCount < 25) {
+			kalMsleep(20);
+			if (!checkResetState()) {
+				fgIsResetDone = TRUE;
+				DBGLOG(INIT, WARN,
+					"Reset is done. Wait time: %d, fgIsResetDone = %d\n", iCount * 20, fgIsResetDone);
+				break;
+			}
+			iCount++;
+		}
+		if (!fgIsResetDone) {
+			DBGLOG(INIT, WARN,
+				"Reset is not done. Wait time: %d, fgIsResetDone = %d\n", iCount * 20, fgIsResetDone);
+			return WLAN_STATUS_FAILURE;
+		}
 	}
 	rst_data.entry_conut++;
 	DBGLOG(INIT, TRACE, "entry_conut = %d\n", rst_data.entry_conut);
@@ -1004,7 +1038,7 @@ int mtk_cfg80211_auth(struct wiphy *wiphy, struct net_device *ndev,
 
 	if (req->sae_data_len != 0)
 		DBGLOG(REQ, INFO, "[wlan] mtk_cfg80211_auth %p %zu\n", req->sae_data, req->sae_data_len);
-	DBGLOG(REQ, INFO, "auth to  BSS [" MACSTR "]\n", MAC2STR((PUINT_8)req->bss->bssid));
+	DBGLOG(REQ, STATE, "auth to  BSS [" MACSTR "]\n", MAC2STR((PUINT_8)req->bss->bssid));
 	DBGLOG(REQ, STATE, "auth_type:%d\n", req->auth_type);
 
 	prConnSettings = &prGlueInfo->prAdapter->rWifiVar.rConnSettings;
@@ -1069,28 +1103,25 @@ int mtk_cfg80211_auth(struct wiphy *wiphy, struct net_device *ndev,
 	kalMemZero(prDetRplyInfo, sizeof(struct SEC_DETECT_REPLAY_INFO));
 #endif
 
-	/* Reset WPA info */
-	prGlueInfo->rWpaInfo.u4AuthAlg = 0;
-
 	switch (req->auth_type) {
 	case NL80211_AUTHTYPE_OPEN_SYSTEM:
 		if (!(prGlueInfo->rWpaInfo.u4AuthAlg & AUTH_TYPE_OPEN_SYSTEM))
 			fgNewAuthParam = TRUE;
-		prGlueInfo->rWpaInfo.u4AuthAlg |= AUTH_TYPE_OPEN_SYSTEM;
+		prGlueInfo->rWpaInfo.u4AuthAlg = AUTH_TYPE_OPEN_SYSTEM;
 		break;
 	case NL80211_AUTHTYPE_SHARED_KEY:
 		if (!(prGlueInfo->rWpaInfo.u4AuthAlg & AUTH_TYPE_SHARED_KEY))
 			fgNewAuthParam = TRUE;
-		prGlueInfo->rWpaInfo.u4AuthAlg |= AUTH_TYPE_SHARED_KEY;
+		prGlueInfo->rWpaInfo.u4AuthAlg = AUTH_TYPE_SHARED_KEY;
 		break;
 	case NL80211_AUTHTYPE_SAE:
 		if (!(prGlueInfo->rWpaInfo.u4AuthAlg & AUTH_TYPE_SAE))
 			fgNewAuthParam = TRUE;
-		prGlueInfo->rWpaInfo.u4AuthAlg |= AUTH_TYPE_SAE;
+		prGlueInfo->rWpaInfo.u4AuthAlg = AUTH_TYPE_SAE;
 		break;
 	default:
 		DBGLOG(REQ, WARN, "Auth type: %ld not support, use default OPEN system\n", req->auth_type);
-		prGlueInfo->rWpaInfo.u4AuthAlg |= AUTH_TYPE_OPEN_SYSTEM;
+		prGlueInfo->rWpaInfo.u4AuthAlg = AUTH_TYPE_OPEN_SYSTEM;
 		break;
 	}
 	DBGLOG(REQ, INFO, "Auth Algorithm : %ld\n", prGlueInfo->rWpaInfo.u4AuthAlg);
@@ -1125,17 +1156,28 @@ int mtk_cfg80211_auth(struct wiphy *wiphy, struct net_device *ndev,
 		}
 	}
 	kalMemZero(&rNewSsid, sizeof(PARAM_CONNECT_T));
+	rNewSsid.pucBssid = (UINT_8 *)req->bss->bssid;
 
+	if (!EQUAL_MAC_ADDR(prConnSettings->aucBSSID, req->bss->bssid)) {
+		fgNewAuthParam = TRUE;
+	}
+
+#if CFG_SUPPORT_802_11V_BSS_TRANSITION_MGT
+#ifdef CFG_SUPPORT_PRIVACY_INFO
+	DBGLOG(REQ, WARN, "req IE len %d, ssid %16llx, ssid_len %d\n",
+				req->bss->ies->len, ssid_hash_64(SSID_IE(req->bss->ies->data)->aucSSID),
+				SSID_IE(req->bss->ies->data)->ucLength);
+#else
+	DBGLOG(REQ, STATE, "req IE len %d, ssid %.*s, ssid_len %d\n",
+				req->bss->ies->len, SSID_IE(req->bss->ies->data)->ucLength,
+				SSID_IE(req->bss->ies->data)->aucSSID, SSID_IE(req->bss->ies->data)->ucLength);
+#endif
 	if (req->bss->ies->len != 0 &&
 			IE_ID(req->bss->ies->data) == ELEM_ID_SSID) {
 		rNewSsid.pucSsid = SSID_IE(req->bss->ies->data)->aucSSID;
 		rNewSsid.u4SsidLen = SSID_IE(req->bss->ies->data)->ucLength;
 	}
-
-	if (rNewSsid.pucBssid != (PUINT_8)req->bss->bssid) {
-		fgNewAuthParam = TRUE;
-		rNewSsid.pucBssid = (PUINT_8)req->bss->bssid;
-	}
+#endif
 	/* rNewSsid.pucSsid = (uint8_t *)sme->ssid;*/
 	/* rNewSsid.u4SsidLen = sme->ssid_len;*/
 
@@ -1144,7 +1186,7 @@ int mtk_cfg80211_auth(struct wiphy *wiphy, struct net_device *ndev,
 		MAC2STR((uint8_t *)req->bss->bssid));
 
 	prConnSettings->fgIsSendAssoc = FALSE;
-	if (!prConnSettings->fgIsConnInitialized /*|| fgNewAuthParam*/) {
+	if (!prConnSettings->fgIsConnInitialized || fgNewAuthParam) {
 		/* [TODO] to consider if bssid/auth_alg changed
 		 * (need to update to AIS)
 		 */
@@ -1215,7 +1257,11 @@ int mtk_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev, struct cf
 	rst_data.entry_conut++;
 	DBGLOG(INIT, TRACE, "entry_conut = %d\n", rst_data.entry_conut);
 #endif
-	DBGLOG(REQ, WARN, "BSSID[" MACSTR "] channel[%d]\n", MAC2STR(sme->bssid), sme->channel->center_freq);
+	if (sme->channel)
+	/* Prevents NULL pointer dereference if sme->channel is NULL */
+		DBGLOG(REQ, WARN, "BSSID[" MACSTR "] channel[%d]\n", MAC2STR(sme->bssid), sme->channel->center_freq);
+	else
+		DBGLOG(REQ, WARN, "BSSID[" MACSTR "] \n", MAC2STR(sme->bssid));
 	prGlueInfo = (P_GLUE_INFO_T) wiphy_priv(wiphy);
 	ASSERT(prGlueInfo);
 
@@ -3269,6 +3315,7 @@ int mtk_cfg80211_assoc(struct wiphy *wiphy, struct net_device *ndev, struct cfg8
 		wlanQueryInformation(prGlueInfo->prAdapter, wlanoidQueryBssid,
 			&arBssid[0], sizeof(arBssid), &u4BufLen);
 
+#if !CFG_SUPPORT_802_11V_BSS_TRANSITION_MGT
 		/* 1. check BSSID */
 		if (UNEQUAL_MAC_ADDR(arBssid, req->bss->bssid)) {
 			/* wrong MAC address */
@@ -3276,6 +3323,7 @@ int mtk_cfg80211_assoc(struct wiphy *wiphy, struct net_device *ndev, struct cfg8
 				MAC2STR(req->bss->bssid), MAC2STR(arBssid));
 			return -ENOENT;
 		}
+#endif
 	}
 #if CFG_SUPPORT_CFG80211_AUTH
 	/* <1> Reset WPA info */
