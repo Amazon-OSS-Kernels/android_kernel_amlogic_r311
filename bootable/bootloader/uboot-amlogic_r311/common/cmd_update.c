@@ -225,7 +225,7 @@ void image_update(void ) {
     if (ret)
         goto flash_idme_error;
 
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
     run_command("led_mode 4", 1);
 #endif
     //update image
@@ -265,7 +265,7 @@ void image_update(void ) {
         if (ret)
             goto flash_image_error;
     }
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
     run_command("led_mode 3", 1);
 #endif
 

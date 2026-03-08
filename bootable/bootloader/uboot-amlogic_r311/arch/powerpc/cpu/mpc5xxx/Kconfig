@@ -35,8 +35,8 @@ config TARGET_INKA4X0
 config TARGET_IPEK01
 	bool "Support ipek01"
 
-config TARGET_ABC
-	bool "Support ABC"
+config TARGET_JUPITER
+	bool "Support jupiter"
 
 config TARGET_MOTIONPRO
 	bool "Support motionpro"
@@ -114,6 +114,7 @@ source "board/ifm/o2dnt2/Kconfig"
 source "board/inka4x0/Kconfig"
 source "board/intercontrol/digsy_mtc/Kconfig"
 source "board/ipek01/Kconfig"
+source "board/jupiter/Kconfig"
 source "board/motionpro/Kconfig"
 source "board/munices/Kconfig"
 source "board/phytec/pcm030/Kconfig"

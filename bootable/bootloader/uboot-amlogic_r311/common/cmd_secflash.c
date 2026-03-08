@@ -63,7 +63,7 @@ int do_secflash(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 		verify_ret = amzn_verify_sec_flashing_cert(1);
 
 		if (verify_ret) {
-//#if  defined UBOOT_TARGET_PRODUCT_NAME_abc123
+//#if  defined UBOOT_TARGET_PRODUCT_NAME_ANJALI
 #if  1
 			verify_ret = amzn_verify_sec_flashing_cert(1);
 			if (verify_ret) {

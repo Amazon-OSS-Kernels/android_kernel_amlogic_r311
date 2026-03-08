@@ -49,7 +49,7 @@ int amzn_target_device_type(void)
 	/* HVT device */
 	if (!secure_boot_enabled())
 		return AMZN_ENGINEERING_DEVICE;
-#if defined UBOOT_TARGET_PRODUCT_NAME_ABC
+#if defined UBOOT_TARGET_PRODUCT_NAME_BURGUNDY
 	/* Is anti-rollback enabled? */
 	if (query_efuse_status("ARB") == 1){
 		device_type = AMZN_PRODUCTION_DEVICE;

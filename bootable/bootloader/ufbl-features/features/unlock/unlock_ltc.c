@@ -4,11 +4,11 @@
 
 #include <tomcrypt.h>
 #ifndef SUPPORT_UBOOT
-#if !defined(UFBL_PROJ_ABC)
+#if !defined(UFBL_PROJ_NEPTUNE)
 #include <debug.h>
 #else
 #include <stdint.h>
-#endif // UFBL_PROJ_ABC
+#endif // UFBL_PROJ_NEPTUNE
 #endif
 #include "amzn_unlock.h"
 #include "unlock_ltc.h"

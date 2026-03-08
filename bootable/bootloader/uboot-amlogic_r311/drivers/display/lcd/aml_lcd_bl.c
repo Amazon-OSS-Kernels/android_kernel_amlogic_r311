@@ -734,7 +734,7 @@ void aml_bl_power_ctrl(int status, int delay_flag)
 		bl_status = 1;
 		if ((bconf->power_on_delay > 0) && (delay_flag > 0))
 			mdelay(bconf->power_on_delay);
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RACHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RACHO)
 		bconf->pwm_en_sequence_reverse = 1;
 #endif
 		switch (bconf->method) {
@@ -812,7 +812,7 @@ void aml_bl_power_ctrl(int status, int delay_flag)
 		}
 	} else {
 		bl_status = 0;
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RACHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RACHO)
 		bconf->pwm_en_sequence_reverse = 0;
 #endif
 		switch (bconf->method) {

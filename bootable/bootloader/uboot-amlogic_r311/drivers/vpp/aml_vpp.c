@@ -1082,9 +1082,10 @@ void vpp_pq_load(void)
 	str = strdup(pq);
 
 	for (tk = strsep(&str, ","); tk != NULL; tk = strsep(&str, ",")) {
-		tmp[cnt] = tk;
-		if (cnt++ > 4)
+		if (cnt >= 4)
 			break;
+		tmp[cnt] = tk;
+		cnt++;
 	}
 
 	if (cnt == 4) {

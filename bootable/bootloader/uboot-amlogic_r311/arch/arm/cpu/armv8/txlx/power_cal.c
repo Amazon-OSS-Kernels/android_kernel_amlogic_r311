@@ -235,7 +235,7 @@ void aml_cal_pwm(unsigned int ee_voltage, unsigned int vcck_voltage)
 		vcck_delt = aml_delt_get(vcck_val, CONFIG_VCCK_INIT_VOLTAGE);
 	if (0 != vcck_delt)
 		aml_set_voltage(pwm_vcck, CONFIG_VCCK_INIT_VOLTAGE, vcck_delt);
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 	ee_val = aml_adc_get(ee_adc_channel, CONFIG_VDDEE_INIT_VOLTAGE_DDR3);
 	if (-1 != ee_val)
 		ee_delt = aml_delt_get(ee_val, CONFIG_VDDEE_INIT_VOLTAGE_DDR3 + VOLTAGE_DIFF);
@@ -266,7 +266,7 @@ void aml_pwm_cal_init(int mode)
 {
 	printf("aml pwm cal init\n");
 	saradc_enable();
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 	aml_cal_pwm(CONFIG_VDDEE_INIT_VOLTAGE_DDR3, CONFIG_VCCK_INIT_VOLTAGE);
 #else
 	if (get_hw_subid() == 1) {

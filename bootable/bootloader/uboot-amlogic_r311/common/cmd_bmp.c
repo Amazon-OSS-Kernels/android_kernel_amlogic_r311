@@ -94,7 +94,7 @@ static const unsigned char gzip_magic[] = { 0x1f, 0x8b };
 bmp_image_t *gunzip_bmp(unsigned long addr, unsigned long *lenp,
 			void **alloc_addr)
 {
-#ifdef UBOOT_TARGET_PRODUCT_NAME_ABC
+#ifdef UBOOT_TARGET_PRODUCT_NAME_BURGUNDY
 	void *dst;
 	unsigned long len;
 	bmp_image_t *bmp;

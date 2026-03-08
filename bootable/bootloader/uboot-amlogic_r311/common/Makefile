@@ -333,7 +333,7 @@ CFLAGS_env_embedded.o := -Wa,--no-warn -DENV_CRC=$(shell tools/envcrc 2>/dev/nul
 obj-y += amzn_lockdown.o
 obj-$(CONFIG_CMD_SECFLASH) += cmd_secflash.o
 
-ifeq ($(TARGET_PRODUCT_NAME_ABC), y)
+ifeq ($(TARGET_PRODUCT_NAME_BURGUNDY), y)
 obj-y += cmd_wol_power.o
 else ifeq ($(TARGET_PRODUCT_NAME_RANCHO), y)
 obj-y += cmd_wol_power.o

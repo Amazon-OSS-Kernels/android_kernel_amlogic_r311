@@ -385,7 +385,7 @@ static int fastboot_add(struct usb_configuration *c)
 	status = usb_add_function(c, &f_fb->usb_function);
 	if (status) {
 		free(f_fb);
-		fastboot_func = f_fb;
+		fastboot_func = NULL;
 	}
 
 	return status;
@@ -440,7 +440,7 @@ int fastboot_fail(const char *reason)
 	return fastboot_tx_write(response, strlen(response));
 }
 
-/* flag bits related to adb on ABC. */
+/* flag bits related to adb on Rosalita. */
 #define FOS_FLAGS_ADB_ON        0x1
 #define FOS_FLAGS_ADB_ROOT      0x2
 #define DEV_FLAGS_ADB_USB_ON    0x1000
@@ -1045,7 +1045,7 @@ static inline unsigned long long getsymval(char *s)
 	return 0;
 }
 
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 static void cmd_oem_standby(struct usb_ep *ep, struct usb_request *req)
 {
 	char response[64] = {0};
@@ -1442,7 +1442,7 @@ static const struct cmd_dispatch_info cmd_dispatch_info[] = {
 		.cmd = "oem flags",
 		.cb = cmd_oem_flags,
 	},
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 	{
 		.cmd = "oem standby",
 		.cb = cmd_oem_standby,
@@ -1496,7 +1496,7 @@ static void rx_handler_command(struct usb_ep *ep, struct usb_request *req)
 	}
 }
 #if defined(UFBL_FEATURE_FASTBOOT_LOCKDOWN)
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 void amzn_extends_fastboot_whitelist(const char* const **list, int *length) {
 	if (list == NULL || length == NULL) return;
 	static const char* const whitelist[] = {

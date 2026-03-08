@@ -132,7 +132,7 @@ static void setWpPin(void)
 }
 
 int cri_data_read_partion(char * model_name_dev,unsigned char *cri_buff ){
-	char cmd[32] = {0};
+	char cmd[128] = {0};
 	int ret = -1;
 	struct cridata_t *pcri_data = NULL;
 	char model_name_ini[CC_LCD_NAME_LEN_MAX]={0};
@@ -141,7 +141,7 @@ int cri_data_read_partion(char * model_name_dev,unsigned char *cri_buff ){
 		ALOGE( "cri_buff cannot be NULL %s\n", __FUNCTION__);
 		return ret;
 	}
-	sprintf(cmd, "amlmmc read cri_data  0x%llx  0x%llx  0x%llx ", cri_buff,CRI_CONFIG_OFFSET,CRI_CONFIG_SIZE);
+	snprintf(cmd, sizeof(cmd), "amlmmc read cri_data  0x%llx  0x%llx  0x%llx ", cri_buff,CRI_CONFIG_OFFSET,CRI_CONFIG_SIZE);
 
 	ret = run_command(cmd, 0);
 

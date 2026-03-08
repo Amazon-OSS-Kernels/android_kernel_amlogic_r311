@@ -32,20 +32,20 @@
 #endif
 
 #if !defined(UFBL_TESTS) && \
-	!defined(UFBL_PROJ_ABC)
+	!defined(UFBL_PROJ_NEPTUNE)
 #include <debug.h>
-#else /* UFBL_TESTS UFBL_PROJ_ABC */
+#else /* UFBL_TESTS UFBL_PROJ_NEPTUNE */
 #include <stdio.h>
 #include <stdlib.h>
 #include "ufbl_debug.h"
-#endif /* !UFBL_TESTS && !UFBL_PROJ_ABC */
+#endif /* !UFBL_TESTS && !UFBL_PROJ_NEPTUNE */
 #endif /* SUPPORT_UBOOT || SUPPORT_BOLT */
 
 #include "idme.h"
 #include "idme_default_table.h"
 #if !defined(UFBL_TESTS) && \
 	!defined(UFBL_PLATFORM_IMX) && \
-	!defined(UFBL_PROJ_ABC)
+	!defined(UFBL_PROJ_NEPTUNE)
 #include "fastboot.h"
 #endif
 
@@ -398,7 +398,7 @@ int idme_print_var_v2p0(void *data)
 	!defined(UFBL_PROJ_ABC) && \
 	!defined(UFBL_PROJ_ABC) && \
 	!defined (UFBL_PLATFORM_IMX) && \
-	!defined (UFBL_PROJ_ABC)
+	!defined (UFBL_PROJ_NEPTUNE)
 			fastboot_info(temp);
 #endif
 #endif
@@ -414,7 +414,7 @@ int idme_print_var_v2p0(void *data)
 	!defined(UFBL_PROJ_ABC) && \
 	!defined(UFBL_PROJ_ABC) && \
 	!defined (UFBL_PLATFORM_IMX) && \
-	!defined (UFBL_PROJ_ABC)
+	!defined (UFBL_PROJ_NEPTUNE)
 			fastboot_info(temp);
 #endif
 #endif

@@ -162,8 +162,8 @@ extern unsigned int wol_power_enable;
 
 static void power_off_3v3_5v(void)
 {
-// THE MAIN POWER PIN IS GPIOAO_8 ON abc123
-#ifdef UBOOT_TARGET_PRODUCT_NAME_abc123
+// THE MAIN POWER PIN IS GPIOAO_8 ON ANJALI
+#ifdef UBOOT_TARGET_PRODUCT_NAME_ANJALI
 	if ((hwid == HVT1_L2_HWID_TYPE) ||
 			(hwid == HVT1_L4_HWID_TYPE)) {
 		aml_update_bits(AO_GPIO_O_EN_N, 1 << 8, 0);
@@ -172,7 +172,7 @@ static void power_off_3v3_5v(void)
 		aml_update_bits(AO_GPIO_O_EN_N, 1 << 2, 0);
 		aml_update_bits(AO_GPIO_O_EN_N, 1 << 18, 0);
 	}
-#elif defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#elif defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
                 aml_update_bits(AO_GPIO_O_EN_N, 1 << 8, 0);
                 aml_update_bits(AO_GPIO_O_EN_N, 1 << 24, 0);
 #else
@@ -196,7 +196,7 @@ static void power_off_3v3_5v(void)
 
 static void power_on_3v3_5v(void)
 {
-#ifdef UBOOT_TARGET_PRODUCT_NAME_abc123
+#ifdef UBOOT_TARGET_PRODUCT_NAME_ANJALI
 	if ((hwid == HVT1_L2_HWID_TYPE) ||
 			(hwid == HVT1_L4_HWID_TYPE)) {
 		aml_update_bits(AO_GPIO_O_EN_N, 1 << 8, 0);
@@ -206,7 +206,7 @@ static void power_on_3v3_5v(void)
 		aml_update_bits(AO_GPIO_O_EN_N, 1 << 18, 1 << 18);
 
 	}
-#elif defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#elif defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 	uart_puts("POWER UP WOL\n");
 	aml_update_bits(AO_GPIO_O_EN_N, 1 << 13, 0);
 	aml_update_bits(AO_GPIO_O_EN_N, 1 << 29, 1<<29);
@@ -221,7 +221,7 @@ static void power_on_3v3_5v(void)
 
 static void power_off_usb5v(void)
 {
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 	uart_puts("pull down GPIOH_4 and set input \n");
 	aml_update_bits(PREG_PAD_GPIO1_O, 1 << 24, 0);
 	aml_update_bits(PREG_PAD_GPIO1_EN_N, 1 << 24, 1 << 24);
@@ -233,7 +233,7 @@ static void power_off_usb5v(void)
 
 static void power_on_usb5v(void)
 {
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 	uart_puts("pull up GPIOH_4 and set output\n");
 	aml_update_bits(PREG_PAD_GPIO1_O, 1 << 24, 1 << 24);
 	aml_update_bits(PREG_PAD_GPIO1_EN_N, 1 << 24, 0);
@@ -505,6 +505,14 @@ static unsigned int detect_key(unsigned int suspend_from)
 		if (irq[IRQ_AO_IR_DEC] == IRQ_AO_IR_DEC_NUM) {
 			irq[IRQ_AO_IR_DEC] = 0xFFFFFFFF;
 				switch (remote_detect_key()) {
+				case CONFIG_IR_REMOTE_POWER_UP_KEY_VAL19:
+					exit_reason = CECB_WAKEUP;
+					break;
+
+				case CONFIG_IR_REMOTE_POWER_UP_KEY_VAL18:
+					exit_reason = CHARGING_WAKEUP;
+					break;
+
 				case CONFIG_IR_REMOTE_POWER_UP_KEY_VAL10:
 					exit_reason = REMOTE_CUSTOM4_WAKEUP;
 				break;

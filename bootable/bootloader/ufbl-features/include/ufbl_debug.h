@@ -5,7 +5,7 @@
 #ifndef __UFBL_DEBUG_H__
 #define __UFBL_DEBUG_H__
 
-#if defined(UFBL_PROJ_ABC)
+#if defined(UFBL_PROJ_NEPTUNE)
 
 #include "uefi_debug.h"
 #define UFBL_STR(x) x
@@ -73,6 +73,6 @@ CHAR16* amzn_char8_to_char16(const char* src);
 
 #endif /* defined(SUPPORT_UBOOT) || defined(SUPPORT_MTK_PRELOADER)*/
 
-#endif /* UFBL_PROJ_ABC */
+#endif /* UFBL_PROJ_NEPTUNE */
 
 #endif /*__UFBL_DEBUG_H__ */

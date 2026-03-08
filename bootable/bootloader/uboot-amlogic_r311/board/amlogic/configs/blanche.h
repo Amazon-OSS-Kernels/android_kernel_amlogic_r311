@@ -69,7 +69,7 @@
 #define CONFIG_AML_MESON_SERIAL		1
 #define CONFIG_SERIAL_MULTI		1
 
-#if  defined UBOOT_TARGET_PRODUCT_NAME_abc123
+#if  defined UBOOT_TARGET_PRODUCT_NAME_ANJALI
 #define CONFIG_AUTO_COMPLETE            1
 #define CONFIG_CMDLINE_EDITING          1
 #endif
@@ -99,6 +99,8 @@
 #define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL16	0x9e610586 /* Insignia additional remote --- power */
 #define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL17	0x817EBF40 /* Toshiba additional remote --- power */
 
+#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL18	0x5ba47d02 /* ABS presetting1 key */
+#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL19	0x5aa57d02 /* ABS presetting2 key */
 
 /* config the default parameters for adc power key */
 #define CONFIG_ADC_POWER_KEY_CHAN		2  /* channel range: 0-7*/
@@ -332,7 +334,7 @@
 /* ddr */
 #define CONFIG_DDR_SIZE			1024	/* MB //0 means ddr size auto-detect */
 
-#ifdef UBOOT_TARGET_PRODUCT_NAME_ABC
+#ifdef UBOOT_TARGET_PRODUCT_NAME_BURGUNDY
 #define CONFIG_DDR_CLK_2L		912	/* MHz, Range: 384-1200, should be multiple of 24 */
 #else
 #define CONFIG_DDR_CLK_2L               912     /* MHz, Range: 384-1200, should be multiple of 24 */
@@ -474,12 +476,12 @@
 #define CONFIG_SYS_CACHELINE_SIZE		64
 #define CONFIG_FASTBOOT_MAX_DOWN_SIZE		0x8000000
 
-#if  defined UBOOT_TARGET_PRODUCT_NAME_abc123
-#define CONFIG_DEVICE_PRODUCT			"abc123"
+#if  defined UBOOT_TARGET_PRODUCT_NAME_ANJALI
+#define CONFIG_DEVICE_PRODUCT			"ANJALI"
 #elif defined UBOOT_TARGET_PRODUCT_NAME_abc123
 #define CONFIG_DEVICE_PRODUCT			"abc123"
-#elif defined UBOOT_TARGET_PRODUCT_NAME_ABC
-#define CONFIG_DEVICE_PRODUCT                   "ABC"
+#elif defined UBOOT_TARGET_PRODUCT_NAME_BURGUNDY
+#define CONFIG_DEVICE_PRODUCT                   "BURGUNDY"
 #define CONFIG_CMD_WOL_POWER 1
 #elif defined UBOOT_TARGET_PRODUCT_NAME_RANCHO
 #define CONFIG_DEVICE_PRODUCT                   "RANCHO"
@@ -635,14 +637,14 @@
 #define EVT_BOARD_ID_TYPE  3
 #define DVT_BOARD_ID_TYPE  4
 #define PVT_BOARD_ID_TYPE  5
-#ifdef UBOOT_TARGET_PRODUCT_NAME_abc123
+#ifdef UBOOT_TARGET_PRODUCT_NAME_ANJALI
 #define HVT1_L2_HWID_TYPE  8     /*for 2 layer board*/
 #define HVT1_L4_HWID_TYPE  14     /*for 4 layer board*/
-#define abc123_PRIME_HWID_TYPE  9     /*for abc123 prime day board*/
+#define ANJALI_PRIME_HWID_TYPE  9     /*for anjali prime day board*/
 #endif
 
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
-#define HVT1_L2_HWID_TYPE_ABC  14     /*for ABC 2 layer board HWID:1110*/
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#define HVT1_L2_HWID_TYPE_BURGUNDY  14     /*for BURGUNDY 2 layer board HWID:1110*/
 #define HVT1_L2_HWID_TYPE_RANCHO  7     /*for RANCHO 2 layer board HWID:0111*/
 #endif
 

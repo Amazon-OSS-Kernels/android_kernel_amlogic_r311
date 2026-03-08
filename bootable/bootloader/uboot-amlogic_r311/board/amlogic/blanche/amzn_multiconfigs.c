@@ -38,7 +38,7 @@
 #define IS_GZIP_FORMAT(data)     ((data & (0x0000FFFF)) == (0x00008B1F))
 #define strtoul simple_strtoul
 //#define DIV_ROUND_UP(n,d)  (((n) + (d) -1)/(d))
-#define ABC_CONFIG		"alanspan"
+#define BURGUNDY_CONFIG		"alanspan"
 
 #ifdef CONFIG_IDME
 #include <idme.h>
@@ -53,7 +53,7 @@ struct oem_tv_config
 };
 struct oem_tv_config oem_configs[TVCONFIG_NUM];
 
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY)
 unsigned char model_hwid[4] = {'1','1','1','0'};
 #elif defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 unsigned char model_hwid[4] = {'0','1','1','1'};

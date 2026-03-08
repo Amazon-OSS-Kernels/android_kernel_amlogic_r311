@@ -19,7 +19,7 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 static u32 fb_width;
 static u32 fb_height;
 static u32 display_bpp;
@@ -202,7 +202,7 @@ void main_loop(void)
 #ifdef CONFIG_IDME
 	bootmode = idme_boot_mode();
 	is_diag_bootmode = (bootmode == IDME_BOOTMODE_DIAG);
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 	is_transition_bootmode = ((bootmode == IDME_BOOTMODE_TRANSITION) || (bootmode == IDME_BOOTMODE_STANDBY_LOGO_POST_SHIPPING_SW_SWITCH));
 #else
 	is_transition_bootmode = (bootmode == IDME_BOOTMODE_TRANSITION);
@@ -221,7 +221,7 @@ void main_loop(void)
 			ret += run_command("amlmmc erase dfs", 0);
 			ret += run_command("amlmmc erase dkernel", 0);
 			ret += run_command("amlmmc erase diag_userdata", 0);
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 			ret += run_command("amlmmc erase oemconfig", 0);
 #endif
 			if (ret)
@@ -250,7 +250,7 @@ void main_loop(void)
 				printf("Transition from Diag to FOS failed\n");
 			} else {
 				printf("Transition from Diag to FOS succeed\n");
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 				if (bootmode == IDME_BOOTMODE_TRANSITION) {
 					run_command("reboot", 0);
 				} else {

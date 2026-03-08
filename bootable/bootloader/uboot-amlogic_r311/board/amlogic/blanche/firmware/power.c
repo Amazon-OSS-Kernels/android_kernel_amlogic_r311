@@ -257,7 +257,7 @@ void power_init(int mode)
 	serial_puts(" mv\n");
 	pwm_set_voltage(pwm_a, CONFIG_VCCK_INIT_VOLTAGE);
 	serial_puts("set vddee to ");
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 	serial_put_dec(CONFIG_VDDEE_INIT_VOLTAGE_DDR3);
 	serial_puts(" mv\n");
 	pwm_set_voltage(pwm_ao_b, CONFIG_VDDEE_INIT_VOLTAGE_DDR3);
@@ -277,7 +277,7 @@ void power_init(int mode)
 	hwid= read_hwid();
 	reg = readl(AO_GPIO_O_EN_N);
 
-#ifdef UBOOT_TARGET_PRODUCT_NAME_abc123
+#ifdef UBOOT_TARGET_PRODUCT_NAME_ANJALI
 	if ((hwid == HVT1_L2_HWID_TYPE) ||
 			(hwid == HVT1_L4_HWID_TYPE)) {
 		reg &= ~((1 << 8)|(1 << 10)|(1 << 11));
@@ -288,7 +288,7 @@ void power_init(int mode)
 		reg |=  ((1 << 18)|(1 << 26)|(1 << 27));
 		serial_puts("set AO 2/10/11 to high\n ");
 	}
-#elif defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#elif defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
         reg &= ~((1 << 8) | (1 << 11));
         reg |=  ((1 << 24) | (1 << 27));
         serial_puts("set AO 8/11 to high\n ");

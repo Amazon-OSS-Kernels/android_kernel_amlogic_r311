@@ -22,7 +22,7 @@ else ifeq (yes,$(strip $(UFBL_PROJ_ABC)))
 IDME_OBJECTS += idme_platform_ABC.o
 else ifeq (yes,$(findstring yes,$(UFBL_PROJ_ABC) $(UFBL_PROJ_ABC) $(UFBL_PROJ_ABC) $(UFBL_PROJ_ABC)))
 IDME_OBJECTS += idme_platform_mstar.o
-else ifeq (yes, $(findstring yes, $(UFBL_PROJ_BLANCHE) $(UFBL_PROJ_ABC) $(UFBL_PROJ_ABC) $(UFBL_PROJ_RANCHO)))
+else ifeq (yes, $(findstring yes, $(UFBL_PROJ_BLANCHE) $(UFBL_PROJ_ANJALI) $(UFBL_PROJ_BURGUNDY) $(UFBL_PROJ_RANCHO)))
 IDME_OBJECTS += idme_platform_amlogic.o
 else ifeq (yes, $(findstring yes, $(UFBL_PROJ_ABC)))
 IDME_OBJECTS += idme_platform_ABC.o

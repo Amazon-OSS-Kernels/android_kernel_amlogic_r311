@@ -155,7 +155,7 @@ void ddr_pre_init(void) {
 	unsigned int ddr_type = 0;
 	unsigned int hw_subid = 0;
 
-#if defined(UBOOT_TARGET_PRODUCT_NAME_abc123) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_ANJALI) || defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 	unsigned int hwid = 0;
 #endif
 	/* add your GPIO logical code here */
@@ -180,7 +180,7 @@ void ddr_pre_init(void) {
 	serial_puts("hw_subid = ");
 	serial_put_dec(hw_subid);
 	serial_puts("\n");
-#if defined(UBOOT_TARGET_PRODUCT_NAME_abc123) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_ANJALI) || defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 	/* get hwid for change ddr frequency */
 	clrbits_le32(P_PERIPHS_PIN_MUX_4,(1<<5)|(1<<6)| (1<<7));
 	clrbits_le32(P_PERIPHS_PIN_MUX_3,(1<<0)|(1<<3)| (1<<24)|(1<<25)|(1<<30)|(1<<31));
@@ -188,7 +188,7 @@ void ddr_pre_init(void) {
 	setbits_le32(P_PREG_PAD_GPIO3_EN_N,(1<<17)|(1<<16)|(1<<15)|(1<<14));
 	hwid = (readl(P_PREG_PAD_GPIO3_I) & ((1<<17)|(1<<16)|(1<<15)|(1<<14))) >> 14;
 #endif
-#ifdef UBOOT_TARGET_PRODUCT_NAME_abc123
+#ifdef UBOOT_TARGET_PRODUCT_NAME_ANJALI
 	if ((hwid == HVT1_L2_HWID_TYPE) ||
 			(hwid == HVT1_L4_HWID_TYPE)) {
 		ddr_type = CONFIG_DDR_TYPE_DDR3;
@@ -198,7 +198,7 @@ void ddr_pre_init(void) {
 		ddr_type = CONFIG_DDR_TYPE_DDR4;
 		serial_puts("ddr type DDR4\n");
 	}
-#elif defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#elif defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 		ddr_type = CONFIG_DDR_TYPE_DDR3;
                 serial_puts("ddr type DDR3\n");
 #else
@@ -215,7 +215,7 @@ if(ddr_type == CONFIG_DDR_TYPE_DDR3)
 	struct acs_setting *acs_entry = (struct acs_setting *)(unsigned long)readl(ACS_ENTRY);
 	struct ddr_set *ddr_entry = (struct ddr_set *)(unsigned long)(acs_entry->ddr_set_addr);
 	ddr_entry->ddr_type=ddr_type;
-#ifdef UBOOT_TARGET_PRODUCT_NAME_abc123
+#ifdef UBOOT_TARGET_PRODUCT_NAME_ANJALI
 	if (hwid==HVT1_L2_HWID_TYPE)	{
 		serial_puts("hwid=1000\n");
 		/*ddr setting for ddr3 2layer*/
@@ -229,8 +229,8 @@ if(ddr_type == CONFIG_DDR_TYPE_DDR3)
 		ddr_entry->t_pub_acbdlr3_1 = 0x18;
 		ddr_entry->t_pub_aclcdlr_1 = 0x50;
 	}
-#elif defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
-    if (hwid == HVT1_L2_HWID_TYPE_ABC) {
+#elif defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+    if (hwid == HVT1_L2_HWID_TYPE_BURGUNDY) {
         serial_puts("hwid=1110\n");
         /*ddr setting for ddr3 2layer*/
         ddr_entry->ddr_clk = CONFIG_DDR_CLK_2L;

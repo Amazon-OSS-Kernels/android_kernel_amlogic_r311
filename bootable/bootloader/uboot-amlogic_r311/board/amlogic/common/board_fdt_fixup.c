@@ -135,7 +135,7 @@ int board_fixup_fdt(void *blob)
 	char unlock_str[MAX_UNLOCK_STR_SIZE] = {0};
 	err = snprintf(unlock_str, MAX_UNLOCK_STR_SIZE," androidboot.unlocked_kernel=%s androidboot.veritymode=%s ",
 			(amzn_device_unlock_status == 1) ? "true" : "false",
-#if defined (UBOOT_TARGET_PRODUCT_NAME_abc123) && defined (UBOOT_32BITS_SUPPORT)
+#if defined (UBOOT_TARGET_PRODUCT_NAME_ANJALI) && defined (UBOOT_32BITS_SUPPORT)
 			(amzn_dm_verity_is_off(amzn_device_unlock_status) == true) ? "disabled" : "eio");
 #else
 			(amzn_dm_verity_is_off(amzn_device_unlock_status) == true) ? "disabled" : "disabled");

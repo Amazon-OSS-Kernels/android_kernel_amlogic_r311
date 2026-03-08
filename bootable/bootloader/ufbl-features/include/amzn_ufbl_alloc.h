@@ -5,8 +5,8 @@
 #ifndef __AMZN_UFBL_ALLOC_H
 #define __AMZN_UFBL_ALLOC_H
 
-#if defined(SUPPORT_KERNELFLINGER) || defined(UFBL_PROJ_ABC)
-#if  defined(UFBL_PROJ_ABC)
+#if defined(SUPPORT_KERNELFLINGER) || defined(UFBL_PROJ_NEPTUNE)
+#if  defined(UFBL_PROJ_NEPTUNE)
 #include <Library/MemoryAllocationLib.h>
 #endif
 #define amzn_plat_alloc AllocatePool

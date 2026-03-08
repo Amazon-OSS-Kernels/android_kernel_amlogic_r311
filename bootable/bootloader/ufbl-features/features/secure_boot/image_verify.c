@@ -5,7 +5,7 @@
 
 #ifndef SUPPORT_BOLT
 #include <string.h>
-#if !defined(UFBL_PROJ_ABC)
+#if !defined(UFBL_PROJ_NEPTUNE)
 #include <debug.h>
 #else
 #include <stdio.h>

@@ -95,7 +95,7 @@ Because the addresses for CORE, MEM and CMDLINE are the same
 #include "idme_v2_0.h"
 
 #if !defined(UFBL_PROJ_ABC) && \
-	!defined(UFBL_PROJ_ABC)
+	!defined(UFBL_PROJ_NEPTUNE)
 #include <stdlib.h>
 #endif
 
@@ -156,7 +156,7 @@ static char* idme_flags_table[] = {
 
 #if !defined(SUPPORT_KERNELFLINGER) && \
 	!defined(UFBL_TESTS) && \
-	!defined(UFBL_PROJ_ABC)
+	!defined(UFBL_PROJ_NEPTUNE)
 // Decode a flags bitmask to symbolic representation
 // Return value:
 //  zero indicates success

@@ -116,8 +116,8 @@
 #include "idme_default_table_anjali.h"
 #endif
 
-#if defined(UFBL_PROJ_ABC)
-#include "idme_default_table_ABC.h"
+#if defined(UFBL_PROJ_BURGUNDY)
+#include "idme_default_table_burgundy.h"
 #endif
 
 #if defined(UFBL_PROJ_RANCHO)

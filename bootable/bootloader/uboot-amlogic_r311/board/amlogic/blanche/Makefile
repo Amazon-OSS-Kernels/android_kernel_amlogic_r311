@@ -13,7 +13,7 @@ ifeq ($(CONFIG_AMZN_SILENT_OTA),y)
 obj-y += silent_ota.o
 endif
 
-ifeq ($(TARGET_PRODUCT_NAME_ABC), y)
+ifeq ($(TARGET_PRODUCT_NAME_BURGUNDY), y)
 obj-y += amzn_multiconfigs.o
 endif
 

@@ -64,7 +64,7 @@
 #include <asm/arch/timing.h>
 #include <ctype.h>
 #include <version.h>
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 #include <amzn_multiconfigs.h>
 #include "fs.h"
 #endif
@@ -509,7 +509,7 @@ int board_id_type_check(void)
 	return rtn;
 }
 
-#if defined UBOOT_TARGET_PRODUCT_NAME_abc123
+#if defined UBOOT_TARGET_PRODUCT_NAME_ANJALI
 int hardware_id_type_check(void)
 {
 	int var=0;
@@ -539,7 +539,7 @@ unsigned long amz_dev_flags_check(void)
 
 #if defined(CONFIG_IDME)
 
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 #define IDME_BLOCK_SIZE_OLD 200
 #define IDME_BLOCK_SIZE_NEW 300
 #define IDME_BACKUP_OFFSET  0
@@ -798,7 +798,7 @@ static bool store_demo_mode(void)
 }
 #endif
 
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 #define USB_STR_FILE_NAME "fac_boot_aging_exit.cvt"
 static void check_usb_str(void)
 {
@@ -880,7 +880,7 @@ int board_late_init(void)
 	printf("reboot_mode_val: %d\n", reboot_mode_val);
 	uint32_t val = readl(AO_GPIO_O_EN_N);
 	printf("AO_GPIO_O_EN_N: %x\n", val);
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 	val = val & (1 << 26); // to get backlight status
 #else
 	val = val & (1 << 29); // to get backlight status
@@ -959,7 +959,7 @@ int board_late_init(void)
 	vpu_probe();
 #endif
 	vpp_init();
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 	update_tvconfig(hwid);
 #endif
 #ifdef CONFIG_AML_HDMITX20
@@ -990,7 +990,7 @@ int board_late_init(void)
 			run_command("setenv logo_fn insigniaboot", 1);
 		}else if((0 == strcmp(hwid, "1100")) && (strstr(buf, "_B_") != NULL)) {
 			run_command("setenv logo_fn insigniaboot_2", 1);
-#if defined UBOOT_TARGET_PRODUCT_NAME_abc123
+#if defined UBOOT_TARGET_PRODUCT_NAME_ANJALI
 		}else if((0 == strcmp(hwid, "1001"))&& (strstr(buf, "_DW_") != NULL)) {
 			run_command("setenv logo_fn Onidaboot", 1);
 		}else if((0 == strcmp(hwid, "1001"))&& (strstr(buf, "_MM_") != NULL)) {
@@ -1006,7 +1006,7 @@ int board_late_init(void)
 		}else if((0 == strcmp(hwid, "0111"))&& (strstr(buf, "_QUACHI619_") != NULL)) {
 			run_command("setenv logo_fn Quachi", 1);
 #endif
-#if defined UBOOT_TARGET_PRODUCT_NAME_ABC
+#if defined UBOOT_TARGET_PRODUCT_NAME_BURGUNDY
 		}else if((0 == strcmp(hwid, "1110"))&& (strstr(buf, "_APB6C13_") != NULL)) {
                         run_command("setenv logo_fn Apb", 1);
 		}else if((0 == strcmp(hwid, "1110"))&& (strstr(buf, "_CROMA923_") != NULL)) {
@@ -1026,7 +1026,7 @@ int board_late_init(void)
 	printf("amz_dev_flags_check: 0x%lu\n", amz_dev_flags_check());
 #endif
 
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 	check_usb_str();
 #endif
 
@@ -1119,17 +1119,17 @@ int checkhw(char * name)
 
 	printf("checkhw:  hwid = %d\n", hwid);
 
-#if defined UBOOT_TARGET_PRODUCT_NAME_abc123
+#if defined UBOOT_TARGET_PRODUCT_NAME_ANJALI
 	hwid =hardware_id_type_check();
 	switch (hwid) {
 
 		case HVT1_L2_HWID_TYPE:
 		case HVT1_L4_HWID_TYPE:
-			strcpy(loc_name, "abc123_diwali_hvt1\0");
+			strcpy(loc_name, "anjali_diwali_hvt1\0");
 			break;
-		case abc123_PRIME_HWID_TYPE:
+		case ANJALI_PRIME_HWID_TYPE:
 		default:
-			strcpy(loc_name, "abc123_prime_hvt1\0");
+			strcpy(loc_name, "anjali_prime_hvt1\0");
 			break;
 	}
 #else
@@ -1147,7 +1147,7 @@ int checkhw(char * name)
 	return 0;
 }
 #endif
-#ifdef UBOOT_TARGET_PRODUCT_NAME_ABC
+#ifdef UBOOT_TARGET_PRODUCT_NAME_BURGUNDY
 static int get_logo_filepath(char *logo_path, int size)
 {
 	int ret = -1;
@@ -1207,7 +1207,7 @@ static int get_logo_filepath(char *logo_path, int size)
 
 static int do_logo_display(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[]) {
     char cmd_buf[512] = { 0 };
-#ifdef UBOOT_TARGET_PRODUCT_NAME_ABC
+#ifdef UBOOT_TARGET_PRODUCT_NAME_BURGUNDY
     char logo_path[256]   = { 0 };
     int  file_size        = 0;
     unsigned int mem_addr = 0;
@@ -1218,7 +1218,7 @@ static int do_logo_display(cmd_tbl_t *cmdtp, int flag, int argc, char * const ar
         return 1;
     }
 
-#ifdef UBOOT_TARGET_PRODUCT_NAME_ABC
+#ifdef UBOOT_TARGET_PRODUCT_NAME_BURGUNDY
     if (get_logo_filepath(logo_path, sizeof(logo_path)) != 0 ) {
         printf("Can't get logo path\n");
         goto read_logo;
@@ -1318,7 +1318,7 @@ U_BOOT_CMD(
     "memory_info\n"
 );
 
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY) || defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO)
 static int do_led_mode(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	int led_val = 3;

@@ -1148,7 +1148,7 @@ int mmc_device_init (struct mmc *mmc)
 	init_part(&mmc->block_dev);
 
 #ifdef CONFIG_IDME
-#if defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_RANCHO) || defined(UBOOT_TARGET_PRODUCT_NAME_BURGUNDY)
 	idme_migrate();
 #endif
 	idme_initialize();

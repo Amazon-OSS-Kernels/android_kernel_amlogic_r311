@@ -664,7 +664,7 @@ static void lcd_set_pll_ss_txlx(struct lcd_clk_config_s *cConf)
 		dep_sel = 12;
 		str_m = 0;
 		pll_ctrl3 &= ~(0xf << 10);
-#ifdef UBOOT_TARGET_PRODUCT_NAME_ABC
+#ifdef UBOOT_TARGET_PRODUCT_NAME_BURGUNDY
 		pll_ctrl3 |= ((1 << 14) | ((dep_sel & 0xf) << 10) | (0x3 << 28));
 #else
 		pll_ctrl3 |= ((1 << 14) | ((dep_sel & 0xf) << 10));
@@ -679,7 +679,7 @@ static void lcd_set_pll_ss_txlx(struct lcd_clk_config_s *cConf)
 		dep_sel = 10;
 		str_m = 2;
 		pll_ctrl3 &= ~(0xf << 10);
-#ifdef UBOOT_TARGET_PRODUCT_NAME_ABC
+#ifdef UBOOT_TARGET_PRODUCT_NAME_BURGUNDY
 		pll_ctrl3 |= ((1 << 14) | ((dep_sel & 0xf) << 10) | (0x3 << 28));
 #else
 		pll_ctrl3 |= ((1 << 14) | ((dep_sel & 0xf) << 10));
@@ -694,7 +694,7 @@ static void lcd_set_pll_ss_txlx(struct lcd_clk_config_s *cConf)
 		dep_sel = 10;
 		str_m = 4;
 		pll_ctrl3 &= ~(0xf << 10);
-#ifdef UBOOT_TARGET_PRODUCT_NAME_ABC
+#ifdef UBOOT_TARGET_PRODUCT_NAME_BURGUNDY
 		pll_ctrl3 |= ((1 << 14) | ((dep_sel & 0xf) << 10) | (0x3 << 28));
 #else
 		pll_ctrl3 |= ((1 << 14) | ((dep_sel & 0xf) << 10));
@@ -709,7 +709,7 @@ static void lcd_set_pll_ss_txlx(struct lcd_clk_config_s *cConf)
 		dep_sel = 8;
 		str_m = 8;
 		pll_ctrl3 &= ~(0xf << 10);
-#ifdef UBOOT_TARGET_PRODUCT_NAME_ABC
+#ifdef UBOOT_TARGET_PRODUCT_NAME_BURGUNDY
 		pll_ctrl3 |= ((1 << 14) | ((dep_sel & 0xf) << 10) | (0x3 << 28));
 #else
 		pll_ctrl3 |= ((1 << 14) | ((dep_sel & 0xf) << 10));
@@ -724,7 +724,7 @@ static void lcd_set_pll_ss_txlx(struct lcd_clk_config_s *cConf)
 		dep_sel = 12;
 		str_m = 10;
 		pll_ctrl3 &= ~(0xf << 10);
-#ifdef UBOOT_TARGET_PRODUCT_NAME_ABC
+#ifdef UBOOT_TARGET_PRODUCT_NAME_BURGUNDY
 		pll_ctrl3 |= ((1 << 14) | ((dep_sel & 0xf) << 10) | (0x3 << 28));
 #else
 		pll_ctrl3 |= ((1 << 14) | ((dep_sel & 0xf) << 10));

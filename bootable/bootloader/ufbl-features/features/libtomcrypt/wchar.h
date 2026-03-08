@@ -8,7 +8,7 @@
 #define FILE void
 #endif
 
-#ifndef UFBL_PROJ_ABC
+#ifndef UFBL_PROJ_NEPTUNE
 /*
  * We define wchar_t to same as libtomcrypt expects.
  */
