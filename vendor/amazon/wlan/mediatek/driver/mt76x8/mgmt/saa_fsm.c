@@ -548,13 +548,6 @@ saaFsmRunEventTxDone(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInfo, IN E
 
 	ASSERT(prStaRec);
 
-#if CFG_CHIP_RESET_SUPPORT
-	if (kalIsResetting()) {
-		DBGLOG(SAA, WARN, "Skip TxDone event due to chip resetting\n");
-		return WLAN_STATUS_SUCCESS;
-	}
-#endif
-
 	DBGLOG(SAA, LOUD, "EVENT-TX DONE: Current Time = %d\n", kalGetTimeTick());
 
 	/* Trigger statistics log if Auth/Assoc Tx failed */

@@ -1778,8 +1778,7 @@ VOID wlanReleasePendingOid(IN P_ADAPTER_T prAdapter, IN ULONG ulParamPtr)
 #if CFG_CHIP_RESET_SUPPORT
 			DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 						prAdapter->fgIsChipNoAck);
-
-			GL_RESET_TRIGGER(prAdapter, RST_OID_TIMEOUT);
+			glResetTrigger(prAdapter);
 #endif
 		}
 		set_bit(GLUE_FLAG_HIF_PRT_HIF_DBG_INFO_BIT, &(prAdapter->prGlueInfo->ulFlag));
@@ -2315,7 +2314,7 @@ WLAN_STATUS wlanSendNicPowerCtrlCmd(IN P_ADAPTER_T prAdapter, IN UINT_8 ucPowerM
 #if CFG_CHIP_RESET_SUPPORT
 				DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 						prAdapter->fgIsChipNoAck);
-				GL_RESET_TRIGGER(prAdapter, RST_DRV_OWN_FAIL);
+				glResetTrigger(prAdapter);
 #endif
 				break;
 			}

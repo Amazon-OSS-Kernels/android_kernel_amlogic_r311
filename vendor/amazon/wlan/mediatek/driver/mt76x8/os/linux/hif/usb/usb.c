@@ -408,7 +408,7 @@ int mtk_usb_vendor_request(IN P_GLUE_INFO_T prGlueInfo, IN UCHAR uEndpointAddres
 	if(fail_count >= 5) {
 		DBGLOG(REQ, ERROR, "USB bus failure, trigger chip reset\n");
 		fail_count =0;
-		GL_RESET_TRIGGER(prGlueInfo->prAdapter, RST_HIF_FAIL);
+		glResetTrigger(prGlueInfo->prAdapter);
 	}
 
 	return (ret == TransferBufferLength) ? 0 : ret;

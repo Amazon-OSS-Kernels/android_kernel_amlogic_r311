@@ -964,7 +964,7 @@ BOOL kalDevRegRead(IN P_GLUE_INFO_T prGlueInfo, IN UINT_32 u4Register, OUT PUINT
 		prAdapter->fgIsChipNoAck = TRUE;
 		DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 						prAdapter->fgIsChipNoAck);
-		GL_RESET_TRIGGER(prAdapter, RST_HIF_FAIL);
+		glResetTrigger(prAdapter);
 #endif
 	}
 	return (ret) ? FALSE : TRUE;
@@ -1097,7 +1097,7 @@ BOOL kalDevRegWrite(IN P_GLUE_INFO_T prGlueInfo, IN UINT_32 u4Register, IN UINT_
 		prAdapter->fgIsChipNoAck = TRUE;
 		DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 					prAdapter->fgIsChipNoAck);
-		GL_RESET_TRIGGER(prAdapter, RST_HIF_FAIL);
+		glResetTrigger(prAdapter);
 #endif
 	}
 
@@ -1279,7 +1279,7 @@ kalDevPortRead(IN P_GLUE_INFO_T prGlueInfo,
 		prAdapter->fgIsChipNoAck = TRUE;
 		DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 						prAdapter->fgIsChipNoAck);
-		GL_RESET_TRIGGER(prAdapter, RST_HIF_FAIL);
+		glResetTrigger(prAdapter);
 #endif
 	}
 	return (ret) ? FALSE : TRUE;
@@ -1398,7 +1398,7 @@ kalDevPortWrite(IN P_GLUE_INFO_T prGlueInfo,
 		prAdapter->fgIsChipNoAck = TRUE;
 		DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 						prAdapter->fgIsChipNoAck);
-		GL_RESET_TRIGGER(prAdapter, RST_HIF_FAIL);
+		glResetTrigger(prAdapter);
 #endif
 	}
 	return (ret) ? FALSE : TRUE;
@@ -1511,7 +1511,7 @@ BOOL kalDevWriteWithSdioCmd52(IN P_GLUE_INFO_T prGlueInfo, IN UINT_32 u4Addr, IN
 		prAdapter->fgIsChipNoAck = TRUE;
 		DBGLOG(HAL, ERROR, "fgIsChipNoAck = %d\n",
 					prAdapter->fgIsChipNoAck);
-		GL_RESET_TRIGGER(prAdapter, RST_HIF_FAIL);
+		glResetTrigger(prAdapter);
 #endif
 	}
 

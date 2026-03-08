@@ -85,7 +85,7 @@
 
 #define ROAMING_NO_SWING_RCPI_STEP              (10)
 
-#define ROAMING_5G_RCPI_WEIGHT                  (40)
+
 
 /*******************************************************************************
 *                             D A T A   T Y P E S
@@ -1999,11 +1999,6 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 
 	BOOLEAN fgIsFindBestRSSI = (BOOLEAN) FALSE;
 	BOOLEAN fgIsFindBestEncryptionLevel = (BOOLEAN) FALSE;
-#if CFG_ROAMING_5G_PREFER
-	BOOLEAN fgPrimaryIs5G = (BOOLEAN) FALSE;
-	BOOLEAN fgCandidateIs5G = (BOOLEAN) FALSE;
-
-#endif
 	/* BOOLEAN fgIsFindMinChannelLoad = (BOOLEAN)FALSE; */
 
 	/* TODO(Kevin): Support Min Channel Load */
@@ -2323,13 +2318,6 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 					prPrimaryBssDesc = prBssDesc;
 
 					fgIsFindBestRSSI = TRUE;
-#if CFG_ROAMING_5G_PREFER
-					if (prPrimaryBssDesc->eBand == BAND_5G
-					    && prPrimaryBssDesc->ucRCPI >= RCPI_60)
-						fgPrimaryIs5G = TRUE;
-					else
-						fgPrimaryIs5G = FALSE;
-#endif
 				}
 
 			} else if (EQUAL_SSID(prBssDesc->aucSSID,
@@ -2338,13 +2326,6 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 				prPrimaryBssDesc = prBssDesc;
 
 				fgIsFindBestRSSI = TRUE;
-#if CFG_ROAMING_5G_PREFER
-				if (prPrimaryBssDesc->eBand == BAND_5G
-				    && prPrimaryBssDesc->ucRCPI >= RCPI_60)
-					fgPrimaryIs5G = TRUE;
-				else
-					fgPrimaryIs5G = FALSE;
-#endif
 				DBGLOG(SCN, LOUD, "SEARCH: Found BSS by SSID, [" MACSTR "], SSID:%s\n",
 					MAC2STR(prBssDesc->aucBSSID), prBssDesc->aucSSID);
 			}
@@ -2469,30 +2450,9 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 				/* NOTE: To prevent SWING, we do roaming only if target AP
 				 * has at least 5dBm larger than us.
 				 */
-#if CFG_ROAMING_5G_PREFER
-				if (prCandidateBssDesc->eBand == BAND_5G
-				    && prCandidateBssDesc->ucRCPI >= RCPI_60)
-					fgCandidateIs5G = TRUE;
-				else
-					fgCandidateIs5G = FALSE;
-
-#endif
 				if (prCandidateBssDesc->fgIsConnected) {
-#if CFG_ROAMING_5G_PREFER
-					/* both RSSI < -80. keep current connected */
-					if (prCandidateBssDesc->ucRCPI < RCPI_60 && prPrimaryBssDesc->ucRCPI< RCPI_60)
-						continue;
-#endif
-					if ((prCandidateBssDesc->ucRCPI
-#if CFG_ROAMING_5G_PREFER
-					     + (fgCandidateIs5G * ROAMING_5G_RCPI_WEIGHT)
-#endif
-					     + ROAMING_NO_SWING_RCPI_STEP <=
-					     prPrimaryBssDesc->ucRCPI
-#if CFG_ROAMING_5G_PREFER
-					     + (fgPrimaryIs5G * ROAMING_5G_RCPI_WEIGHT)
-#endif
-					     )
+					if ((prCandidateBssDesc->ucRCPI + ROAMING_NO_SWING_RCPI_STEP <=
+					     prPrimaryBssDesc->ucRCPI)
 					    && prPrimaryBssDesc->ucJoinFailureCount <= SCN_BSS_JOIN_FAIL_THRESOLD) {
 
 						prCandidateBssDesc = prPrimaryBssDesc;
@@ -2500,24 +2460,8 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 						continue;
 					}
 				} else if (prPrimaryBssDesc->fgIsConnected) {
-#if CFG_ROAMING_5G_PREFER
-					/* both RSSI < -80. keep current connected */
-					if (prCandidateBssDesc->ucRCPI < RCPI_60 && prPrimaryBssDesc->ucRCPI< RCPI_60) {
-						prCandidateBssDesc = prPrimaryBssDesc;
-						prCandidateStaRec = prPrimaryStaRec;
-						continue;
-					}
-#endif
-					if ((prCandidateBssDesc->ucRCPI
-#if CFG_ROAMING_5G_PREFER
-					     + (fgCandidateIs5G * ROAMING_5G_RCPI_WEIGHT)
-#endif
-					     <
-					     prPrimaryBssDesc->ucRCPI
-#if CFG_ROAMING_5G_PREFER
-					     + (fgPrimaryIs5G * ROAMING_5G_RCPI_WEIGHT)
-#endif
-					     + ROAMING_NO_SWING_RCPI_STEP)
+					if ((prCandidateBssDesc->ucRCPI <
+					     prPrimaryBssDesc->ucRCPI + ROAMING_NO_SWING_RCPI_STEP)
 					    || (prCandidateBssDesc->ucJoinFailureCount > SCN_BSS_JOIN_FAIL_THRESOLD)) {
 
 						prCandidateBssDesc = prPrimaryBssDesc;
@@ -2527,15 +2471,7 @@ P_BSS_DESC_T scanSearchBssDescByPolicy(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBss
 				} else if (prPrimaryBssDesc->ucJoinFailureCount > SCN_BSS_JOIN_FAIL_THRESOLD)
 					continue;
 				else if (prCandidateBssDesc->ucJoinFailureCount > SCN_BSS_JOIN_FAIL_THRESOLD ||
-					 prCandidateBssDesc->ucRCPI
-#if CFG_ROAMING_5G_PREFER
-					 + (prCandidateBssDesc->eBand == BAND_5G ? ROAMING_5G_RCPI_WEIGHT : 0)
-#endif
-					 < prPrimaryBssDesc->ucRCPI
-#if CFG_ROAMING_5G_PREFER
-					 + (prPrimaryBssDesc->eBand == BAND_5G ? ROAMING_5G_RCPI_WEIGHT : 0)
-#endif
-					 ) {
+					 prCandidateBssDesc->ucRCPI < prPrimaryBssDesc->ucRCPI) {
 
 					prCandidateBssDesc = prPrimaryBssDesc;
 					prCandidateStaRec = prPrimaryStaRec;

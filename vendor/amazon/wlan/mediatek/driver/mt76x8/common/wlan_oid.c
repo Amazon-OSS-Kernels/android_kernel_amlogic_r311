@@ -2370,13 +2370,6 @@ wlanoidSetAddKey(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer, IN UINT_32 u4Se
 
 					prAisSpecBssInfo = &prAdapter->rWifiVar.rAisSpecificBssInfo;
 					prAisSpecBssInfo->fgBipKeyInstalled = TRUE;
-					DBGLOG(RSN, INFO,
-						"Change BIP BC keyId from %d to 3\n",
-						prCmdKey->ucKeyId);
-					/* Set IGTK WTBL keyid 3 for WTBL,
-					 * so hw can search GTK correctly.
-					 */
-					prCmdKey->ucKeyId = 3;
 				}
 			}
 #endif
@@ -2511,9 +2504,6 @@ wlanoidSetAddKey(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer, IN UINT_32 u4Se
 					     prBssInfo->prStaRecOfAP->aucMacAddr,
 					     prBssInfo->prStaRecOfAP->ucIndex,
 					     prCmdKey->ucAlgorithmId, prCmdKey->ucKeyId);
-				kalMemCopy(prCmdKey->aucPeerAddr,
-					prBssInfo->prStaRecOfAP->aucMacAddr,
-					MAC_ADDR_LEN);
 			}
 
 			DBGLOG(RSN, INFO, "BIP BC wtbl index:%d\n", prCmdKey->ucWlanIndex);

@@ -1125,9 +1125,6 @@
 #define CFG_IOCTL_WAIT_FOR_COMPLETION_TIMEOUT 0
 #endif
 
-#ifndef CFG_ROAMING_5G_PREFER
-#define CFG_ROAMING_5G_PREFER 0
-#endif
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************
