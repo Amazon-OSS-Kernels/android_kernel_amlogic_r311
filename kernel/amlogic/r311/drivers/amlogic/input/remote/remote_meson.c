@@ -726,8 +726,6 @@ static int remote_probe(struct platform_device *pdev)
 	input_set_capability(chip->r_dev->input_device, EV_KEY, KEY_CUSTOM_1);
 	input_set_capability(chip->r_dev->input_device, EV_KEY, KEY_CUSTOM_2);
 	input_set_capability(chip->r_dev->input_device, EV_KEY, KEY_CUSTOM_3);
-	input_set_capability(chip->r_dev->input_device, EV_KEY, KEY_CUSTOM_6);
-	input_set_capability(chip->r_dev->input_device, EV_KEY, KEY_CUSTOM_7);
 
 	debugfs_create_u32("rtc_str_wake", 0644, NULL, &rtc_str_wake);
 
@@ -834,10 +832,6 @@ static int remote_resume(struct platform_device *pdev)
 		key_code = KEY_CUSTOM_3;
 	else if (resume_method == REMOTE_CUSTOM4_WAKEUP)
 		key_code = KEY_CUSTOM_4;
-	else if (resume_method == REMOTE_CUSTOM5_WAKEUP)
-		key_code = KEY_CUSTOM_6;
-	else if (resume_method == REMOTE_CUSTOM6_WAKEUP)
-		key_code = KEY_CUSTOM_7;
 
 	if (key_code) {
 		dev_info(chip->dev, "IR resume key is %u\n", key_code);
