@@ -25,6 +25,15 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+
+/*
+ * Portions of this file are copyright (c) 2023 Amazon.com, Inc. or its affiliates.  All rights reserved.
+ *
+ * PORTIONS OF THIS FILE ARE AMAZON PROPRIETARY/CONFIDENTIAL.  USE IS SUBJECT TO LICENSE TERMS.
+ *
+ * Amazon modifications are indicated by [fosmod_* comments].
+ */
+
 #ifndef _SYS_MMAN_H_
 #define _SYS_MMAN_H_
 
@@ -57,6 +66,18 @@ extern void* mmap(void*, size_t, int, int, int, off_t);
 extern void* mmap64(void*, size_t, int, int, int, off64_t);
 
 extern int munmap(void*, size_t);
+
+/* fosmod_memleak_debug begin */
+/* Following definitions used in bionic/libc/bionic/mmap_common.cpp */
+#if defined(__USE_FILE_OFFSET64)
+extern void* __mmap1(void*, size_t, int, int, int, off_t) __RENAME(mmap64);
+#else
+extern void* __mmap1(void*, size_t, int, int, int, off_t);
+#endif
+
+extern int __munmap1(void*, size_t);
+/* fosmod_memleak_debug end */
+
 extern int msync(const void*, size_t, int);
 extern int mprotect(const void*, size_t, int);
 extern void* mremap(void*, size_t, size_t, int, ...);

@@ -26,6 +26,14 @@
  * SUCH DAMAGE.
  */
 
+/*
+ * Portions of this file are copyright (c) 2023 Amazon.com, Inc. or its affiliates.  All rights reserved.
+ *
+ * PORTIONS OF THIS FILE ARE AMAZON PROPRIETARY/CONFIDENTIAL.  USE IS SUBJECT TO LICENSE TERMS.
+ *
+ * Amazon modifications are indicated by [fosmod_* comments].
+ */
+
 #include <pthread.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -59,17 +67,62 @@ void TrackData::GetList(std::vector<const Header*>* list) {
   });
 }
 
+/* fosmod_memleak_debug begin */
+#if defined(FOSMOD_MEMLEAK_DEBUG)
+// Keep ordered list of mmap addresses
+Header* TrackData::GetHeader(const void* addr, size_t len) {
+  uintptr_t value = reinterpret_cast<uintptr_t>(addr);
+  uintptr_t length = reinterpret_cast<uintptr_t>(len);
+  pthread_mutex_lock(&mutex_);
+  for (const auto& entry : mheaders_) {
+    uintptr_t start = entry.first;
+    Header *header = entry.second;
+    uintptr_t extent = reinterpret_cast<uintptr_t>(header->real_size());
+    if ((value >= start) && ((value + length) <= (start + extent)))  {
+      pthread_mutex_unlock(&mutex_);
+      return header;
+    }
+  }
+  pthread_mutex_unlock(&mutex_);
+  return nullptr;
+}
+#endif
+/* fosmod_memleak_debug end */
+
 void TrackData::Add(const Header* header, bool backtrace_found) {
   pthread_mutex_lock(&mutex_);
   if (backtrace_found) {
     total_backtrace_allocs_++;
   }
+  /* fosmod_memleak_debug begin */
+#if defined(FOSMOD_MEMLEAK_DEBUG)
+  if (g_debug->config().options & TRACK_MMAPS) {
+    Header* theader = reinterpret_cast<Header*>
+      (reinterpret_cast<uintptr_t>(header));
+
+    mheaders_.insert(std::make_pair(
+      reinterpret_cast<uintptr_t>(debug_->GetPointer(header)), theader));
+  }
+#endif
+  /* fosmod_memleak_debug end */
   headers_.insert(header);
   pthread_mutex_unlock(&mutex_);
 }
 
 void TrackData::Remove(const Header* header, bool backtrace_found) {
   pthread_mutex_lock(&mutex_);
+  /* fosmod_memleak_debug begin */
+#if defined(FOSMOD_MEMLEAK_DEBUG)
+  if (g_debug->config().options & TRACK_MMAPS) {
+    for (const auto& entry : mheaders_) {
+      if (entry.second == header) {
+        mheaders_.erase(entry.first);
+        break;
+      }
+    }
+  }
+#endif
+  /* fosmod_memleak_debug end */
   headers_.erase(header);
   if (backtrace_found) {
     total_backtrace_allocs_--;
@@ -113,6 +166,13 @@ void TrackData::GetInfo(uint8_t** info, size_t* overall_size, size_t* info_size,
 
   *backtrace_size = debug_->config().backtrace_frames;
   *info_size = sizeof(size_t) * 2 + sizeof(uintptr_t) * *backtrace_size;
+  /* fosmod_memleak_debug begin */
+#if defined(FOSMOD_MEMLEAK_DEBUG)
+  if (g_debug->config().options & TRACK_MMAPS) {
+    *info = reinterpret_cast<uint8_t*>(calloc(*info_size, total_backtrace_allocs_));
+  } else
+#endif
+  /* fosmod_memleak_debug end */
   *info = reinterpret_cast<uint8_t*>(g_dispatch->calloc(*info_size, total_backtrace_allocs_));
   if (*info == nullptr) {
     return;

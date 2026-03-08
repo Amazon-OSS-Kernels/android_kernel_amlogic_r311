@@ -27,6 +27,14 @@
  */
 
 /*
+ * Portions of this file are copyright (c) 2023 Amazon.com, Inc. or its affiliates.  All rights reserved.
+ *
+ * PORTIONS OF THIS FILE ARE AMAZON PROPRIETARY/CONFIDENTIAL.  USE IS SUBJECT TO LICENSE TERMS.
+ *
+ * Amazon modifications are indicated by [fosmod_* comments].
+ */
+
+/*
  * libc_init_dynamic.c
  *
  * This source files provides two important functions for dynamic
@@ -79,6 +87,7 @@ __attribute__((constructor)) static void __libc_preinit() {
 
   // Hooks for various libraries to let them know that we're starting up.
   __libc_globals.mutate(__libc_init_malloc);
+  __libc_globals.mutate(__libc_init_mmap); // fosmod_memleak_debug oneline
   netdClientInit();
 }
 
