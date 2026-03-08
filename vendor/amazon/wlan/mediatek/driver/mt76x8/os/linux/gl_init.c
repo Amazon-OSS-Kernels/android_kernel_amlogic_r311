@@ -2893,6 +2893,7 @@ VOID wlanRemove(VOID)
 
 	down(&g_halt_sem);
 	g_u4HaltFlag = 1;
+	up(&g_halt_sem);
 
 	/* 4 <2> Mark HALT, notify main thread to stop, and clean up queued requests */
 	set_bit(GLUE_FLAG_HALT_BIT, &prGlueInfo->ulFlag);
@@ -2985,8 +2986,6 @@ VOID wlanRemove(VOID)
 
 	/* 4 <5> Release the Bus */
 	glBusRelease(prDev);
-
-	up(&g_halt_sem);
 
 	/* 4 <6> Unregister the card */
 	wlanNetUnregister(prDev->ieee80211_ptr);

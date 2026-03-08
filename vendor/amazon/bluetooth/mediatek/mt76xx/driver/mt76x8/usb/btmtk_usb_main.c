@@ -40,7 +40,7 @@
 /*============================================================================*/
 /* Local Configuration */
 /*============================================================================*/
-#define VERSION "6.0.21041401"
+#define VERSION "6.0.22060201"
 
 /*============================================================================*/
 /* Function Prototype */
@@ -182,6 +182,7 @@ static struct btmtk_usb_data *g_data;
 static int probe_counter;
 static u8 need_reset_stack;
 static u8 need_reopen;
+static int send_hw_err_event_count;
 /* bluetooth KPI feautre, bperf */
 static u8 btmtk_bluetooth_kpi;
 static int leftHciEventSize;
@@ -4984,7 +4985,6 @@ static ssize_t btmtk_usb_fops_read(struct file *file, char __user *buf, size_t c
 	unsigned short tailLen = 0;
 	u8 *buffer = NULL;
 	u8 hwerr_event[] = { 0x04, 0x10, 0x01, 0xff };
-	static int send_hw_err_event_count;
 
 	FOPS_MUTEX_LOCK();
 	fstate = btmtk_fops_get_state();
@@ -5325,6 +5325,7 @@ exit:
 
 	/* In case no read from stack, and close directly */
 	need_reset_stack = HW_ERR_NONE;
+	send_hw_err_event_count = 0;
 
 	BTUSB_INFO("%s: OK", __func__);
 	return 0;
