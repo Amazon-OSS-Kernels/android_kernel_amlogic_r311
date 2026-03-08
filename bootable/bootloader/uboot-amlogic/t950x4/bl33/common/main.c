@@ -271,7 +271,7 @@ void main_loop(void)
 		if (!is_transition_done) {
 			ret = 0;
 			idme_get_var_external("oem_data", oem_data, sizeof(oem_data));
-			if (strstr(oem_data, "ABC") != NULL || strstr(oem_data, "ABC-tm") != NULL) {
+			if (strstr(oem_data, "ABC") != NULL || strstr(oem_data, "ABC-tm") != NULL || strstr(oem_data, "ABC-jb") != NULL || strstr(oem_data, "ABC-jm") != NULL || strstr(oem_data, "almondmo") != NULL || strstr(oem_data, "almondh") != NULL || strstr(oem_data, "almondb") != NULL) {
 				ret += run_command("amlmmc erase dfs", 0);
 				ret += run_command("amlmmc erase dkernel", 0);
 				ret += run_command("amlmmc erase diag_userdata", 0);
@@ -302,7 +302,7 @@ void main_loop(void)
 				printf("Transition from Diag to FOS failed\n");
 			} else {
 				printf("Transition from Diag to FOS succeed\n");
-				if (strstr(oem_data, "almond") != NULL || strstr(oem_data, "ABC-jt") != NULL || strstr(oem_data, "dahlia") != NULL) {
+				if ((strstr(oem_data, "almond") != NULL && strstr(oem_data, "almondmo") == NULL && strstr(oem_data, "almondh") == NULL && strstr(oem_data, "almondb") == NULL) || strstr(oem_data, "ABC-jt") != NULL || strstr(oem_data, "dahlia") != NULL) {
 					if (bootmode == IDME_BOOTMODE_TRANSITION) {
 						run_command("reboot", 0);
 					} else {
@@ -322,7 +322,7 @@ void main_loop(void)
 					while (1)
 						udelay(1000*1000);
 					}
-				} else if (strstr(oem_data, "ABC") != NULL || strstr(oem_data, "ABC-tm")) {
+				} else if (strstr(oem_data, "ABC") != NULL || strstr(oem_data, "ABC-tm") || strstr(oem_data, "ABC-jb") || strstr(oem_data, "ABC-jm") || strstr(oem_data, "almondmo") || strstr(oem_data, "almondh") || strstr(oem_data, "almondb")) {
 					ret = 0;
 					ret += run_command("osd open", 0);
 					ret += run_command("osd clear", 0);

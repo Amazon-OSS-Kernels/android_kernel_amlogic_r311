@@ -861,6 +861,7 @@ int checkhw(char * name)
 	unsigned int ddr_size = 0;
 	char dtb_name[64] = {0};
 	char product_name[64] = {0};
+	char config_name[64] = {0};
 	int i;
 	char amp_type[256]   = { 0 };
 	for (i=0; i<CONFIG_NR_DRAM_BANKS; i++) {
@@ -917,20 +918,33 @@ int checkhw(char * name)
 			break;
 		case 0x60000000:
 			idme_get_var_external("product_name", product_name, sizeof(product_name));
+			idme_get_var_external("config_name", config_name, sizeof(config_name));
 			if (cpu_id.chip_rev == 0xA) {
 				strcpy(dtb_name, "t5d-reva_t950d4_am301-1.5g\0");
 				setenv("cpu_version", "rev_a");
 			}
 			else if(!strcmp(amp_type, "acm8625")) {
 				strcpy(dtb_name, "t5d_t950d4_v4-hw-am301-1.5g\0");
+				setenv("tuner_version", "si2159");
 				setenv("cpu_version", "rev_b");
 			}
 			else if (strcmp("ABC", product_name) == 0) {
 				strcpy(dtb_name, "t5d_t950d4_ABC-1.5g\0");
+				setenv("tuner_version", "si2159");
+			}
+			else if ((strstr(config_name,"config_almondMO_") != NULL) || (strstr(config_name,"config_almondB_") != NULL) || (strstr(config_name,"config_almondH_") != NULL)) {
+				if(!strcmp(amp_type, "ad82120b")){
+					strncpy(dtb_name, "t5d_t950d4_ad82120b-hw-am301-1.5g\0", sizeof(dtb_name) - 1);
+				} else if (!strcmp(amp_type, "ad82088d")){
+					strncpy(dtb_name, "t5d_t950d4_ad82088d-hw-am301-1.5g\0", sizeof(dtb_name) - 1);
+				}
+				setenv("tuner_version", "si2151");
+				setenv("cpu_version", "rev_b");
 			}
 			else {
 				strcpy(dtb_name, "t5d_t950d4_proto-am301-1.5g\0");
 				setenv("cpu_version", "rev_b");
+				setenv("tuner_version", "si2159");
 			}
 			setenv("mem_size", "1.5g");
 			break;

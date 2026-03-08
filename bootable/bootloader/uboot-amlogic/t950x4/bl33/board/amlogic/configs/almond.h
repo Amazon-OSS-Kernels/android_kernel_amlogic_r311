@@ -57,7 +57,7 @@
 
 #define UBOOT_TARGET_PRODUCT_NAME_ALMOND
 
-//#define USB_UPGRADE_IN_ONE_FILE
+#define USB_UPGRADE_IN_ONE_FILE
 
 /* Bootloader Control Block function
    That is used for recovery and the bootloader to talk to each other
@@ -90,7 +90,7 @@
 
 #ifdef USB_UPGRADE_IN_ONE_FILE
 #define USB_TOOLS_NO_ERASE_CRI_DATA             1
-#define CONFIG_PROTECT_USR_PARTITION            "cri_data"
+#define CONFIG_PROTECT_USR_PARTITION            {"cri_data"}
 #endif
 
 /* args/envs */
@@ -137,6 +137,7 @@
         "video_reverse=0\0"\
         "active_slot=normal\0"\
         "boot_part=boot\0"\
+        "transition_done=0\0"\
         "suspend=off\0"\
         "bypass_standby=0\0"\
         "powermode=standby\0"\
@@ -149,7 +150,6 @@
         "cec_fun=0x2F\0" \
         "logic_addr=0x0\0" \
         "cec_ac_wakeup=1\0" \
-        "rpmb_state=0\0" \
         "cpu_version=rev_a\0" \
         "Dolby_enabled=no\0" \
         "DTS_enabled=no\0" \
@@ -161,6 +161,7 @@
         "bl_level=234\0"\
         "bl_off=none\0"\
         "bl_status=1\0"\
+	"tuner_version=si2159\0"\
         "hw_version=HVT\0"\
         "ammo_pv=0\0"\
         "initargs="\
@@ -184,6 +185,7 @@
 	    "setenv bootargs ${bootargs} androidboot.ammo.prod.var=${ammo_pv}; "\
 	    "setenv bootargs ${bootargs} androidboot.mem_size=${mem_size};"\
 	    "setenv bootargs ${bootargs} androidboot.reboot_mode=${reboot_mode};"\
+	    "setenv bootargs ${bootargs} androidboot.tuner_version=${tuner_version};"\
 	    "setenv bootargs ${bootargs} lcd_ctrl=${lcd_ctrl};"\
 	    "setenv bootargs ${bootargs} bl_status=${bl_status}; "\
             "if test ${reboot_mode_android} = quiescent; then "\
@@ -294,7 +296,7 @@
             "else "\
                 "setenv bootargs ${bootargs} $(fs_type);"\
             "fi;"\
-            "get_valid_slot;"\
+/*            "get_valid_slot;"\  */\
             "get_avb_mode;"\
             "echo active_slot: ${active_slot} avb2: ${avb2};"\
             "if test ${active_slot} != normal; then "\
@@ -361,7 +363,7 @@
                 "bootm ${loadaddr};fi;"\
             "\0"\
         "recovery_from_flash="\
-            "get_valid_slot;"\
+/*            "get_valid_slot;"\  */\
             "echo active_slot: ${active_slot};"\
             "if test ${active_slot} = normal; then "\
                 "setenv bootargs ${bootargs} ${fs_type} aml_dt=${aml_dt} recovery_part=${recovery_part} recovery_offset=${recovery_offset};"\
@@ -455,10 +457,19 @@
                     "setenv bootargs ${bootargs} androidboot.oem.key1=${oemkey};"\
                 "fi;"\
             "fi;"\
+            "fi;"\
+            "rpmb_state;"\
+            "if itest ${rpmb_state} == 0; then "\
+		"echo prepare enable rpmb;"\
+                "reboot rpmbp;"\
+            "fi;"\
+            "if itest ${rpmb_state} == 1; then "\
+		"echo rpmb has been enabled;"\
+            "fi;"\
             "\0"\
         "bcb_cmd="\
             "get_rebootmode;"\
-            "get_valid_slot;"\
+/*            "get_valid_slot;"\ */\
             "\0"\
         "upgrade_key="\
             "if gpio input GPIOAO_3; then "\

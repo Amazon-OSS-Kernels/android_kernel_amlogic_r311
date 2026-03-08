@@ -202,7 +202,20 @@ int android_image_update_usb_mode(const char * line)
 
     printf("USB mode:%s\n", (usb_mode == 1) ? "device" : "host");
     *otg_device = usb_mode+48;
-
+    char config_name[64] = {0};
+    idme_get_var_external("config_name", config_name, sizeof(config_name));
+    /*special usb design for abc123 and abc123*/
+    if((strstr(config_name,"abc123") != NULL) || (strstr(config_name,"abc123") != NULL)){
+        if (usb_mode == 0) {
+                printf("Enable usb 5v\n");
+                run_command("gpio set GPIOH_19",0);
+                run_command("gpio set GPIOH_18",0);
+        } else {
+                printf("Disable usb 5v\n");
+                run_command("gpio clear GPIOH_19",0); /*OTG port, need power off when device mode*/
+                run_command("gpio set GPIOH_18",0);  /*this port will only be host mode*/
+        }
+    } else{
 	if (usb_mode == 0) {
 		printf("Enable usb 5v\n");
 		run_command("gpio set GPIOH_11",0);
@@ -210,6 +223,7 @@ int android_image_update_usb_mode(const char * line)
 		printf("Disable usb 5v\n");
 		run_command("gpio clear GPIOH_11",0);
 	}
+    }
 	mdelay(100);
 
     return 0;
