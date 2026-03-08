@@ -25,11 +25,12 @@
 #include "di_pqa.h"
 static unsigned int field_diff_rate;
 
-static unsigned int flm22_sure_num = 100;
-static unsigned int flm22_sure_smnum = 70;
+static unsigned int flm22_sure_num = 53;
+static unsigned int flm22_sure_smnum = 65;
 static unsigned int flm22_ratio = 200;
 /* 79 for iptv test pd22 ts */
 module_param_named(flm22_ratio, flm22_ratio, uint, 0644);
+module_param_named(flm22_sure_smnum, flm22_sure_smnum, uint, 0644);
 
 static struct sFlmSftPar pd_param;
 static struct FlmDectRes dectres;
@@ -241,6 +242,13 @@ unsigned int pulldown_detection(struct pulldown_detected_s *res,
 
 		flm22 = (dectres.rFlmPstMod == 1  &&
 			dectres.rF22Flag >= flm22_surenum);
+		if ((pr_pd >> 1) & 0x1) {
+			pr_info("flm22=%d, rFlmPstMod=%d, rF22Flag=%d\n ",
+			flm22, dectres.rFlmPstMod, dectres.rF22Flag);
+			pr_info("flm22_surenum=%d, flm22_sure_num=%d\n",
+			flm22_surenum, flm22_sure_num);
+		}
+
 		if (dectres.rFlmPstMod >= 4)
 			flmxx = (dectres.rF22Flag >=
 				flmxx_sure_num[dectres.rFlmPstMod - 4]);
@@ -347,7 +355,7 @@ unsigned int pulldown_detection(struct pulldown_detected_s *res,
 
 unsigned char pulldown_init(unsigned short width, unsigned short height)
 {
-	flm22_sure_num = (height * 100) / 480;
+	flm22_sure_num = (height * flm22_sure_num) / 480;
 	flm22_sure_smnum = (flm22_sure_num * flm22_ratio)/100;
 	pd_param.width = width;
 	pd_param.height = height;

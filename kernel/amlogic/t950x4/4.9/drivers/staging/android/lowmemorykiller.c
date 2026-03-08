@@ -259,6 +259,21 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 				global_node_page_state(NR_UNEVICTABLE) -
 				total_swapcache_pages();
 
+#ifdef CONFIG_AMLOGIC_CMA
+	int free_cma   = 0;
+	int file_cma   = 0;
+	int cma_forbid = 0;
+
+	if (cma_forbidden_mask(sc->gfp_mask) && !current_is_kswapd()) {
+		free_cma    = global_page_state(NR_FREE_CMA_PAGES);
+		file_cma    = global_page_state(NR_INACTIVE_FILE_CMA) +
+			      global_page_state(NR_ACTIVE_FILE_CMA);
+		other_free -= free_cma;
+		other_file -= file_cma;
+		cma_forbid  = 1;
+	}
+#endif /* CONFIG_AMLOGIC_CMA */
+
 #ifdef CONFIG_AMLOGIC_MEMORY_EXTEND
 	if (current_is_kswapd()) {
 		struct zone *zone;

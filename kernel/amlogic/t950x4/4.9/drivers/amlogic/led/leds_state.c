@@ -32,7 +32,7 @@ static void meson_ledled_set_twenty_percent(struct work_struct *work)
 {
 #ifdef CONFIG_NEW_LED_BR
 	pr_info("%s set brightness to 50%%\n", DRIVER_NAME);
-        meson_led_state_set_brightness(0, 128);/* 50 percent brightness */
+	meson_led_state_set_brightness(0, 40);/* 50 percent brightness */
 #else
 	char oem_data[128] = {0};
 	idme_get_oem_data(oem_data);
@@ -160,7 +160,31 @@ static ssize_t amazon_led_pattern_show(struct device *dev,
 	/* TODO: */
 	return 0;
 }
+static int get_led_flag(void)
+{
+	char val_buf[64];
+	int ret;
+	int led_flag = 0;
+
+	char *rootfsmtd_ptr = strstr(saved_command_line,
+			"androidboot.led_flag=");
+	if (rootfsmtd_ptr) {
+		ret = sscanf(rootfsmtd_ptr,
+			"androidboot.led_flag=%s", val_buf);
+		if (ret == -1)
+			return -1;
+		pr_info("%s Found androidboot.led_flag=%s\n",
+		DRIVER_NAME, val_buf);
+	}
+	ret = kstrtoint(val_buf, 10, &led_flag);
+	if (ret)
+		return -1;
+	return led_flag;
+}
+
 #define DEFAULT_LED_ID 0
+#define abc123_LED_RED_ID 1
+#define abc123_LED_GREEN_ID 0
 static ssize_t amazon_led_pattern_store(struct device *dev,
 			   struct device_attribute *attr,
 			   const char *buf, size_t size)
@@ -171,6 +195,7 @@ static ssize_t amazon_led_pattern_store(struct device *dev,
 
 	int pattern;
 	int res;
+	int led_flag;
 
 	res = kstrtoint(buf, 10, &pattern);/*sscanf(buf, "%d", &pattern);*/
 	if (res != 0) {
@@ -181,35 +206,70 @@ static ssize_t amazon_led_pattern_store(struct device *dev,
 
 	pr_info("%s store=%d\n", DRIVER_NAME, pattern);
 	cancel_delayed_work_sync(&data->led_work);
-
-	switch (pattern) {
-	case 1:
-		meson_led_state_set_brightness(DEFAULT_LED_ID, 51);
-		break;
-	case 2:
-		meson_led_state_set_brightness(DEFAULT_LED_ID, 0);
-		break;
-	case 3:
-		meson_led_state_set_breath(DEFAULT_LED_ID, 4);
-		break;
-	case 4:
-		meson_led_state_set_blink_off(DEFAULT_LED_ID,
-			MESON_LEDS_MAX_BLINK_CNT, 500, 500, 0, 0);
-		break;
-	case 5:
-		meson_led_state_set_blink_off(DEFAULT_LED_ID,
-			1, 500, 500, 0, 0);
-		break;
-	case 6:
-		meson_led_state_set_blink_off(DEFAULT_LED_ID, 1, 500, 500, 0, 0);
-		//msleep(1100);
-		schedule_delayed_work(&data->led_work, msecs_to_jiffies(1100));
-		break;
-	default:
-		dev_err(dev, "unknown led pattern,only support 1-6 patterns\n");
-		break;
+	led_flag = get_led_flag();
+	pr_info("%s led_flag=%d\n", DRIVER_NAME, led_flag);
+	if (led_flag == 2) {
+		switch (pattern) {
+		case 1:
+			meson_led_state_set_brightness(abc123_LED_RED_ID, 51);
+			meson_led_state_set_brightness(abc123_LED_GREEN_ID, 0);
+			break;
+		case 2:
+			meson_led_state_set_brightness(abc123_LED_GREEN_ID, 0);
+			meson_led_state_set_brightness(abc123_LED_RED_ID, 0);
+			break;
+		case 3:
+			meson_led_state_set_brightness(abc123_LED_GREEN_ID, 51);
+			meson_led_state_set_brightness(abc123_LED_RED_ID, 0);
+			break;
+		case 4:
+			meson_led_state_set_blink_off(abc123_LED_RED_ID,
+				0, 500, 500, 0, 0);
+			meson_led_state_set_brightness(abc123_LED_GREEN_ID, 0);
+			break;
+		case 5:
+			meson_led_state_set_blink_off(abc123_LED_GREEN_ID,
+				0, 500, 500, 0, 0);
+			meson_led_state_set_brightness(abc123_LED_RED_ID, 0);
+			break;
+		case 6:
+			meson_led_state_set_blink_off(DEFAULT_LED_ID, 1, 500, 500, 0, 0);
+			//msleep(1100);
+			schedule_delayed_work(&data->led_work, msecs_to_jiffies(1100));
+			break;
+		default:
+			dev_err(dev, "unknown led pattern,only support 1-6 patterns\n");
+			break;
+		}
+	} else {
+		switch (pattern) {
+		case 1:
+			meson_led_state_set_brightness(DEFAULT_LED_ID, 51);
+			break;
+		case 2:
+			meson_led_state_set_brightness(DEFAULT_LED_ID, 0);
+			break;
+		case 3:
+			meson_led_state_set_breath(DEFAULT_LED_ID, 4);
+			break;
+		case 4:
+			meson_led_state_set_blink_off(DEFAULT_LED_ID,
+					MESON_LEDS_MAX_BLINK_CNT, 500, 500, 0, 0);
+			break;
+		case 5:
+			meson_led_state_set_blink_off(DEFAULT_LED_ID,
+					1, 500, 500, 0, 0);
+			break;
+		case 6:
+			meson_led_state_set_blink_off(DEFAULT_LED_ID, 1, 500, 500, 0, 0);
+			//msleep(1100);
+			schedule_delayed_work(&data->led_work, msecs_to_jiffies(1100));
+			break;
+		default:
+			dev_err(dev, "unknown led pattern,only support 1-6 patterns\n");
+			break;
+		}
 	}
-
 	return size;
 }
 

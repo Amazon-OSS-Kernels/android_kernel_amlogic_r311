@@ -2142,8 +2142,8 @@ static int hdmirx_switch_pinmux(struct device *dev)
 static void rx_phy_suspend(void)
 {
 	/* set HPD low when cec off or TV auto power on disabled. */
-	if (!hdmi_cec_en || !tv_auto_power_on)
-		rx_set_port_hpd(ALL_PORTS, 0);
+	//if (!hdmi_cec_en || !tv_auto_power_on)
+	//	rx_set_port_hpd(ALL_PORTS, 0);
 	if (suspend_pddq_sel == 0)
 		rx_pr("don't set phy pddq down\n");
 	else {

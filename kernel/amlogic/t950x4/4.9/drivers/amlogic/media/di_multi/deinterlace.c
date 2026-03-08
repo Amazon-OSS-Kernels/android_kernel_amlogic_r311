@@ -10187,7 +10187,7 @@ static void di_pre_size_change(unsigned short width,
 	/*det3d_config*/
 	get_ops_3d()->det3d_config(dimp_get(edi_mp_det3d_en) ? 1 : 0);
 	#endif
-	if (dimp_get(edi_mp_pulldown_enable)) {
+	if (cpu_after_eq(MESON_CPU_MAJOR_ID_G12A)) {
 		/*pulldown_init(width, height);*/
 		get_ops_pd()->init(width, height);
 		dimh_init_field_mode(height);

@@ -60,7 +60,7 @@ UINT8 FlmVOFSftInt(struct sFlmSftPar *pPar)
 	pPar->flm22_en = 1;
 	pPar->flm32_en = 1;
 	pPar->flm22_force = 0;
-	pPar->flm22_flag = 1;
+	pPar->flm22_flag = 0;
 	pPar->flm22_avg_flag = 0;
 	pPar->flm2224_flag = 1;
 	pPar->flm22_comlev = 22;
@@ -179,7 +179,7 @@ int flm22_lavg_sft = 4;
 module_param(flm22_lavg_sft, int, 0644);
 MODULE_PARM_DESC(flm22_lavg_sft, "flm22_lavg_sft");
 
-int flm22_lavg_lg = 24;
+int flm22_lavg_lg = 64;
 module_param(flm22_lavg_lg, int, 0644);
 MODULE_PARM_DESC(flm22_lavg_lg, "flm22_lavg_lg");
 
@@ -598,6 +598,10 @@ int FlmVOFSftTop(UINT8 *rCmb32Spcl, unsigned short *rPstCYWnd0,
 		*rFlmPstMod = 1;
 		nS1 = 300; /*increase flm22_force level from vlsi-yanling*/
 	}
+	if (pr_pd)
+		pr_info("1. flm22_force = %d, rFlmPstMod = %d\n",
+		flm22_force, *rFlmPstMod);
+
 	pre_fld_motnum = glb_field_mot_num;
 
 	comsum = VOFSftTop(rFlmPstGCm, rFlmSltPre, rFlmPstMod,
@@ -615,6 +619,16 @@ int FlmVOFSftTop(UINT8 *rCmb32Spcl, unsigned short *rPstCYWnd0,
 		*rFlmPstMod = 4 + pRDat.pModXx[HISDETNUM - 1 - mDly];
 		nS1 = pRDat.pLvlXx[HISDETNUM - 1 - mDly];
 	}
+
+	if (((flm22_force >> 4) & 0x1) == 1 && (flm22_force & 0xF) < 5) {
+		*rFlmSltPre = nDIF01[HISDIFNUM-1] > nDIF01[HISDIFNUM-2] ? 1 : 0;
+		*rFlmPstMod = (flm22_force & 0xF);
+		nS1 = 300;
+	}
+	if (pr_pd)
+		pr_info("2. flm22_force = %d, rFlmPstMod = %d, nS1 = %d\n",
+		flm22_force, *rFlmPstMod, nS1);
+
 	*dif01flag = 2;
 	if (*rFlmPstMod == 0)
 		*dif01flag = DIweavedetec(pPar, rROFldDif01[0]);

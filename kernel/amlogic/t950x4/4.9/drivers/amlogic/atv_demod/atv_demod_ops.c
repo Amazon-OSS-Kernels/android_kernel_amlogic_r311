@@ -71,7 +71,6 @@ void aml_fe_get_atvaudio_state(int *state)
 			? amlatvdemod_devp->v4l2_fe.fe.analog_demod_priv : NULL;
 
 	if (priv == NULL) {
-		pr_err("priv == NULL\n");
 		*state = 0;
 		return;
 	}
