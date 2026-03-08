@@ -167,10 +167,6 @@
 #define CFG_SUPPORT_DFS_MASTER      1
 #endif
 
-#ifndef CFG_DFS_NEWCH_DFS_FORCE_DISCONNECT
-#define CFG_DFS_NEWCH_DFS_FORCE_DISCONNECT          1
-#endif
-
 #if (CFG_SUPPORT_DFS == 1)	/* Add by Enlai */
 #define CFG_SUPPORT_QUIET           1	/* Quiet (802.11h) */
 #define CFG_SUPPORT_SPEC_MGMT       1	/* Spectrum Management (802.11h): TPC and DFS */
@@ -1125,9 +1121,6 @@
 #define CFG_IOCTL_WAIT_FOR_COMPLETION_TIMEOUT 0
 #endif
 
-#ifndef CFG_ROAMING_5G_PREFER
-#define CFG_ROAMING_5G_PREFER 0
-#endif
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************
