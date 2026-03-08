@@ -166,6 +166,10 @@ BOOLEAN kalP2PGetTkipCipher(IN P_GLUE_INFO_T prGlueInfo, IN UINT_8 ucRoleIdx);
 
 BOOLEAN kalP2PGetCcmpCipher(IN P_GLUE_INFO_T prGlueInfo, IN UINT_8 ucRoleIdx);
 
+#if CFG_SUPPORT_SUITB
+BOOLEAN kalP2PGetGcmp256Cipher(IN P_GLUE_INFO_T prGlueInfo, IN UINT_8 ucRoleIdx);
+#endif
+
 VOID kalP2PSetWscMode(IN P_GLUE_INFO_T prGlueInfo, IN UINT_8 ucWscMode);
 
 UINT_8 kalP2PGetWscMode(IN P_GLUE_INFO_T prGlueInfo);

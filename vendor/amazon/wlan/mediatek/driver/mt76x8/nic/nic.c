@@ -681,7 +681,7 @@ VOID nicProcessAbnormalInterrupt(IN P_ADAPTER_T prAdapter)
 	HAL_MCR_RD(prAdapter, MCR_WASR, &u4Value);
 	DBGLOG(REQ, WARN, "MCR_WASR: 0x%lx\n", u4Value);
 #if CFG_CHIP_RESET_SUPPORT
-	glResetTrigger(prAdapter);
+	GL_RESET_TRIGGER(prAdapter, RST_PROCESS_ABNORMAL_INT);
 #endif
 }
 
@@ -1490,6 +1490,12 @@ WLAN_STATUS nicUpdateBss(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIndex)
 	else {
 #if CFG_ENABLE_WIFI_DIRECT
 		if (prAdapter->fgIsP2PRegistered) {
+#if CFG_SUPPORT_SUITB
+			if (kalP2PGetGcmp256Cipher(prAdapter->prGlueInfo, (UINT_8) prBssInfo->u4PrivateData)) {
+				rCmdSetBssInfo.ucAuthMode = (UINT_8) AUTH_MODE_WPA2_PSK;
+				rCmdSetBssInfo.ucEncStatus = (UINT_8) ENUM_ENCRYPTION4_ENABLED;
+			} else
+#endif
 			if (kalP2PGetCcmpCipher(prAdapter->prGlueInfo, (UINT_8) prBssInfo->u4PrivateData)) {
 				rCmdSetBssInfo.ucAuthMode = (UINT_8) AUTH_MODE_WPA2_PSK;
 				rCmdSetBssInfo.ucEncStatus = (UINT_8) ENUM_ENCRYPTION3_ENABLED;
@@ -1598,6 +1604,8 @@ WLAN_STATUS nicPmIndicateBssCreated(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssInd
 	P_BSS_INFO_T prBssInfo;
 	CMD_INDICATE_PM_BSS_CREATED rCmdIndicatePmBssCreated;
 
+	kalMemZero(&rCmdIndicatePmBssCreated, sizeof(CMD_INDICATE_PM_BSS_CREATED));
+
 	ASSERT(prAdapter);
 	ASSERT(ucBssIndex <= MAX_BSS_INDEX);
 
@@ -1633,6 +1641,8 @@ WLAN_STATUS nicPmIndicateBssConnected(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssI
 {
 	P_BSS_INFO_T prBssInfo;
 	CMD_INDICATE_PM_BSS_CONNECTED rCmdIndicatePmBssConnected;
+
+	kalMemZero(&rCmdIndicatePmBssConnected, sizeof(CMD_INDICATE_PM_BSS_CONNECTED));
 
 	ASSERT(prAdapter);
 	ASSERT(ucBssIndex <= MAX_BSS_INDEX);
@@ -1694,6 +1704,8 @@ WLAN_STATUS nicPmIndicateBssAbort(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIndex
 {
 	CMD_INDICATE_PM_BSS_ABORT rCmdIndicatePmBssAbort;
 
+	kalMemZero(&rCmdIndicatePmBssAbort, sizeof(CMD_INDICATE_PM_BSS_ABORT));
+
 	ASSERT(prAdapter);
 	ASSERT(ucBssIndex <= MAX_BSS_INDEX);
 
@@ -1751,6 +1763,8 @@ nicConfigPowerSaveWowProfile(IN P_ADAPTER_T prAdapter, UINT_8 ucBssIndex, PARAM_
 
 	CMD_PS_PROFILE_T rPowerSaveMode;
 
+	kalMemZero(&rPowerSaveMode, sizeof(CMD_PS_PROFILE_T));
+
 	if (fgSuspend) {
 
 		rPowerSaveMode.ucBssIndex = ucBssIndex;
@@ -1791,6 +1805,8 @@ WLAN_STATUS nicEnterCtiaMode(IN P_ADAPTER_T prAdapter, BOOLEAN fgEnterCtia, BOOL
 	CMD_SW_DBG_CTRL_T rCmdSwCtrl;
 	/* CMD_ACCESS_REG rCmdAccessReg; */
 	WLAN_STATUS rWlanStatus;
+
+	kalMemZero(&rCmdSwCtrl, sizeof(CMD_SW_DBG_CTRL_T));
 
 	DEBUGFUNC("nicEnterCtiaMode");
 	DBGLOG(INIT, TRACE, "nicEnterCtiaMode: %d\n", fgEnterCtia);
@@ -1873,6 +1889,8 @@ WLAN_STATUS nicEnterTPTestMode(IN P_ADAPTER_T prAdapter, IN UINT_8 ucFuncMask)
 	WLAN_STATUS rWlanStatus;
 	UINT_8 ucBssIdx;
 	P_BSS_INFO_T prBssInfo;
+
+	kalMemZero(&rCmdSwCtrl, sizeof(CMD_SW_DBG_CTRL_T));
 
 	ASSERT(prAdapter);
 
@@ -2070,6 +2088,8 @@ WLAN_STATUS nicQmUpdateWmmParms(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIndex)
 {
 	P_BSS_INFO_T prBssInfo;
 	CMD_UPDATE_WMM_PARMS_T rCmdUpdateWmmParms;
+
+	kalMemZero(&rCmdUpdateWmmParms, sizeof(CMD_UPDATE_WMM_PARMS_T));
 
 	ASSERT(prAdapter);
 

@@ -334,7 +334,10 @@ VOID nicCmdEventPfmuTagRead(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo,
 	g_rPfmuTag1 = prPfumTagRead->ru4TxBfPFMUTag1;
 	g_rPfmuTag2 = prPfumTagRead->ru4TxBfPFMUTag2;
 
-	kalOidComplete(prGlueInfo, prCmdInfo->fgSetQuery, u4QueryInfoLen, WLAN_STATUS_SUCCESS);
+	if(prCmdInfo->fgIsOid){
+		kalOidComplete(prGlueInfo, prCmdInfo->fgSetQuery, u4QueryInfoLen, WLAN_STATUS_SUCCESS);
+		prCmdInfo->fgIsOid = FALSE;
+	}
 
 	DBGLOG(INIT, INFO, "========================== (R)Tag1 info ==========================\n");
 
@@ -2070,7 +2073,7 @@ VOID nicCmdEventQueryCalBackupV2(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmd
 VOID nicEventQueryMemDump(IN P_ADAPTER_T prAdapter, IN PUINT_8 pucEventBuf, IN UINT_32 u4EventBufLen)
 {
 	P_EVENT_DUMP_MEM_T prEventDumpMem;
-	static UINT_8 aucPath[256];
+	static UINT_8 aucPath[256] = { 0 }; // initialized all zeros
 	static UINT_8 aucPath_done[300];
 	static UINT_32 u4CurTimeTick;
 
@@ -2171,7 +2174,7 @@ VOID nicCmdEventQueryMemDump(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo
 	UINT_32 u4QueryInfoLen;
 	P_GLUE_INFO_T prGlueInfo;
 	P_EVENT_DUMP_MEM_T prEventDumpMem;
-	static UINT_8 aucPath[256];
+	static UINT_8 aucPath[256] = { 0 }; // initialized all zeros
 /*	static UINT_8 aucPath_done[300]; */
 	static UINT_32 u4CurTimeTick;
 
@@ -2194,6 +2197,12 @@ VOID nicCmdEventQueryMemDump(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo
 			return;
 		}
 		u4QueryInfoLen = sizeof(P_PARAM_CUSTOM_MEM_DUMP_STRUCT_T);
+
+		/* Currently, only allow to dump max to 4K bytes (per command). */
+		if(prEventDumpMem->u4Length > MAX_MEMORY_DUMP_SIZE) {
+			DBGLOG(INIT, WARN, "SKIP DUMP FILE: Invalid u4Length (%d)\n", prEventDumpMem->u4Length);
+			goto write_file_done;
+		}
 
 		if (prEventDumpMem->ucFragNum == 1) {
 			/* Store memory dump into sdcard,
@@ -2224,12 +2233,16 @@ VOID nicCmdEventQueryMemDump(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo
 #endif
 			kalWriteToFile(aucPath, FALSE, &prEventDumpMem->aucBuffer[0], prEventDumpMem->u4Length);
 		} else {
-			/* Append current memory dump to the hex file */
-			kalWriteToFile(aucPath, TRUE, &prEventDumpMem->aucBuffer[0], prEventDumpMem->u4Length);
+			if (kalCheckPath(aucPath) == -1)
+				DBGLOG(INIT, WARN, "Dump file:%s invalid while receiving frag[%d] pkt (not 1st frag), skip dumpping.\n", aucPath, prEventDumpMem->ucFragNum);
+			else
+				/* Append current memory dump to the hex file */
+				kalWriteToFile(aucPath, TRUE, &prEventDumpMem->aucBuffer[0], prEventDumpMem->u4Length);
 		}
 #if CFG_SUPPORT_QA_TOOL
 		TsfRawData2IqFmt(prEventDumpMem);
 #endif /* CFG_SUPPORT_QA_TOOL */
+write_file_done:
 		if (prEventDumpMem->u4RemainLength == 0 || prEventDumpMem->u4Address == 0xFFFFFFFF) {
 			/* The request is finished or firmware response a error */
 			/* Reply time tick to iwpriv */
@@ -3366,8 +3379,20 @@ VOID nicEventBeaconTimeout(IN P_ADAPTER_T prAdapter, IN P_WIFI_EVENT_T prEvent, 
 		 */
 		prBssInfo->u2DeauthReason = prEventBssBeaconTimeout->ucReasonCode;
 
-		if (prEventBssBeaconTimeout->ucBssIndex == prAdapter->prAisBssInfo->ucBssIndex)
+		if (prEventBssBeaconTimeout->ucBssIndex == prAdapter->prAisBssInfo->ucBssIndex) {
+#if CFG_SUPPORT_CFG80211_AUTH
+			if (!timerPendingTimer(&prAdapter->rWifiVar.rAisFsmInfo.rBeaconLostTimer))
+				cnmTimerStartTimer(prAdapter,
+							&prAdapter->rWifiVar.rAisFsmInfo.rBeaconLostTimer,
+							prAdapter->rWifiVar.ucWaitConnect * MSEC_PER_SEC);
+
+			kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
+						WLAN_STATUS_BEACON_TIMEOUT, NULL, 0);
+#else
 			aisBssBeaconTimeout(prAdapter, prEventBssBeaconTimeout->ucReasonCode);
+#endif
+		}
+
 #if CFG_ENABLE_WIFI_DIRECT
 		else if (prBssInfo->eNetworkType == NETWORK_TYPE_P2P)
 			p2pRoleFsmRunEventBeaconTimeout(prAdapter, prBssInfo);
@@ -4004,6 +4029,12 @@ VOID nicEventGetGtkDataSync(IN P_ADAPTER_T prAdapter, IN P_WIFI_EVENT_T prEvent,
 	prDetRplyInfo->ucCurKeyId = prGtkData->ucCurKeyId;
 	ucCurKeyId = prDetRplyInfo->ucCurKeyId;
 
+	/* index bounds check */
+	if (ucCurKeyId >= 4)
+	{
+		DBGLOG(RSN, WARN, "Invalid KeyId of PN: %d, out of bound.\n", ucCurKeyId);
+		return;
+	}
 	kalMemZero(prDetRplyInfo->arReplayPNInfo[ucCurKeyId].auPN, NL80211_REPLAY_CTR_LEN);
 
 #if 0

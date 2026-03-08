@@ -82,6 +82,7 @@
 #if CFG_ENABLE_WIFI_DIRECT
 #include "gl_p2p_os.h"
 #endif
+#include "gl_rst.h"
 
 /*
 * #if CFG_SUPPORT_QA_TOOL
@@ -1081,12 +1082,13 @@ priv_get_int(IN struct net_device *prNetDev,
 	case PRIV_CMD_DUMP_MEM:
 		prNdisReq = (P_NDIS_TRANSPORT_STRUCT) &aucOidBuf[0];
 
-#if 1
-		if (!prGlueInfo->fgMcrAccessAllowed) {
+		if (!prGlueInfo->fgMcrAccessAllowed
+			|| !capable(CAP_NET_ADMIN)) {
+			DBGLOG(REQ, WARN, "Access Denied\n");
 			status = 0;
 			return status;
 		}
-#endif
+
 		kalMemCopy(&prNdisReq->ndisOidContent[0], &pu4IntBuf[1], 8);
 
 		prNdisReq->ndisOidCmd = OID_CUSTOM_MEM_DUMP;
@@ -1908,11 +1910,9 @@ priv_get_ndis(IN struct net_device *prNetDev, IN NDIS_TRANSPORT_STRUCT * prNdisR
 * \brief The routine handles ATE set operation.
 *
 * \param[in] pDev Net device requested.
-* \param[in] ndisReq Ndis request OID information copy from user.
-* \param[out] outputLen_p If the call is successful, returns the number of
-*                         bytes written into the query buffer. If the
-*                         call failed due to invalid length of the query
-*                         buffer, returns the amount of storage needed..
+* \param[in] prIwReqInfo pointer to iwreq structure.
+* \param[in] prIwReqData The ioctl data structure, use the field of sub-command.
+* \param[in] pcExtra the buffer with input value.
 *
 * \retval 0 On success.
 * \retval -EOPNOTSUPP If cmd is not supported.
@@ -2544,6 +2544,10 @@ reqExtSetAcpiDevicePowerState(IN P_GLUE_INFO_T prGlueInfo,
 #endif
 
 #define CMD_WIFI_DISABLE_TEST  	"WIFI_DISABLE_TEST"
+#if CFG_CHIP_RESET_SUPPORT
+#define CMD_GET_FW_RESET_CNT		"GET_FW_RESET_CNT"
+#define CMD_RESET_FW_RESET_CNT		"RST_FW_RESET_CNT"
+#endif
 
 static UINT_8 g_ucMiracastMode = MIRACAST_MODE_OFF;
 
@@ -3407,6 +3411,7 @@ static int priv_driver_get_wtbl_info(IN struct net_device *prNetDev, IN char *pc
 	prHwWlanInfo = (P_PARAM_HW_WLAN_INFO_T)kalMemAlloc(sizeof(PARAM_HW_WLAN_INFO_T), VIR_MEM_TYPE);
 	if (!prHwWlanInfo)
 		return -1;
+	kalMemZero(prHwWlanInfo, sizeof(PARAM_HW_WLAN_INFO_T));
 
 	if (i4Argc >= 2) {
 		u4Ret = kalkStrtou32(apcArgv[1], 0, &prHwWlanInfo->u4Index);
@@ -3503,6 +3508,7 @@ static int priv_driver_get_sta_info(IN struct net_device *prNetDev, IN char *pcC
 		i4BytesWritten = -1;
 		goto out;
 	}
+	kalMemZero(prHwWlanInfo, sizeof(PARAM_HW_WLAN_INFO_T));
 	prHwWlanInfo->u4Index = ucWlanIndex;
 
 	DBGLOG(REQ, INFO, "MT6632 : index = %d i4TotalLen = %d\n", prHwWlanInfo->u4Index, i4TotalLen);
@@ -3598,6 +3604,7 @@ static int priv_driver_get_mib_info(IN struct net_device *prNetDev, IN char *pcC
 	prHwMibInfo = (P_PARAM_HW_MIB_INFO_T)kalMemAlloc(sizeof(PARAM_HW_MIB_INFO_T), VIR_MEM_TYPE);
 	if (!prHwMibInfo)
 		return -1;
+	kalMemZero(prHwMibInfo, sizeof(PARAM_HW_MIB_INFO_T));
 
 	if (i4Argc == 1)
 		prHwMibInfo->u4Index = 0;
@@ -3697,6 +3704,14 @@ static int priv_driver_get_mib_info(IN struct net_device *prNetDev, IN char *pcC
 			"\tRx type err drop=%llu\n", RX_GET_CNT(prRxCtrl, RX_TYPE_ERR_DROP_COUNT));
 		i4BytesWritten += kalScnprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
 			"\tRx class err drop=%llu\n", RX_GET_CNT(prRxCtrl, RX_CLASS_ERR_DROP_COUNT));
+#if CFG_KEY_ERROR_STATISTIC_RECOVERY
+		i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
+			"\tRx BMC cipher mismatch=%llu\n", RX_GET_CNT(prRxCtrl, RX_BMC_NO_KEY_COUNT));
+		i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
+			"\tRx BMC ICV error=%llu\n", RX_GET_CNT(prRxCtrl, RX_BMC_KEY_ERROR_COUNT));
+		i4BytesWritten += kalSnprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
+			"\tRx BMC Pkt=%llu\n", RX_GET_CNT(prRxCtrl, RX_BMC_PKT_COUNT));
+#endif
 		i4BytesWritten += kalScnprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
 			"%s", "===Phy/Timing Related Counters===\n");
 		i4BytesWritten += kalScnprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
@@ -3918,6 +3933,7 @@ static int priv_driver_set_fw_log(IN struct net_device *prNetDev, IN char *pcCom
 		i4BytesWritten = -1;
 		goto out;
 	}
+	kalMemZero(prFwLog2HostCtrl, sizeof(CMD_FW_LOG_2_HOST_CTRL_T));
 
 #if CFG_SUPPORT_FW_DBG_LEVEL_CTRL
 	if ((i4Argc != 3) && (i4Argc != 4)) {
@@ -5473,6 +5489,7 @@ static int priv_driver_get_sta_stat(IN struct net_device *prNetDev, IN char *pcC
 		i4BytesWritten = -1;
 		goto out;
 	}
+	kalMemZero(prHwWlanInfo, sizeof(PARAM_HW_WLAN_INFO_T));
 
 	prHwWlanInfo->u4Index = ucWlanIndex;
 	if (fgRxCCSel == TRUE)
@@ -6289,6 +6306,7 @@ static int priv_driver_get_sta_curr_ar_rate(IN struct net_device *prNetDev, IN c
 	prHwWlanInfo = (P_PARAM_HW_WLAN_INFO_T)kalMemAlloc(sizeof(PARAM_HW_WLAN_INFO_T), VIR_MEM_TYPE);
 	if (!prHwWlanInfo)
 		return -ENOMEM;
+	kalMemZero(prHwWlanInfo, sizeof(PARAM_HW_WLAN_INFO_T));
 	prHwWlanInfo->u4Index = ucWlanIndex;
 	rStatus = kalIoctl(prGlueInfo,
 					wlanoidQueryWlanInfo,
@@ -9962,7 +9980,7 @@ static int priv_driver_set_wow_par(IN struct net_device *prNetDev, IN char *pcCo
 	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
 	DBGLOG(REQ, LOUD, "argc is %i\n", i4Argc);
 
-	if (i4Argc > 3) {
+	if (i4Argc >= 7) {
 
 		u4Ret = kalkStrtou8(apcArgv[1], 0, &ucWakeupHif);
 		if (u4Ret)
@@ -10937,6 +10955,7 @@ static int priv_driver_get_mcs_info(IN struct net_device *prNetDev, IN char *pcC
 	prHwWlanInfo = (P_PARAM_HW_WLAN_INFO_T)kalMemAlloc(sizeof(PARAM_HW_WLAN_INFO_T), VIR_MEM_TYPE);
 	if (!prHwWlanInfo)
 		return -1;
+	kalMemZero(prHwWlanInfo, sizeof(PARAM_HW_WLAN_INFO_T));
 
 	/* TODO: frog 20180518: Glue layer no need to know HW wlan idx information. 
          *       Glue layer only know AIS network.
@@ -14071,6 +14090,7 @@ static int priv_driver_set_csi(IN struct net_device *prNetDev, IN char *pcComman
 		i4BytesWritten = -1;
 		goto out;
 	}
+	kalMemZero(prCSICtrl, sizeof(struct CMD_CSI_CONTROL_T));
 
 	if (i4Argc != 2 && i4Argc != 5) {
 		DBGLOG(REQ, ERROR, "argc %i is invalid\n", i4Argc);
@@ -14461,6 +14481,7 @@ static int priv_driver_ant_diversity_config(IN struct net_device *prNetDev,
 		return -EFAULT;
 
 	DBGLOG(REQ, INFO, "priv_driver_ant_diversity_config()\n");
+	kalMemZero(&rAntDivInfo, sizeof(struct CMD_ANT_DIV_CTRL));
 
 	rAntDivInfo.ucAction = 0;
 	rAntDivInfo.ucAntId = 0;
@@ -15119,6 +15140,90 @@ static int priv_driver_test_1xtx_status(IN struct net_device *prNetDev,
 	return i4BytesWritten;
 }
 
+#if CFG_CHIP_RESET_SUPPORT
+static int priv_driver_get_chip_reset_cnt(IN struct net_device *prNetDev,
+				IN char *pcCommand, IN int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	int32_t i4BytesWritten = 0;
+	uint32_t i = 0;
+	extern const char *const apcChipResetReason[];
+
+	typedef uint32_t (*p_get_func_type) (uint32_t);
+	p_get_func_type get_func;
+	char *reason_func_name = "getChipResetReasonCnt";
+	void *pvAddrReason = NULL;
+
+	if (!prNetDev) {
+		DBGLOG(REQ, ERROR, "prNetDev == NULL unexpected\n");
+		return WLAN_STATUS_FAILURE;
+	}
+
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
+	return -1;
+
+	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
+
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+
+	LOGBUF(pcCommand, i4TotalLen, i4BytesWritten, "\n");
+	pvAddrReason = (void *) kallsyms_lookup_name(reason_func_name);
+
+	if(pvAddrReason) {
+		get_func = (p_get_func_type) pvAddrReason;
+
+		for(i=0; i<RST_REASON_MAX; i++) {
+			LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
+				"\t[%s] = %d\n",
+				apcChipResetReason[i], get_func(i));
+		}
+	}
+	else {
+		DBGLOG(REQ, ERROR, "%s does not exist\n", reason_func_name);
+	}
+
+	LOGBUF(pcCommand, i4TotalLen, i4BytesWritten, "\n");
+
+	return i4BytesWritten;
+}
+static int priv_driver_rst_chip_rst_cnt(IN struct net_device *prNetDev,
+				IN char *pcCommand, IN int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	int32_t i4BytesWritten = 0;
+
+	typedef void (*p_rst_func_type) (void);
+	p_rst_func_type rst_func;
+	char *reason_func_name = "rstChipResetReasonCnt";
+	void *pvAddrReason = NULL;
+
+	if (!prNetDev) {
+		DBGLOG(REQ, ERROR, "prNetDev == NULL unexpected\n");
+		return WLAN_STATUS_FAILURE;
+	}
+
+	if (GLUE_CHK_PR2(prNetDev, pcCommand) == FALSE)
+	return -1;
+
+	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
+
+	DBGLOG(REQ, LOUD, "command is %s\n", pcCommand);
+
+	pvAddrReason = (void *) kallsyms_lookup_name(reason_func_name);
+
+	if(pvAddrReason) {
+		rst_func = (p_rst_func_type) pvAddrReason;
+		rst_func();
+	}
+	else {
+		DBGLOG(REQ, ERROR, "%s does not exist\n", reason_func_name);
+	}
+
+	return i4BytesWritten;
+}
+#endif
+
+
 INT_32 priv_driver_cmds(IN struct net_device *prNetDev, IN PCHAR pcCommand, IN INT_32 i4TotalLen)
 {
 	P_GLUE_INFO_T prGlueInfo = NULL;
@@ -15598,6 +15703,12 @@ INT_32 priv_driver_cmds(IN struct net_device *prNetDev, IN PCHAR pcCommand, IN I
 			i4BytesWritten = priv_driver_get_1xtx_status(prNetDev, pcCommand, i4TotalLen);
 		else if (strnicmp(pcCommand, CMD_TEST_1XTX_STATUS, strlen(CMD_TEST_1XTX_STATUS)) == 0)
 			i4BytesWritten = priv_driver_test_1xtx_status(prNetDev, pcCommand, i4TotalLen);
+#if CFG_CHIP_RESET_SUPPORT
+		else if (strnicmp(pcCommand, CMD_GET_FW_RESET_CNT, strlen(CMD_GET_FW_RESET_CNT)) == 0)
+			i4BytesWritten = priv_driver_get_chip_reset_cnt(prNetDev, pcCommand, i4TotalLen);
+		else if (strnicmp(pcCommand, CMD_RESET_FW_RESET_CNT, strlen(CMD_RESET_FW_RESET_CNT)) == 0)
+			i4BytesWritten = priv_driver_rst_chip_rst_cnt(prNetDev, pcCommand, i4TotalLen);
+#endif
 		else
 		i4BytesWritten = priv_cmd_not_support(prNetDev, pcCommand, i4TotalLen);
 
@@ -15723,7 +15834,7 @@ int android_private_support_driver_cmd(IN struct net_device *prNetDev,
 	if (copy_from_user(&priv_cmd, prReq->ifr_data, sizeof(priv_cmd)))
 		return -EFAULT;
 
-	if (priv_cmd.total_len <= 0)
+	if (priv_cmd.total_len <= 0 || priv_cmd.total_len > PRIV_CMD_SIZE)
 		return -EINVAL;
 
 	command = kzalloc(priv_cmd.total_len, GFP_KERNEL);

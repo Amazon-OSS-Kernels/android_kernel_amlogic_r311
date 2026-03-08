@@ -856,8 +856,15 @@ VOID p2pRoleFsmRunEventBeaconTimeout(IN P_ADAPTER_T prAdapter, IN P_BSS_INFO_T p
 
 				prP2pBssInfo->prStaRecOfAP = NULL;
 
+#if CFG_SUPPORT_CFG80211_AUTH
+				p2pFuncDisconnect(prAdapter, prP2pBssInfo, prStaRec, TRUE,
+						  REASON_CODE_DISASSOC_LEAVING_BSS);
+
+				p2pRoleFsmDeauhComplete(prAdapter, prStaRec);
+#else
 				p2pFuncDisconnect(prAdapter, prP2pBssInfo, prStaRec, FALSE,
 						  REASON_CODE_DISASSOC_LEAVING_BSS);
+#endif
 
 				SET_NET_PWR_STATE_IDLE(prAdapter, prP2pBssInfo->ucBssIndex);
 				/* 20120830 moved into p2pFuncDisconnect() */
