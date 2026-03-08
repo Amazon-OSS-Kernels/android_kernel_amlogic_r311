@@ -1,0 +1,157 @@
+# Copyright (C) 2019 Amazon.com Inc. or its affiliates.  All Rights Reserved.
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = LibtommathLib
+  FILE_GUID                      = efd26a75-a2f3-4a8a-8f0d-03c6d9b8b6d3
+  MODULE_TYPE                    = BASE
+  VERSION_STRING                 = 1.0
+  LIBRARY_CLASS                  = LibtommathLib
+
+#
+# The following information is for reference only and not required by the build tools.
+#
+#  VALID_ARCHITECTURES           = ARM AARCH64
+#
+
+[Sources]
+        src/bncore.c
+        src/bn_error.c
+        src/bn_fast_mp_invmod.c
+        src/bn_fast_mp_montgomery_reduce.c
+        src/bn_fast_s_mp_mul_digs.c
+        src/bn_fast_s_mp_mul_high_digs.c
+        src/bn_fast_s_mp_sqr.c
+        src/bn_mp_2expt.c
+        src/bn_mp_abs.c
+        src/bn_mp_add.c
+        src/bn_mp_add_d.c
+        src/bn_mp_addmod.c
+        src/bn_mp_and.c
+        src/bn_mp_clamp.c
+        src/bn_mp_clear.c
+        src/bn_mp_clear_multi.c
+        src/bn_mp_cmp.c
+        src/bn_mp_cmp_d.c
+        src/bn_mp_cmp_mag.c
+        src/bn_mp_cnt_lsb.c
+        src/bn_mp_copy.c
+        src/bn_mp_count_bits.c
+        src/bn_mp_div_2.c
+        src/bn_mp_div_2d.c
+        src/bn_mp_div_3.c
+        src/bn_mp_div.c
+        src/bn_mp_div_d.c
+        src/bn_mp_dr_is_modulus.c
+        src/bn_mp_dr_reduce.c
+        src/bn_mp_dr_setup.c
+        src/bn_mp_exch.c
+        src/bn_mp_export.c
+        src/bn_mp_expt_d.c
+        src/bn_mp_expt_d_ex.c
+        src/bn_mp_exptmod.c
+        src/bn_mp_exptmod_fast.c
+        src/bn_mp_exteuclid.c
+        src/bn_mp_gcd.c
+        src/bn_mp_get_int.c
+        src/bn_mp_get_long.c
+        src/bn_mp_get_long_long.c
+        src/bn_mp_grow.c
+        src/bn_mp_import.c
+        src/bn_mp_init.c
+        src/bn_mp_init_copy.c
+        src/bn_mp_init_multi.c
+        src/bn_mp_init_set.c
+        src/bn_mp_init_set_int.c
+        src/bn_mp_init_size.c
+        src/bn_mp_invmod.c
+        src/bn_mp_invmod_slow.c
+        src/bn_mp_is_square.c
+        src/bn_mp_jacobi.c
+        src/bn_mp_karatsuba_mul.c
+        src/bn_mp_karatsuba_sqr.c
+        src/bn_mp_lcm.c
+        src/bn_mp_lshd.c
+        src/bn_mp_mod_2d.c
+        src/bn_mp_mod.c
+        src/bn_mp_mod_d.c
+        src/bn_mp_montgomery_calc_normalization.c
+        src/bn_mp_montgomery_reduce.c
+        src/bn_mp_montgomery_setup.c
+        src/bn_mp_mul_2.c
+        src/bn_mp_mul_2d.c
+        src/bn_mp_mul.c
+        src/bn_mp_mul_d.c
+        src/bn_mp_mulmod.c
+        src/bn_mp_neg.c
+        src/bn_mp_n_root.c
+        src/bn_mp_n_root_ex.c
+        src/bn_mp_or.c
+        src/bn_mp_prime_fermat.c
+        src/bn_mp_prime_is_divisible.c
+        src/bn_mp_prime_is_prime.c
+        src/bn_mp_prime_miller_rabin.c
+        src/bn_mp_prime_next_prime.c
+        src/bn_mp_prime_rabin_miller_trials.c
+        src/bn_mp_prime_random_ex.c
+        src/bn_mp_radix_size.c
+        src/bn_mp_radix_smap.c
+        src/bn_mp_rand.c
+        src/bn_mp_read_radix.c
+        src/bn_mp_read_signed_bin.c
+        src/bn_mp_read_unsigned_bin.c
+        src/bn_mp_reduce_2k.c
+        src/bn_mp_reduce_2k_l.c
+        src/bn_mp_reduce_2k_setup.c
+        src/bn_mp_reduce_2k_setup_l.c
+        src/bn_mp_reduce.c
+        src/bn_mp_reduce_is_2k.c
+        src/bn_mp_reduce_is_2k_l.c
+        src/bn_mp_reduce_setup.c
+        src/bn_mp_rshd.c
+        src/bn_mp_set.c
+        src/bn_mp_set_int.c
+        src/bn_mp_set_long.c
+        src/bn_mp_set_long_long.c
+        src/bn_mp_shrink.c
+        src/bn_mp_signed_bin_size.c
+        src/bn_mp_sqr.c
+        src/bn_mp_sqrmod.c
+        src/bn_mp_sqrt.c
+        src/bn_mp_sub.c
+        src/bn_mp_sub_d.c
+        src/bn_mp_submod.c
+        src/bn_mp_toom_mul.c
+        src/bn_mp_toom_sqr.c
+        src/bn_mp_toradix.c
+        src/bn_mp_toradix_n.c
+        src/bn_mp_to_signed_bin.c
+        src/bn_mp_to_signed_bin_n.c
+        src/bn_mp_to_unsigned_bin.c
+        src/bn_mp_to_unsigned_bin_n.c
+        src/bn_mp_unsigned_bin_size.c
+        src/bn_mp_xor.c
+        src/bn_mp_zero.c
+        src/bn_prime_tab.c
+        src/bn_reverse.c
+        src/bn_s_mp_add.c
+        src/bn_s_mp_exptmod.c
+        src/bn_s_mp_mul_digs.c
+        src/bn_s_mp_mul_high_digs.c
+        src/bn_s_mp_sqr.c
+        src/bn_s_mp_sub.c
+
+[BuildOptions.AARCH64]
+	GCC:*_*_*_CC_FLAGS = -DLTM_NO_FILE -ffunction-sections -fdata-sections -Os
+
+[Packages]
+  StdLib/StdLib.dec
+  MdePkg/MdePkg.dec
+  EmbeddedPkg/EmbeddedPkg.dec
+  ufbl-features/ufbl-features.dec
+  IdmePlatformPkg/IdmePlatformPkg.dec
+
+[LibraryClasses]
+  LibC
+  LibStdio
+  MemoryAllocationLib
