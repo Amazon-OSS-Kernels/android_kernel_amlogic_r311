@@ -819,8 +819,10 @@ BOOLEAN p2pNetUnregister(P_GLUE_INFO_T prGlueInfo, BOOLEAN fgIsRtnlLockAcquired)
 	}
 	GLUE_RELEASE_SPIN_LOCK(prGlueInfo, SPIN_LOCK_NET_DEV);
 
-	if (!fgDoUnregister)
+	if (!fgDoUnregister) {
+		DBGLOG(INIT, STATE, "fgDoUnregister = FALSE\n");
 		return TRUE;
+	}
 
 	/* prepare for removal */
 	if (prGlueInfo->prP2PInfo[0]->prDevHandler != prGlueInfo->prP2PInfo[0]->aprRoleHandler) {
@@ -868,14 +870,14 @@ BOOLEAN p2pNetUnregister(P_GLUE_INFO_T prGlueInfo, BOOLEAN fgIsRtnlLockAcquired)
 	}
 	/* Here are functions which need rtnl_lock */
 	if (prGlueInfo->prP2PInfo[0]->prDevHandler != prGlueInfo->prP2PInfo[0]->aprRoleHandler) {
-		DBGLOG(INIT, INFO, "unregister p2p[0]->aprRoleHandler\n");
+		DBGLOG(INIT, STATE, "unregister p2p[0]->aprRoleHandler: %p\n", prGlueInfo->prP2PInfo[0]->aprRoleHandler);
 		unregister_netdev(prGlueInfo->prP2PInfo[0]->aprRoleHandler);
 	}
 
 	if (prGlueInfo->prP2PInfo[0]->fgIsNetDevRegistered == TRUE) {
 		prGlueInfo->prP2PInfo[0]->fgIsNetDevRegistered = FALSE;
+		DBGLOG(INIT, STATE, "unregister p2p[0]: %p\n", prGlueInfo->prP2PInfo[0]->prDevHandler);
 		unregister_netdev(prGlueInfo->prP2PInfo[0]->prDevHandler);
-		DBGLOG(INIT, INFO, "unregister p2p[0]\n");
 	}
 
 	/* unregister the netdev and index > 0 */
@@ -894,8 +896,9 @@ BOOLEAN p2pNetUnregister(P_GLUE_INFO_T prGlueInfo, BOOLEAN fgIsRtnlLockAcquired)
 			/* Here are functions which need rtnl_lock */
 			if (prGlueInfo->prP2PInfo[ucRoleIdx]->fgIsNetDevRegistered == TRUE) {
 				prGlueInfo->prP2PInfo[ucRoleIdx]->fgIsNetDevRegistered = FALSE;
+				DBGLOG(INIT, STATE, "unregister p2p[%d], addr = %p\n",
+						ucRoleIdx, prGlueInfo->prP2PInfo[ucRoleIdx]->prDevHandler);
 				unregister_netdev(prGlueInfo->prP2PInfo[ucRoleIdx]->prDevHandler);
-				DBGLOG(INIT, INFO, "unregister p2p[%d]\n", ucRoleIdx);
 			}
 		}
 	}
@@ -1353,6 +1356,12 @@ BOOLEAN glUnregisterP2P(P_GLUE_INFO_T prGlueInfo)
 		}
 
 		if (prP2PInfo->prDevHandler) {
+			if (prP2PInfo->prDevHandler->reg_state == NETREG_REGISTERED) {
+				DBGLOG(INIT, WARN,"Force unregister netdev\n");
+				unregister_netdev(prP2PInfo->prDevHandler);
+				prGlueInfo->prAdapter->rP2PNetRegState = ENUM_NET_REG_STATE_UNREGISTERED;
+			}
+			DBGLOG(P2P, STATE, "free_netdev prDevHandler: %p\n", prP2PInfo->prDevHandler);
 			free_netdev(prP2PInfo->prDevHandler);
 			prP2PInfo->prDevHandler = NULL;
 		}
