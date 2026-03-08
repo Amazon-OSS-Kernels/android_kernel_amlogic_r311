@@ -247,6 +247,7 @@
 #endif
 #include <linux/time.h>
 #include <linux/skbuff.h>
+#include <linux/capability.h>
 
 extern BOOLEAN fgIsBusAccessFailed;
 extern const struct ieee80211_iface_combination *p_mtk_iface_combinations_sta;
