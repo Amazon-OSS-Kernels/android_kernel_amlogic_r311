@@ -413,6 +413,29 @@ int do_load(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[],
 	return 0;
 }
 
+#if defined(CONFIG_DEVICE_PRODUCT_ABC) || defined(CONFIG_DEVICE_PRODUCT_SHINE)
+int load_file(const char* ifname, const char* dev_part, const char* filename,
+        unsigned long addr, int fstype)
+{
+	loff_t bytes = 0;
+	loff_t pos = 0;
+	loff_t len_read;
+	int ret;
+
+	if (fs_set_blk_dev(ifname, dev_part, fstype))
+		return -1;
+
+	ret = fs_read(filename, addr, pos, bytes, &len_read);
+
+	if (ret < 0)
+		return -1;
+
+	flush_dcache_range((unsigned long )addr, (unsigned long )addr+len_read);
+
+	return 0;
+}
+#endif
+
 int do_ls(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[],
 	int fstype)
 {

@@ -109,4 +109,9 @@ int do_save(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[],
 int do_fs_uuid(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[],
 		int fstype);
 
+#if defined(CONFIG_DEVICE_PRODUCT_ABC) || defined(CONFIG_DEVICE_PRODUCT_SHINE)
+int load_file(const char* ifname, const char* dev_part, const char* filename,
+		unsigned long addr, int fstype);
+#endif
+
 #endif /* _FS_H */
