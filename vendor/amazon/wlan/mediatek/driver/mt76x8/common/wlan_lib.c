@@ -1290,6 +1290,11 @@ WLAN_STATUS wlanTxCmdMthread(IN P_ADAPTER_T prAdapter)
 	KAL_SPIN_LOCK_DECLARATION();
 
 	ASSERT(prAdapter);
+	if (prAdapter == NULL)
+	{
+		DBGLOG(TX, ERROR, "%s prAdapter NULL\n", __func__);
+		return WLAN_STATUS_FAILURE;
+	}
 
 	prTempCmdQue = &rTempCmdQue;
 	QUEUE_INITIALIZE(prTempCmdQue);

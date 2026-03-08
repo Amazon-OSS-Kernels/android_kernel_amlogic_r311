@@ -195,7 +195,7 @@ static PUINT_8 apucEepromName[] = {
 #endif
 
 #if CFG_CHIP_RESET_SUPPORT
-static int g_u4ProbeChipResetTimes;
+static int g_u4ProbeChipResetTimes = 0;
 #define PROBE_CHIP_RESET_LIMIT     3
 #endif
 
@@ -2134,6 +2134,8 @@ int set_p2p_mode_handler(struct net_device *netdev, PARAM_CUSTOM_P2P_SET_STRUCT_
 	PARAM_CUSTOM_P2P_SET_STRUCT_T rSetP2P;
 	WLAN_STATUS rWlanStatus = WLAN_STATUS_SUCCESS;
 	UINT_32 u4BufLen = 0;
+	int ret = 0;
+
 
 	rSetP2P.u4Enable = p2pmode.u4Enable;
 	rSetP2P.u4Mode = p2pmode.u4Mode;
@@ -2158,10 +2160,13 @@ int set_p2p_mode_handler(struct net_device *netdev, PARAM_CUSTOM_P2P_SET_STRUCT_
 	 * in this case, kalIOCTL return success always,
 	 * and prGlueInfo->prP2PInfo[0] may be NULL
 	 */
-	if ((rSetP2P.u4Enable) && (prGlueInfo->prAdapter->fgIsP2PRegistered) && (kalIsResetting() == FALSE))
-		p2pNetRegister(prGlueInfo, FALSE);
-
-	return 0;
+	if ((rSetP2P.u4Enable) && (prGlueInfo->prAdapter->fgIsP2PRegistered) && (kalIsResetting() == FALSE)) {
+		if(!(p2pNetRegister(prGlueInfo, FALSE))) {
+			DBGLOG(INIT, ERROR, "%s: P2P Device Register Failure\n", __func__);
+			ret = -1;
+		}
+	}
+	return ret;
 }
 
 #if CFG_SUPPORT_EASY_DEBUG
@@ -2827,10 +2832,11 @@ INT_32 wlanProbe(PVOID pvData, PVOID pvDriverData)
 #else
 			rSetP2P.u4Mode = RUNNING_P2P_MODE;
 #endif /* CFG_DRIVER_RUNNING_MODE */
-			if (set_p2p_mode_handler(prWdev->netdev, rSetP2P) == 0)
-				DBGLOG(INIT, INFO, "%s: p2p device registered\n", __func__);
-			else
+			if (set_p2p_mode_handler(prWdev->netdev, rSetP2P) < 0) {
 				DBGLOG(INIT, ERROR, "%s: Failed to register p2p device\n", __func__);
+			} else {
+				DBGLOG(INIT, INFO, "%s: p2p device registered\n", __func__);
+			}
 		}
 #endif
 	} while (FALSE);
