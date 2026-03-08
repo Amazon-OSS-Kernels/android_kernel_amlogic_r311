@@ -763,6 +763,7 @@ void rlmDomainOidSetCountry(IN P_ADAPTER_T prAdapter, char *country, u8 size_of_
 u32 rlmDomainGetCountryCode(void);
 u32 rlmDomainGetTempCountryCode(void);
 void rlmDomainAssert(BOOLEAN cond);
+void rlmDomainOverridePwrLimitFileName(const char*);
 
 /*******************************************************************************
 *                              F U N C T I O N S

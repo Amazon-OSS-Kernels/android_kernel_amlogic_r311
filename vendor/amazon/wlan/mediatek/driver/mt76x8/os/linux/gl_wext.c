@@ -127,7 +127,8 @@ static const struct iw_priv_args rIwPrivTable[] = {
 	{IOCTL_SET_STRUCT, IW_PRIV_TYPE_CHAR | sizeof(NDIS_TRANSPORT_STRUCT), 0, ""},
 	{IOCTL_GET_STRUCT, 0, IW_PRIV_TYPE_CHAR | sizeof(NDIS_TRANSPORT_STRUCT), ""},
 
-	{IOCTL_GET_DRIVER, IW_PRIV_TYPE_CHAR | 2000, IW_PRIV_TYPE_CHAR | 2000, "driver"},
+	{IOCTL_GET_DRIVER, IW_PRIV_TYPE_CHAR | IW_PRIV_BUF_SIZE,
+		IW_PRIV_TYPE_CHAR | IW_PRIV_BUF_SIZE, "driver"},
 
 #if CFG_SUPPORT_QA_TOOL
 	/* added for ATE iwpriv Command */
@@ -2988,6 +2989,8 @@ wext_set_encode_ext(IN struct net_device *prNetDev,
 	{
 
 		if ((prEnc->flags & IW_ENCODE_MODE) == IW_ENCODE_DISABLED) {
+			/* Reset flag to prevent the unexpected operation */
+			prRemoveKey->ucCtrlFlag = 0;
 			prRemoveKey->u4Length = sizeof(*prRemoveKey);
 			memcpy(prRemoveKey->arBSSID, prIWEncExt->addr.sa_data, 6);
 			/*
@@ -3660,7 +3663,12 @@ int wext_support_ioctl(IN struct net_device *prDev, IN struct ifreq *prIfReq, IN
 		if (iwr->u.encoding.pointer) {
 			u4ExtraSize = iwr->u.encoding.length;
 
-			if (u4ExtraSize != sizeof(struct iw_encode_ext)) {
+			/* check here was less than < before, but changed to != lest malicious big length
+			 * according to driver code, max key len is only 32, so check that too.
+			 */
+			if (u4ExtraSize < sizeof(struct iw_encode_ext)
+			    ||
+			    u4ExtraSize > sizeof(struct iw_encode_ext) + 32 ) {
 				ret = -EINVAL;
 				break;
 			}

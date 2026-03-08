@@ -413,11 +413,15 @@ typedef struct _PARAM_KEY_T {
 	/* Following add to change the original windows structure */
 } PARAM_KEY_T, *P_PARAM_KEY_T;
 
+/* for more remove key control (ucCtrlFlag) */
+#define FLAG_RM_KEY_CTRL_WO_OID     BIT(0)	/* not OID operation */
+
 typedef struct _PARAM_REMOVE_KEY_T {
 	UINT_32 u4Length;	/*!< Length of structure */
 	UINT_32 u4KeyIndex;	/*!< KeyID */
 	PARAM_MAC_ADDRESS arBSSID;	/*!< MAC address */
 	UINT_8 ucBssIdx;
+	UINT_8 ucCtrlFlag;	/* Ctrl Flag for RM key CMD */
 } PARAM_REMOVE_KEY_T, *P_PARAM_REMOVE_KEY_T;
 
 /*! \brief Default key */

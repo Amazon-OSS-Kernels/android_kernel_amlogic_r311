@@ -116,6 +116,10 @@ static UINT_32 pvIoBufferUsage;
 static int pm_resume_done = 0;
 #endif
 
+#ifdef CONFIG_IDME
+static BOOLEAN g_fgIsIdmeMacAddrExist = FALSE;
+static PARAM_MAC_ADDRESS rIdmeMacAddr;
+#endif
 
 /*******************************************************************************
 *                                 M A C R O S
@@ -3268,6 +3272,12 @@ BOOLEAN kalRetrieveNetworkAddress(IN P_GLUE_INFO_T prGlueInfo, IN OUT PARAM_MAC_
 #ifdef CONFIG_IDME
 	if (prMacAddr && 0 == idme_get_mac_addr((unsigned char *)prMacAddr, sizeof(PARAM_MAC_ADDRESS))) {
 		DBGLOG(INIT, INFO, "use IDME mac addr\n");
+		g_fgIsIdmeMacAddrExist = TRUE;
+		COPY_MAC_ADDR(rIdmeMacAddr, prMacAddr);
+		return TRUE;
+	} else if (prMacAddr && g_fgIsIdmeMacAddrExist) {
+		COPY_MAC_ADDR(prMacAddr, rIdmeMacAddr);
+		DBGLOG(INIT, STATE, "re-use pre-stored IDME mac addr\n");
 		return TRUE;
 	}
 #endif

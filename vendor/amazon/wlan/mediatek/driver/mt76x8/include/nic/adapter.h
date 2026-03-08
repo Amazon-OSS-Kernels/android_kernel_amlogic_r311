@@ -497,6 +497,12 @@ struct _BSS_INFO_T {
 #endif
 
 	PARAM_POWER_MODE ePowerModeFromUser;
+
+#if CFG_SUPPORT_DFS
+	TIMER_T rCsaTimer;
+	SWITCH_CH_AND_BAND_PARAMS_T CSAParams;
+	UINT_8 fgHasStopTx;
+#endif
 };
 
 struct _NEIGHBOR_AP_T {

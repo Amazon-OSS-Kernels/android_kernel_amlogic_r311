@@ -2118,6 +2118,7 @@ wlanoidSetRemoveWep(IN P_ADAPTER_T prAdapter,
 		return WLAN_STATUS_INVALID_DATA;
 	}
 
+	kalMemZero(&rRemoveKey, sizeof(PARAM_REMOVE_KEY_T));
 	rRemoveKey.u4Length = sizeof(PARAM_REMOVE_KEY_T);
 	rRemoveKey.u4KeyIndex = *(PUINT_32) pvSetBuffer;
 
@@ -2369,6 +2370,13 @@ wlanoidSetAddKey(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer, IN UINT_32 u4Se
 
 					prAisSpecBssInfo = &prAdapter->rWifiVar.rAisSpecificBssInfo;
 					prAisSpecBssInfo->fgBipKeyInstalled = TRUE;
+					DBGLOG(RSN, INFO,
+						"Change BIP BC keyId from %d to 3\n",
+						prCmdKey->ucKeyId);
+					/* Set IGTK WTBL keyid 3 for WTBL,
+					 * so hw can search GTK correctly.
+					 */
+					prCmdKey->ucKeyId = 3;
 				}
 			}
 #endif
@@ -2503,6 +2511,9 @@ wlanoidSetAddKey(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer, IN UINT_32 u4Se
 					     prBssInfo->prStaRecOfAP->aucMacAddr,
 					     prBssInfo->prStaRecOfAP->ucIndex,
 					     prCmdKey->ucAlgorithmId, prCmdKey->ucKeyId);
+				kalMemCopy(prCmdKey->aucPeerAddr,
+					prBssInfo->prStaRecOfAP->aucMacAddr,
+					MAC_ADDR_LEN);
 			}
 
 			DBGLOG(RSN, INFO, "BIP BC wtbl index:%d\n", prCmdKey->ucWlanIndex);
@@ -2632,6 +2643,7 @@ wlanoidSetRemoveKey(IN P_ADAPTER_T prAdapter,
 	BOOL fgRemoveWepKey = FALSE;
 	UINT_32 ucRemoveBCKeyAtIdx = WTBL_RESERVED_ENTRY;
 	UINT_32 u4KeyIndex;
+	UINT_8 fgIsOid = TRUE;
 
 	DEBUGFUNC("wlanoidSetRemoveKey");
 
@@ -2739,6 +2751,8 @@ wlanoidSetRemoveKey(IN P_ADAPTER_T prAdapter,
 
 	prWlanTable = prAdapter->rWifiVar.arWtbl;
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prRemovedKey->ucBssIdx);
+	if (prRemovedKey->ucCtrlFlag & FLAG_RM_KEY_CTRL_WO_OID)
+		fgIsOid = FALSE;
 
 	/* increase command sequence number */
 	ucCmdSeqNum = nicIncreaseCmdSeqNum(prAdapter);
@@ -2749,7 +2763,7 @@ wlanoidSetRemoveKey(IN P_ADAPTER_T prAdapter,
 	prCmdInfo->u2InfoBufLen = CMD_HDR_SIZE + sizeof(CMD_802_11_KEY);
 	prCmdInfo->pfCmdDoneHandler = nicCmdEventSetCommon;
 	prCmdInfo->pfCmdTimeoutHandler = nicOidCmdTimeoutCommon;
-	prCmdInfo->fgIsOid = TRUE;
+	prCmdInfo->fgIsOid = fgIsOid;
 	prCmdInfo->ucCID = CMD_ID_ADD_REMOVE_KEY;
 	prCmdInfo->fgSetQuery = TRUE;
 	prCmdInfo->fgNeedResp = FALSE;

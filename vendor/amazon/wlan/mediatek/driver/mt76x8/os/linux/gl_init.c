@@ -2782,7 +2782,7 @@ INT_32 wlanProbe(PVOID pvData, PVOID pvDriverData)
 		if (g_u4ProbeChipResetTimes < PROBE_CHIP_RESET_LIMIT) {
 			DBGLOG(INIT, ERROR, "wlanProbe: trigger whole reset\n");
 			g_u4ProbeChipResetTimes++;
-			glResetTrigger(prGlueInfo->prAdapter);
+			GL_RESET_TRIGGER(prAdapter, RST_PROBE_FAIL);
 		}
 #endif
 	}
@@ -2893,6 +2893,7 @@ VOID wlanRemove(VOID)
 
 	down(&g_halt_sem);
 	g_u4HaltFlag = 1;
+	up(&g_halt_sem);
 
 	/* 4 <2> Mark HALT, notify main thread to stop, and clean up queued requests */
 	set_bit(GLUE_FLAG_HALT_BIT, &prGlueInfo->ulFlag);
@@ -2985,8 +2986,6 @@ VOID wlanRemove(VOID)
 
 	/* 4 <5> Release the Bus */
 	glBusRelease(prDev);
-
-	up(&g_halt_sem);
 
 	/* 4 <6> Unregister the card */
 	wlanNetUnregister(prDev->ieee80211_ptr);
@@ -3086,6 +3085,7 @@ static int mt76x8_wifi_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *np = pdev->dev.of_node;
 	int gpio, ret = 0;
+	const char* pwr_limit_file;
 
 	wifi = devm_kzalloc(dev, sizeof(struct mt76x8_wifi_priv), GFP_KERNEL);
 	if (!wifi)
@@ -3108,6 +3108,11 @@ static int mt76x8_wifi_probe(struct platform_device *pdev)
 			ret = mt76x8_reset_chip(wifi);
 		} else {
 			DBGLOG(INIT, WARN, "no reset gpio provided in dt, will not HW reset device\n");
+		}
+
+		/* overriding default power limit file if specified */
+		if (!of_property_read_string(np, "tx_pwr_limit_file_override", &pwr_limit_file)) {
+			rlmDomainOverridePwrLimitFileName(pwr_limit_file);
 		}
 
 		ret = mt76x8_wireless_init();

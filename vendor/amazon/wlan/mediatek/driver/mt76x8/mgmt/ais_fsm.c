@@ -1339,6 +1339,12 @@ VOID aisFsmSteps(IN P_ADAPTER_T prAdapter, ENUM_AIS_STATE_T eNextState)
 			break;
 
 		case AIS_STATE_JOIN_FAILURE:
+			if (prAisFsmInfo->prTargetBssDesc) {
+				if (prAisFsmInfo->prTargetBssDesc->fgIsConnecting != FALSE)
+					DBGLOG(AIS, ERROR, "Connecting Flag(%d) is unusual in JOIN_FAILURE state\n",
+							prAisFsmInfo->prTargetBssDesc->fgIsConnecting);
+			}
+
 			prConnSettings->fgIsDisconnectedByNonRequest = TRUE;
 
 			nicMediaJoinFailure(prAdapter, prAdapter->prAisBssInfo->ucBssIndex, WLAN_STATUS_JOIN_TIMEOUT);
@@ -1806,11 +1812,15 @@ VOID aisFsmStateAbort(IN P_ADAPTER_T prAdapter, UINT_8 ucReasonOfDisconnect, BOO
 		break;
 
 	case AIS_STATE_REQ_REMAIN_ON_CHANNEL:
+		fgIsCheckConnected = TRUE;
+
 		/* release channel */
 		aisFsmReleaseCh(prAdapter);
 		break;
 
 	case AIS_STATE_REMAIN_ON_CHANNEL:
+		fgIsCheckConnected = TRUE;
+
 		/* 1. release channel */
 		aisFsmReleaseCh(prAdapter);
 
@@ -1895,6 +1905,7 @@ enum _ENUM_AIS_STATE_T aisFsmJoinCompleteAction(IN struct _ADAPTER_T *prAdapter,
 	struct _STA_RECORD_T *prStaRec;
 	struct _SW_RFB_T *prAssocRspSwRfb;
 	struct _BSS_INFO_T *prAisBssInfo;
+	P_CONNECTION_SETTINGS_T prConnSettings;
 	OS_SYSTIME rCurrentTime;
 #if CFG_SUPPORT_BFER
 	UINT_8 ucStaVhtBfer = prAdapter->rWifiVar.ucStaVhtBfer;
@@ -1907,6 +1918,7 @@ enum _ENUM_AIS_STATE_T aisFsmJoinCompleteAction(IN struct _ADAPTER_T *prAdapter,
 
 	GET_CURRENT_SYSTIME(&rCurrentTime);
 
+	prConnSettings = &(prAdapter->rWifiVar.rConnSettings);
 	prAisFsmInfo = &(prAdapter->rWifiVar.rAisFsmInfo);
 	prJoinCompMsg = (struct _MSG_SAA_FSM_COMP_T *)prMsgHdr;
 	prStaRec = prJoinCompMsg->prStaRec;
@@ -2010,6 +2022,9 @@ enum _ENUM_AIS_STATE_T aisFsmJoinCompleteAction(IN struct _ADAPTER_T *prAdapter,
 			/* 4 <2.1> Redo JOIN process with other Auth Type if possible */
 			if (aisFsmStateInit_RetryJOIN(prAdapter, prStaRec) == FALSE) {
 				struct _BSS_DESC_T *prBssDesc;
+				PARAM_SSID_T rParamSsid;
+
+				prBssDesc = prAisFsmInfo->prTargetBssDesc;
 
 				/* 1. Increase Failure Count */
 				prStaRec->ucJoinFailureCount++;
@@ -2023,7 +2038,24 @@ enum _ENUM_AIS_STATE_T aisFsmJoinCompleteAction(IN struct _ADAPTER_T *prAdapter,
 				/* 3.2 reset local variable */
 				prAisFsmInfo->fgIsInfraChannelFinished = TRUE;
 
-				prBssDesc = scanSearchBssDescByBssid(prAdapter, prStaRec->aucMacAddr);
+				kalMemZero(&rParamSsid, sizeof(PARAM_SSID_T));
+
+				if (prBssDesc)
+					COPY_SSID(rParamSsid.aucSsid,
+							rParamSsid.u4SsidLen,
+							prBssDesc->aucSSID,
+							prBssDesc->ucSSIDLen);
+				else
+					COPY_SSID(rParamSsid.aucSsid,
+							rParamSsid.u4SsidLen,
+							prConnSettings->aucSSID,
+							prConnSettings->ucSSIDLen);
+
+				prBssDesc =
+					scanSearchBssDescByBssidAndSsid(prAdapter,
+						prStaRec->aucMacAddr,
+						TRUE,
+						&rParamSsid);
 
 				if (prBssDesc == NULL)
 					return eNextState;
@@ -3580,11 +3612,15 @@ VOID aisBssBeaconTimeout(IN P_ADAPTER_T prAdapter, IN UINT_8 ucReasonCode)
 	P_BSS_INFO_T prAisBssInfo;
 	BOOLEAN fgDoAbortIndication = FALSE;
 	P_CONNECTION_SETTINGS_T prConnSettings;
+	P_AIS_FSM_INFO_T prAisFsmInfo;
 
 	ASSERT(prAdapter);
 
 	prAisBssInfo = prAdapter->prAisBssInfo;
 	prConnSettings = &(prAdapter->rWifiVar.rConnSettings);
+
+	prAisFsmInfo = &(prAdapter->rWifiVar.rAisFsmInfo);
+	GET_CURRENT_SYSTIME(&(prAisFsmInfo->rJoinReqTime));
 
 	/* 4 <1> Diagnose Connection for Beacon Timeout Event */
 	if (prAisBssInfo->eConnectionState == PARAM_MEDIA_STATE_CONNECTED) {

@@ -92,7 +92,6 @@
 BOOLEAN g_bCaptureDone = FALSE;
 BOOLEAN g_bIcapEnable = FALSE;
 UINT_16 g_u2DumpIndex;
-BOOLEAN g_fgHasStopTx = FALSE;
 BOOLEAN g_fgFowardBcn2Supplicant = FALSE;
 
 #if CFG_SUPPORT_QA_TOOL
@@ -1687,7 +1686,7 @@ VOID rlmModifyVhtBwPara(
 
 }
 
-static VOID rlmRevisePreferBandwidthNss(
+VOID rlmRevisePreferBandwidthNss(
 	P_ADAPTER_T prAdapter,
 	UINT_8 ucBssIndex,
 	P_STA_RECORD_T prStaRec
@@ -1885,18 +1884,16 @@ static UINT_8 rlmRecIeInfoForClient(P_ADAPTER_T prAdapter, P_BSS_INFO_T prBssInf
 #endif
 
 #if CFG_SUPPORT_DFS
-	BOOLEAN fgHasWideBandIE = FALSE;
-	BOOLEAN fgHasSCOIE = FALSE;
-	BOOLEAN fgHasChannelSwitchIE = FALSE;
-	BOOLEAN fgNeedSwitchChannel = FALSE;
-	UINT_8 ucChannelAnnouncePri;
-	ENUM_CHNL_EXT_T eChannelAnnounceSco;
-	UINT_8 ucChannelAnnounceChannelS1 = 0;
-	UINT_8 ucChannelAnnounceChannelS2 = 0;
-	UINT_8 ucChannelAnnounceVhtBw;
-	P_IE_CHANNEL_SWITCH_T prChannelSwitchAnnounceIE;
+	P_BSS_DESC_T prBssDesc;
+	P_IE_CHANNEL_SWITCH_T prCSAIE;
+	P_SWITCH_CH_AND_BAND_PARAMS_T prCSAParams;
+	UINT_8 ucCurrentCsaCount;
 	P_IE_SECONDARY_OFFSET_T prSecondaryOffsetIE;
 	P_IE_WIDE_BAND_CHANNEL_T prWideBandChannelIE;
+#if CFG_DFS_NEWCH_DFS_FORCE_DISCONNECT
+	struct channel *Channel = NULL;
+	UINT_8 max_count, i;
+#endif
 #endif
 	PUINT_8 pucDumpIE;
 
@@ -1913,7 +1910,12 @@ static UINT_8 rlmRecIeInfoForClient(P_ADAPTER_T prAdapter, P_BSS_INFO_T prBssInf
 	ucPrimaryChannel = 0;
 	prObssScnParam = NULL;
 	ucMaxBwAllowed = cnmGetBssMaxBw(prAdapter, prBssInfo->ucBssIndex);
+	prBssDesc = prAdapter->rWifiVar.rAisFsmInfo.prTargetBssDesc;
 	pucDumpIE = pucIE;
+#if CFG_SUPPORT_DFS
+	prCSAParams = &prBssInfo->CSAParams;
+	ucCurrentCsaCount = MAX_CSA_COUNT;
+#endif
 
 	/* Note: HT-related members in staRec may not be zero before, so
 	 *       if following IE does not exist, they are still not zero.
@@ -2144,13 +2146,12 @@ static UINT_8 rlmRecIeInfoForClient(P_ADAPTER_T prAdapter, P_BSS_INFO_T prBssInf
 				break;
 			DBGLOG(RLM, INFO, "[Channel Switch] ELEM_ID_WIDE_BAND_CHANNEL_SWITCH, 11AC\n");
 			prWideBandChannelIE = (P_IE_WIDE_BAND_CHANNEL_T) pucIE;
-			ucChannelAnnounceVhtBw = prWideBandChannelIE->ucNewChannelWidth;
-			ucChannelAnnounceChannelS1 = prWideBandChannelIE->ucChannelS1;
-			ucChannelAnnounceChannelS2 = prWideBandChannelIE->ucChannelS2;
-			fgHasWideBandIE = TRUE;
+			prCSAParams->ucVhtBw = prWideBandChannelIE->ucNewChannelWidth;
+			prCSAParams->ucVhtS1  = prWideBandChannelIE->ucChannelS1;
+			prCSAParams->ucVhtS2  = prWideBandChannelIE->ucChannelS2;
 			DBGLOG(RLM, INFO,
-			       "[Ch] BW=%d, s1=%d, s2=%d\n", ucChannelAnnounceVhtBw, ucChannelAnnounceChannelS1,
-			       ucChannelAnnounceChannelS2);
+			       "[Ch] BW=%d, s1=%d, s2=%d\n", prCSAParams->ucVhtBw, prCSAParams->ucVhtS1,
+			       prCSAParams->ucVhtS2);
 			break;
 #endif
 
@@ -2193,16 +2194,17 @@ static UINT_8 rlmRecIeInfoForClient(P_ADAPTER_T prAdapter, P_BSS_INFO_T prBssInf
 			if (IE_LEN(pucIE) != (sizeof(IE_CHANNEL_SWITCH_T) - 2))
 				break;
 
-			prChannelSwitchAnnounceIE = (P_IE_CHANNEL_SWITCH_T) pucIE;
+			prCSAIE = (P_IE_CHANNEL_SWITCH_T) pucIE;
 
-			DBGLOG(RLM, INFO, "[Ch] Count=%d\n", prChannelSwitchAnnounceIE->ucChannelSwitchCount);
+			DBGLOG(RLM, INFO, "[Ch] Count=%d\n", prCSAIE->ucChannelSwitchCount);
 
-			if (prChannelSwitchAnnounceIE->ucChannelSwitchMode == 1) {
+			prCSAParams->ucCsaNewCh = prCSAIE->ucNewChannelNum;
+			ucCurrentCsaCount = prCSAIE->ucChannelSwitchCount;
+
+			if (prCSAIE->ucChannelSwitchMode == 1) {
 				/* Need to stop data transmission immediately */
-				fgHasChannelSwitchIE = TRUE;
-
-				if (!g_fgHasStopTx) {
-					g_fgHasStopTx = TRUE;
+				if (!prBssInfo->fgHasStopTx) {
+					prBssInfo->fgHasStopTx = TRUE;
 					g_fgFowardBcn2Supplicant = TRUE;
 #if CFG_SUPPORT_TDLS
 					/* TDLS peers */
@@ -2210,19 +2212,35 @@ static UINT_8 rlmRecIeInfoForClient(P_ADAPTER_T prAdapter, P_BSS_INFO_T prBssInf
 #endif
 					/* AP */
 					qmSetStaRecTxAllowed(prAdapter, prStaRec, FALSE);
-					DBGLOG(RLM, EVENT, "[Ch] TxAllowed = FALSE\n");
-				}
-
-				if (prChannelSwitchAnnounceIE->ucChannelSwitchCount <= 3) {
-					DBGLOG(RLM, INFO,
-					       "[Ch] switch channel [%d]->[%d]\n", prBssInfo->ucPrimaryChannel,
-					       prChannelSwitchAnnounceIE->ucNewChannelNum);
-					ucChannelAnnouncePri = prChannelSwitchAnnounceIE->ucNewChannelNum;
-					fgNeedSwitchChannel = TRUE;
+					DBGLOG(RLM, EVENT, "[CSA] TxAllowed = FALSE\n");
 				}
 			}
 
+#if CFG_DFS_NEWCH_DFS_FORCE_DISCONNECT
+			i = rlmDomainGetActiveChannelCount(KAL_BAND_2GHZ);
+			max_count = rlmDomainGetActiveChannelCount(KAL_BAND_5GHZ) +
+							rlmDomainGetActiveChannelCount(KAL_BAND_2GHZ);
+			for (; i < max_count; i++) {
+				Channel = rlmDomainGetActiveChannels() + i;
+
+				if (Channel->chNum != prCSAIE->ucNewChannelNum) {
+					Channel = NULL;
+					continue;
+				} else if (Channel->chNum == prCSAIE->ucNewChannelNum) {
+					break;
+				}
+			}
+
+			DBGLOG(RLM, INFO, "[DFS][CSA][CLIENT] Switch to new channel: new ChNum = [%d]\n",prCSAIE->ucNewChannelNum);
+			if ((Channel) && (Channel->flags & IEEE80211_CHAN_RADAR)) {
+				prCSAParams->fgBeaconNewChannelIsDFS = TRUE;
+				DBGLOG(RLM, INFO, "[DFS][CSA][CLIENT] New channel is DFS channel!");
+			}
+			else
+				DBGLOG(RLM, INFO, "[DFS][CSA][CLIENT] New channel is non-DFS channel!");
+#endif
 			break;
+
 		case ELEM_ID_SCO:
 			if (IE_LEN(pucIE) != (sizeof(IE_SECONDARY_OFFSET_T) - 2))
 				break;
@@ -2231,8 +2249,7 @@ static UINT_8 rlmRecIeInfoForClient(P_ADAPTER_T prAdapter, P_BSS_INFO_T prBssInf
 			DBGLOG(RLM, INFO,
 			       "[Channel Switch] SCO [%d]->[%d]\n", prBssInfo->eBssSCO,
 			       prSecondaryOffsetIE->ucSecondaryOffset);
-			eChannelAnnounceSco = (ENUM_CHNL_EXT_T) prSecondaryOffsetIE->ucSecondaryOffset;
-			fgHasSCOIE = TRUE;
+			prCSAParams->eSco = (ENUM_CHNL_EXT_T) prSecondaryOffsetIE->ucSecondaryOffset;
 			break;
 #endif
 
@@ -2335,38 +2352,15 @@ static UINT_8 rlmRecIeInfoForClient(P_ADAPTER_T prAdapter, P_BSS_INFO_T prBssInf
 #endif
 
 #if CFG_SUPPORT_DFS
-	/*Check whether Channel Announcement IE, Secondary Offset IE &
-	 *  Wide Bandwidth Channel Switch IE exist or not. If exist, the priority is
-	 the highest.
-	 */
-
-	if (fgNeedSwitchChannel) {
-		P_BSS_DESC_T prBssDesc;
-
-		prBssInfo->ucPrimaryChannel = ucChannelAnnouncePri;
-
-		prBssDesc = scanSearchBssDescByBssid(prAdapter, prBssInfo->aucBSSID);
-
-		if (prBssDesc) {
-			DBGLOG(RLM, INFO, "DFS: BSS: " MACSTR " Desc found, channel from %u to %u\n ",
-			       MAC2STR(prBssInfo->aucBSSID), prBssDesc->ucChannelNum, ucChannelAnnouncePri);
-			prBssDesc->ucChannelNum = ucChannelAnnouncePri;
-		} else {
-			DBGLOG(RLM, INFO, "DFS: BSS: " MACSTR " Desc is not found\n ", MAC2STR(prBssInfo->aucBSSID));
-		}
-
-		if (fgHasWideBandIE != FALSE) {
-			prBssInfo->ucVhtChannelWidth = ucChannelAnnounceVhtBw;
-			prBssInfo->ucVhtChannelFrequencyS1 = ucChannelAnnounceChannelS1;
-			prBssInfo->ucVhtChannelFrequencyS2 = ucChannelAnnounceChannelS2;
-		}
-		if (fgHasSCOIE != FALSE)
-			prBssInfo->eBssSCO = eChannelAnnounceSco;
-
-		kalIndicateChannelSwitch(prAdapter->prGlueInfo, prBssInfo->eBssSCO, prBssDesc->ucChannelNum);
+	if (SHOULD_CH_SWITCH(ucCurrentCsaCount, prCSAParams, prBssDesc)) {
+		cnmTimerStopTimer(prAdapter, &prBssInfo->rCsaTimer);
+		cnmTimerStartTimer(prAdapter, &prBssInfo->rCsaTimer,
+			TU_TO_MSEC(prBssInfo->u2BeaconInterval * ucCurrentCsaCount));
+		prCSAParams->ucCsaCount = ucCurrentCsaCount;
+		DBGLOG(RLM, INFO, "Channel switch Countdown: %d msecs\n",
+		       TU_TO_MSEC(prBssInfo->u2BeaconInterval * prCSAParams->ucCsaCount));
 	}
-
-	if (!fgHasChannelSwitchIE && g_fgHasStopTx
+	if (!HAS_CH_SWITCH_PARAMS(prCSAParams, prBssDesc) && prBssInfo->fgHasStopTx
 #if CFG_SUPPORT_QUIET
 		&& !prBssInfo->fgIsInQuietInterval
 #endif
@@ -2375,11 +2369,7 @@ static UINT_8 rlmRecIeInfoForClient(P_ADAPTER_T prAdapter, P_BSS_INFO_T prBssInf
 		/* TDLS peers */
 		TdlsTxCtrl(prAdapter, prBssInfo, TRUE);
 #endif
-		/* AP */
-		qmUpdateStaRec(prAdapter, prStaRec);
-
-		DBGLOG(RLM, EVENT, "[Ch] TxAllowed = TRUE\n");
-		g_fgHasStopTx = FALSE;
+		prBssInfo->fgHasStopTx = FALSE;
 	}
 #endif
 	rlmReviseMaxBw(prAdapter, prBssInfo->ucBssIndex, &prBssInfo->eBssSCO,
@@ -3715,19 +3705,24 @@ VOID rlmProcessSpecMgtAction(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb)
 	P_STA_RECORD_T prStaRec;
 	P_BSS_INFO_T prBssInfo;
 	UINT_16 u2IELength;
+#if CFG_SUPPORT_DFS
 	UINT_16 u2Offset = 0;
 	P_IE_CHANNEL_SWITCH_T prChannelSwitchAnnounceIE;
 	P_IE_SECONDARY_OFFSET_T prSecondaryOffsetIE;
 	P_IE_WIDE_BAND_CHANNEL_T prWideBandChannelIE;
+	P_SWITCH_CH_AND_BAND_PARAMS_T prCSAParams;
+	P_BSS_DESC_T prBssDesc;
+	UINT_8 ucCurrentCsaCount;
+#if CFG_DFS_NEWCH_DFS_FORCE_DISCONNECT
+	struct channel *Channel = NULL;
+	UINT_8 max_count, i;
+#endif
+#endif
 	P_IE_TPC_REQ_T prTpcReqIE;
 	P_IE_TPC_REPORT_T prTpcRepIE;
 	P_IE_MEASUREMENT_REQ_T prMeasurementReqIE;
 	P_IE_MEASUREMENT_REPORT_T prMeasurementRepIE;
 	P_ACTION_SM_REQ_FRAME prRxFrame;
-	BOOLEAN fgHasWideBandIE = FALSE;
-	BOOLEAN fgHasSCOIE = FALSE;
-	BOOLEAN fgHasChannelSwitchIE = FALSE;
-	BOOLEAN fgNeedSwitchChannel = FALSE;
 
 	DBGLOG(RLM, INFO, "[Mgt Action]rlmProcessSpecMgtAction\n");
 	ASSERT(prAdapter);
@@ -3747,6 +3742,7 @@ VOID rlmProcessSpecMgtAction(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb)
 		return;
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, prStaRec->ucBssIndex);
+	prBssDesc = prAdapter->rWifiVar.rAisFsmInfo.prTargetBssDesc;
 
 	prStaRec->ucSmDialogToken = prRxFrame->ucDialogToken;
 
@@ -3792,60 +3788,89 @@ VOID rlmProcessSpecMgtAction(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb)
 			DBGLOG(RLM, TRACE, "[Mgt Action] Correct TPC report IE !!\n");
 
 		break;
+#if CFG_SUPPORT_DFS
 	case ACTION_CHNL_SWITCH:
+		prCSAParams = &prBssInfo->CSAParams;
+		ucCurrentCsaCount = MAX_CSA_COUNT;
+
 		IE_FOR_EACH(pucIE, u2IELength, u2Offset) {
 			switch (IE_ID(pucIE)) {
 
 			case ELEM_ID_WIDE_BAND_CHANNEL_SWITCH:
 				if (!RLM_NET_IS_11AC(prBssInfo) ||
 				    IE_LEN(pucIE) != (sizeof(IE_WIDE_BAND_CHANNEL_T) - 2)) {
-					DBGLOG(RLM, INFO, "[Mgt Action] ELEM_ID_WIDE_BAND_CHANNEL_SWITCH, Length\n");
+					DBGLOG(RLM, INFO, "[CSA Mgt] ELEM_ID_WIDE_BAND_CHANNEL_SWITCH, Length\n");
 					break;
 				}
-				DBGLOG(RLM, INFO, "[Mgt Action] ELEM_ID_WIDE_BAND_CHANNEL_SWITCH, 11AC\n");
+				DBGLOG(RLM, INFO, "[CSA Mgt] ELEM_ID_WIDE_BAND_CHANNEL_SWITCH, 11AC\n");
 				prWideBandChannelIE = (P_IE_WIDE_BAND_CHANNEL_T) pucIE;
-				prBssInfo->ucVhtChannelWidth = prWideBandChannelIE->ucNewChannelWidth;
-				prBssInfo->ucVhtChannelFrequencyS1 = prWideBandChannelIE->ucChannelS1;
-				prBssInfo->ucVhtChannelFrequencyS2 = prWideBandChannelIE->ucChannelS2;
-				fgHasWideBandIE = TRUE;
+				prCSAParams->ucVhtBw = prWideBandChannelIE->ucNewChannelWidth;
+				prCSAParams->ucVhtS1 = prWideBandChannelIE->ucChannelS1;
+				prCSAParams->ucVhtS2 = prWideBandChannelIE->ucChannelS2;
 				break;
 
 			case ELEM_ID_CH_SW_ANNOUNCEMENT:
 				if (IE_LEN(pucIE) != (sizeof(IE_CHANNEL_SWITCH_T) - 2)) {
-					DBGLOG(RLM, INFO, "[Mgt Action] ELEM_ID_CH_SW_ANNOUNCEMENT, Length\n");
+					DBGLOG(RLM, INFO, "[CSA Mgt] ELEM_ID_CH_SW_ANNOUNCEMENT, Length\n");
 					break;
 				}
 
 				prChannelSwitchAnnounceIE = (P_IE_CHANNEL_SWITCH_T) pucIE;
 
+				DBGLOG(RLM, INFO,
+					"[CSA Mgt] switch channel [%d]->[%d]\n",
+					prBssInfo->ucPrimaryChannel,
+					prChannelSwitchAnnounceIE
+					    ->ucNewChannelNum);
+
+				prCSAParams->ucCsaNewCh =
+					prChannelSwitchAnnounceIE->
+						ucNewChannelNum;
+				ucCurrentCsaCount =
+					prChannelSwitchAnnounceIE->
+						ucChannelSwitchCount;
+
 				if (prChannelSwitchAnnounceIE->ucChannelSwitchMode == 1) {
 					/* Need to stop data transmission immediately */
-					if (!g_fgHasStopTx) {
-						g_fgHasStopTx = TRUE;
+					if (!prBssInfo->fgHasStopTx) {
+						prBssInfo->fgHasStopTx = TRUE;
 #if CFG_SUPPORT_TDLS
 						/* TDLS peers */
 						TdlsTxCtrl(prAdapter, prBssInfo, FALSE);
 #endif
 						/* AP */
 						qmSetStaRecTxAllowed(prAdapter, prStaRec, FALSE);
-						DBGLOG(RLM, EVENT, "[Ch] TxAllowed = FALSE\n");
-					}
-
-					if (prChannelSwitchAnnounceIE->ucChannelSwitchCount <= 3) {
-						DBGLOG(RLM, INFO,
-						       "[Mgt Action] switch channel [%d]->[%d]\n",
-							prBssInfo->ucPrimaryChannel,
-							prChannelSwitchAnnounceIE->ucNewChannelNum);
-						prBssInfo->ucPrimaryChannel =
-							prChannelSwitchAnnounceIE->ucNewChannelNum;
-						fgNeedSwitchChannel = TRUE;
+						DBGLOG(RLM, EVENT, "[CSA Mgt]] TxAllowed = FALSE\n");
 					}
 				} else {
-					DBGLOG(RLM, INFO, "[Mgt Action] ucChannelSwitchMode = 0\n");
+					DBGLOG(RLM, INFO, "[CSA Mgt] ucChannelSwitchMode = 0\n");
 				}
 
-				fgHasChannelSwitchIE = TRUE;
+#if CFG_DFS_NEWCH_DFS_FORCE_DISCONNECT
+				i = rlmDomainGetActiveChannelCount(KAL_BAND_2GHZ);
+				max_count = rlmDomainGetActiveChannelCount(KAL_BAND_5GHZ) +
+								rlmDomainGetActiveChannelCount(KAL_BAND_2GHZ);
+				for (; i < max_count; i++) {
+					Channel = rlmDomainGetActiveChannels() + i;
+
+					if (Channel->chNum != prChannelSwitchAnnounceIE->ucNewChannelNum) {
+						Channel = NULL;
+						continue;
+					} else if (Channel->chNum == prChannelSwitchAnnounceIE->ucNewChannelNum) {
+						break;
+					}
+				}
+
+				DBGLOG(RLM, INFO, "[DFS][CSA][CLIENT] Switch to new channel: new ChNum = [%d]\n",prChannelSwitchAnnounceIE->ucNewChannelNum);
+				if ((Channel) && (Channel->flags & IEEE80211_CHAN_RADAR)) {
+					prCSAParams->fgBeaconNewChannelIsDFS = TRUE;
+					DBGLOG(RLM, INFO, "[DFS][CSA][CLIENT] New channel is DFS channel!");
+				}
+				else
+					DBGLOG(RLM, INFO, "[DFS][CSA][CLIENT] New channel is non-DFS channel!");
+#endif
 				break;
+
 			case ELEM_ID_SCO:
 				if (IE_LEN(pucIE) != (sizeof(IE_SECONDARY_OFFSET_T) - 2)) {
 					DBGLOG(RLM, INFO, "[Mgt Action] ELEM_ID_SCO, Length\n");
@@ -3853,35 +3878,164 @@ VOID rlmProcessSpecMgtAction(P_ADAPTER_T prAdapter, P_SW_RFB_T prSwRfb)
 				}
 				prSecondaryOffsetIE = (P_IE_SECONDARY_OFFSET_T) pucIE;
 				DBGLOG(RLM, INFO,
-				       "[Mgt Action] SCO [%d]->[%d]\n", prBssInfo->eBssSCO,
+				       "[CSA Mgt] SCO [%d]->[%d]\n", prBssInfo->eBssSCO,
 				       prSecondaryOffsetIE->ucSecondaryOffset);
-				prBssInfo->eBssSCO = prSecondaryOffsetIE->ucSecondaryOffset;
-				fgHasSCOIE = TRUE;
+
+				prCSAParams->eSco = (ENUM_CHNL_EXT_T)  prSecondaryOffsetIE->ucSecondaryOffset;
 				break;
+
 			default:
 				break;
 			}	/*end of switch IE_ID */
 		}		/*end of IE_FOR_EACH */
-		if (fgHasChannelSwitchIE != FALSE) {
-			if (fgHasWideBandIE == FALSE) {
-				prBssInfo->ucVhtChannelWidth = 0;
-				prBssInfo->ucVhtChannelFrequencyS1 = prBssInfo->ucPrimaryChannel;
-				prBssInfo->ucVhtChannelFrequencyS2 = 0;
-			}
-			if (fgHasSCOIE == FALSE)
-				prBssInfo->eBssSCO = CHNL_EXT_SCN;
-			if (fgNeedSwitchChannel)
-				kalIndicateChannelSwitch(prAdapter->prGlueInfo, prBssInfo->eBssSCO, prChannelSwitchAnnounceIE->ucNewChannelNum);
+
+		if (SHOULD_CH_SWITCH(ucCurrentCsaCount, prCSAParams, prBssDesc)) {
+			cnmTimerStopTimer(prAdapter, &prBssInfo->rCsaTimer);
+			cnmTimerStartTimer(prAdapter, &prBssInfo->rCsaTimer,
+				TU_TO_MSEC(prBssInfo->u2BeaconInterval *
+					ucCurrentCsaCount));
+			prCSAParams->ucCsaCount = ucCurrentCsaCount;
+			DBGLOG(RLM, INFO,
+				"[CSA Mgt] Channel switch Countdown: %d msecs\n",
+				TU_TO_MSEC(prBssInfo->u2BeaconInterval *
+					prCSAParams->ucCsaCount));
 		}
-		nicUpdateBss(prAdapter, prBssInfo->ucBssIndex);
+
 		break;
+#endif
 	default:
 		break;
 	}
 }
 
-#endif
+VOID rlmResetCSAParams(P_BSS_INFO_T prBssInfo)
+{
+	P_SWITCH_CH_AND_BAND_PARAMS_T prCSAParams;
 
+	if (!prBssInfo){
+		DBGLOG(RLM, ERROR, "Reset CSA params failed, Bssinfo null!");
+		return;
+	}
+
+	prCSAParams = &(prBssInfo->CSAParams);
+	kalMemZero(prCSAParams, sizeof(SWITCH_CH_AND_BAND_PARAMS_T));
+	prCSAParams->ucCsaCount = MAX_CSA_COUNT;
+	prCSAParams->fgBeaconNewChannelIsDFS = FALSE;
+	prCSAParams->fgActionNewChannelIsDFS = FALSE;
+	DBGLOG(RLM, INFO, "Reset CSA count to %u for BSS%d",
+	       prCSAParams->ucCsaCount, prBssInfo->ucBssIndex);
+	prBssInfo->fgHasStopTx = FALSE;
+}
+
+VOID rlmCsaTimeout(IN P_ADAPTER_T prAdapter,
+				   ULONG ulParamPtr)
+{
+	UINT_8 ucBssIndex = (UINT_8) ulParamPtr;
+	P_BSS_INFO_T prBssInfo;
+	P_SWITCH_CH_AND_BAND_PARAMS_T prCSAParams;
+	P_BSS_DESC_T prBssDesc;
+	P_STA_RECORD_T prStaRec;
+
+	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
+	if (!prBssInfo) {
+		DBGLOG(AIS, INFO, "No prBssInfo\n");
+		return;
+	}
+
+	prStaRec = prBssInfo->prStaRecOfAP;
+	if (!prStaRec) {
+		rlmResetCSAParams(prBssInfo);
+		DBGLOG(AIS, INFO, "No prStaRec\n");
+		return;
+	}
+
+	prCSAParams = &prBssInfo->CSAParams;
+	prBssInfo->ucPrimaryChannel = prCSAParams->ucCsaNewCh;
+	prBssInfo->eBand = (prCSAParams->ucCsaNewCh <= 14) ? BAND_2G4 : BAND_5G;
+
+	if (HAS_WIDE_BAND_PARAMS(prCSAParams)) {
+		prBssInfo->ucVhtChannelWidth = prCSAParams->ucVhtBw;
+		prBssInfo->ucVhtChannelFrequencyS1 = prCSAParams->ucVhtS1;
+		prBssInfo->ucVhtChannelFrequencyS2 = prCSAParams->ucVhtS2;
+	}
+
+	if (HAS_SCO_PARAMS(prCSAParams))
+		prBssInfo->eBssSCO = prCSAParams->eSco;
+
+	prBssDesc = prAdapter->rWifiVar.rAisFsmInfo.prTargetBssDesc;
+
+	if (prBssDesc) {
+		DBGLOG(RLM, INFO,
+		       "DFS: BSS: " MACSTR
+		       " Desc found, channel from %u to %u with sco:%u\n ",
+		       MAC2STR(prBssInfo->aucBSSID),
+		       prBssDesc->ucChannelNum, prCSAParams->ucCsaNewCh,
+		       prBssInfo->eBssSCO);
+		prBssDesc->ucChannelNum = prBssInfo->ucPrimaryChannel;
+		prBssDesc->eChannelWidth = prBssInfo->ucVhtChannelWidth;
+		prBssDesc->ucCenterFreqS1 = prBssInfo->ucVhtChannelFrequencyS1;
+		prBssDesc->ucCenterFreqS2 = prBssInfo->ucVhtChannelFrequencyS2;
+
+		kalIndicateChannelSwitch(
+			prAdapter->prGlueInfo,
+			prBssInfo->eBssSCO,
+			prBssDesc->ucChannelNum);
+	} else {
+		DBGLOG(RLM, INFO,
+		       "DFS: BSS: " MACSTR " Desc is not found\n ",
+		       MAC2STR(prBssInfo->aucBSSID));
+	}
+
+#ifdef CFG_DFS_CHSW_FORCE_BW20
+	/*DFS Certification for Channel Bandwidth 20MHz */
+	prBssInfo->eBssSCO = CHNL_EXT_SCN;
+	prBssInfo->ucVhtChannelWidth = CW_20_40MHZ;
+	prBssInfo->ucVhtChannelFrequencyS1 = 0;
+	prBssInfo->ucVhtChannelFrequencyS2 = 255;
+	prBssInfo->ucHtOpInfo1 &=
+		~(HT_OP_INFO1_SCO | HT_OP_INFO1_STA_CHNL_WIDTH);
+	DBGLOG(RLM, INFO, "Ch : DFS has Appeared\n");
+#endif
+	rlmReviseMaxBw(prAdapter, prBssInfo->ucBssIndex, &prBssInfo->eBssSCO,
+		       (PUINT_8)&prBssInfo->ucVhtChannelWidth,
+		       &prBssInfo->ucVhtChannelFrequencyS1,
+		       &prBssInfo->ucPrimaryChannel);
+
+	rlmRevisePreferBandwidthNss(prAdapter, prBssInfo->ucBssIndex, prStaRec);
+
+	if (!rlmDomainIsValidRfSetting(
+		    prAdapter, prBssInfo->eBand, prBssInfo->ucPrimaryChannel,
+		    prBssInfo->eBssSCO, prBssInfo->ucVhtChannelWidth,
+		    prBssInfo->ucVhtChannelFrequencyS1,
+		    prBssInfo->ucVhtChannelFrequencyS2)) {
+		prBssInfo->ucVhtChannelWidth = CW_20_40MHZ;
+		prBssInfo->ucVhtChannelFrequencyS1 = 0;
+		prBssInfo->ucVhtChannelFrequencyS2 = 0;
+		prBssInfo->eBssSCO = CHNL_EXT_SCN;
+		prBssInfo->ucHtOpInfo1 &=
+			~(HT_OP_INFO1_SCO | HT_OP_INFO1_STA_CHNL_WIDTH);
+
+	}
+
+	rlmSyncOperationParams(prAdapter, prBssInfo);
+
+		/* After Channel Switch */
+#if CFG_DFS_NEWCH_DFS_FORCE_DISCONNECT
+	if (prCSAParams->fgBeaconNewChannelIsDFS || prCSAParams->fgActionNewChannelIsDFS) {
+		prCSAParams->fgBeaconNewChannelIsDFS = FALSE;
+		prCSAParams->fgActionNewChannelIsDFS = FALSE;
+		aisBssLinkDown(prAdapter);
+	}
+	else
+#endif
+	{
+		qmUpdateStaRec(prAdapter, prStaRec);
+		DBGLOG(RLM, EVENT, "[CSA] TxAllowed = %d\n", prStaRec->fgIsTxAllowed);
+	}
+
+	rlmResetCSAParams(prBssInfo);
+}
+#endif /* CFG_SUPPORT_DFS */
 
 /*----------------------------------------------------------------------------*/
 /*!
@@ -4413,7 +4567,7 @@ VOID rrmQuietIeNotExist(
 	if (prBssInfo->prStaRecOfAP) {
 		prStaRec = prBssInfo->prStaRecOfAP;
 	} else {
-		g_fgHasStopTx = FALSE;
+		prBssInfo->fgHasStopTx = FALSE;
 		return;
 	}
 
@@ -4422,9 +4576,9 @@ VOID rrmQuietIeNotExist(
 		cnmTimerStopTimer(prAdapter,&prBssInfo->rTxQuietTimer);
 		if (u4QuietDuration > 0)
 		{
-			if (!g_fgHasStopTx)
+			if (!prBssInfo->fgHasStopTx)
 			{
-				g_fgHasStopTx = TRUE;
+				prBssInfo->fgHasStopTx = TRUE;
 				qmSetStaRecTxAllowed(prAdapter, prStaRec, FALSE);
 			}
 			cnmTimerStartTimer(prAdapter, &prBssInfo->rTxQuietTimer, u4QuietDuration);
@@ -4433,10 +4587,10 @@ VOID rrmQuietIeNotExist(
 			DBGLOG(RLM, INFO, "[QIE] Tx disallow\n");
 		}
 		else {
-			if (g_fgHasStopTx)
+			if (prBssInfo->fgHasStopTx)
 			{
 				qmUpdateStaRec(prAdapter, prStaRec);
-				g_fgHasStopTx = FALSE;
+				prBssInfo->fgHasStopTx = FALSE;
 			}
 			prBssInfo->fgIsInQuietInterval = FALSE;
 			DBGLOG(RLM, INFO, "[QIE] Tx allow by Beacon IE\n");
@@ -4483,7 +4637,7 @@ VOID rrmTxQuietTimeout(P_ADAPTER_T prAdapter, ULONG ulParamPtr)
 	if (prBssInfo->prStaRecOfAP) {
 		prStaRec = prBssInfo->prStaRecOfAP;
 	} else {
-		g_fgHasStopTx = FALSE;
+		prBssInfo->fgHasStopTx = FALSE;
 		return;
 	}
 
@@ -4495,10 +4649,10 @@ VOID rrmTxQuietTimeout(P_ADAPTER_T prAdapter, ULONG ulParamPtr)
 
 	if (prBssInfo->fgIsInQuietInterval)
 	{
-		if (g_fgHasStopTx)
+		if (prBssInfo->fgHasStopTx)
 		{
 			qmUpdateStaRec(prAdapter, prStaRec);
-			g_fgHasStopTx = FALSE;
+			prBssInfo->fgHasStopTx = FALSE;
 		}
 		prBssInfo->fgIsInQuietInterval = FALSE;
 

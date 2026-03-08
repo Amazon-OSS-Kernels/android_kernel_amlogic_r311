@@ -345,6 +345,9 @@ enum {
 #define COEX_REF_TABLE_ID_BTRX_GAIN_INFO             35
 #define COEX_REF_TABLE_ID_BTTX_PWR_DIST              36
 #define COEX_REF_TABLE_ID_WFRX_GAIN_DIST             37
+
+#define IW_PRIV_BUF_SIZE			     2000
+
 /*******************************************************************************
 *                             D A T A   T Y P E S
 ********************************************************************************

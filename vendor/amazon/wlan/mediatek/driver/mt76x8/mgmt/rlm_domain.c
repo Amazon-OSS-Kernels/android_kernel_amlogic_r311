@@ -207,6 +207,9 @@ static const UINT_16 g_u2CountryGroup20[] = {
 	     */
 };
 
+#define TX_PWR_LIMIT_FILE_NAME_LENGTH (50)
+static const char* g_tx_pwr_limit_file = WLAN_TX_PWR_LIMIT_FILE_NAME;
+
 #if (CFG_SUPPORT_SINGLE_SKU == 1)
 mtk_regd_control g_mtk_regd_control = {
 	.en = FALSE,
@@ -1830,13 +1833,13 @@ BOOL rlmDomainTxPwrLimitLoad(
 	if (!rlmDomainTxPwrLimitGetCountryRange(u4CountryCode, pucBuf,
 		u4BufLen, &u4CountryStart, &u4CountryEnd)) {
 		DBGLOG(RLM, ERROR, "Can't find specified table in %s\n",
-			WLAN_TX_PWR_LIMIT_FILE_NAME);
+			g_tx_pwr_limit_file);
 
 		/* Use WW as default country */
 		if (!rlmDomainTxPwrLimitGetCountryRange(COUNTRY_CODE_WW, pucBuf,
 			u4BufLen, &u4CountryStart, &u4CountryEnd)) {
 			DBGLOG(RLM, ERROR, "Can't find default table (WW) in %s\n",
-			WLAN_TX_PWR_LIMIT_FILE_NAME);
+			g_tx_pwr_limit_file);
 			return FALSE;
 		}
 	}
@@ -1847,12 +1850,12 @@ BOOL rlmDomainTxPwrLimitLoad(
 		if (!rlmDomainTxPwrLimitSearchSection(gTx_Pwr_Limit_Section[uSecIdx],
 			pucBuf, &u4Pos, u4CountryEnd)) {
 			DBGLOG(RLM, ERROR, "Can't find specified section %s in %s\n",
-				gTx_Pwr_Limit_Section[uSecIdx], WLAN_TX_PWR_LIMIT_FILE_NAME);
+				gTx_Pwr_Limit_Section[uSecIdx], g_tx_pwr_limit_file);
 			return FALSE;
 		}
 
 		DBGLOG(RLM, INFO, "Find specified section %s in %s\n",
-			gTx_Pwr_Limit_Section[uSecIdx], WLAN_TX_PWR_LIMIT_FILE_NAME);
+			gTx_Pwr_Limit_Section[uSecIdx], g_tx_pwr_limit_file);
 
 		while (!rlmDomainTxPwrLimitSectionEnd(pucBuf,
 			gTx_Pwr_Limit_Section[uSecIdx], &u4Pos, u4CountryEnd) &&
@@ -1863,7 +1866,7 @@ BOOL rlmDomainTxPwrLimitLoad(
 		}
 	}
 
-	DBGLOG(RLM, INFO, "Load %s finished\n", WLAN_TX_PWR_LIMIT_FILE_NAME);
+	DBGLOG(RLM, INFO, "Load %s finished\n", g_tx_pwr_limit_file);
 	return TRUE;
 }
 
@@ -1953,6 +1956,13 @@ BOOL rlmDomainTxPwrLimitLoadFromFile(P_ADAPTER_T prAdapter,
 	PUINT_8 pucConfigBuf;
 	UINT_32 u4ConfigReadLen;
 	BOOL bRet = TRUE;
+	char tx_pwr_limit_file_sdcard0[TX_PWR_LIMIT_FILE_NAME_LENGTH] = "/storage/sdcard0/";
+	char tx_pwr_limit_file_misc[TX_PWR_LIMIT_FILE_NAME_LENGTH] = "/data/misc/";
+	char tx_pwr_limit_file_misc_wifi[TX_PWR_LIMIT_FILE_NAME_LENGTH] = "/data/misc/wifi/";
+
+	kalStrCat(tx_pwr_limit_file_sdcard0, g_tx_pwr_limit_file);
+	kalStrCat(tx_pwr_limit_file_misc, g_tx_pwr_limit_file);
+	kalStrCat(tx_pwr_limit_file_misc_wifi, g_tx_pwr_limit_file);
 
 	pucConfigBuf = (PUINT_8) kalMemAlloc(WLAN_TX_PWR_LIMIT_FILE_BUF_SIZE, VIR_MEM_TYPE);
 
@@ -1962,16 +1972,16 @@ BOOL rlmDomainTxPwrLimitLoadFromFile(P_ADAPTER_T prAdapter,
 	kalMemZero(pucConfigBuf, WLAN_TX_PWR_LIMIT_FILE_BUF_SIZE);
 	u4ConfigReadLen = 0;
 
-	if (wlanGetFileContent(prAdapter, WLAN_TX_PWR_LIMIT_FILE_NAME, pucConfigBuf,
+	if (wlanGetFileContent(prAdapter, (char *)g_tx_pwr_limit_file, pucConfigBuf,
 				 WLAN_TX_PWR_LIMIT_FILE_BUF_SIZE, &u4ConfigReadLen, TRUE) == 0) {
 		/* ToDo:: Nothing */
-	} else if (wlanGetFileContent(prAdapter, "/storage/sdcard0/" WLAN_TX_PWR_LIMIT_FILE_NAME, pucConfigBuf,
+	} else if (wlanGetFileContent(prAdapter, tx_pwr_limit_file_sdcard0, pucConfigBuf,
 				 WLAN_TX_PWR_LIMIT_FILE_BUF_SIZE, &u4ConfigReadLen, FALSE) == 0) {
 		/* ToDo:: Nothing */
-	} else if (wlanGetFileContent(prAdapter, "/data/misc/" WLAN_TX_PWR_LIMIT_FILE_NAME, pucConfigBuf,
+	} else if (wlanGetFileContent(prAdapter, tx_pwr_limit_file_misc, pucConfigBuf,
 				 WLAN_TX_PWR_LIMIT_FILE_BUF_SIZE, &u4ConfigReadLen, FALSE) == 0) {
 		/* ToDo:: Nothing */
-	} else if (wlanGetFileContent(prAdapter, "/data/misc/wifi/" WLAN_TX_PWR_LIMIT_FILE_NAME, pucConfigBuf,
+	} else if (wlanGetFileContent(prAdapter, tx_pwr_limit_file_misc_wifi, pucConfigBuf,
 				 WLAN_TX_PWR_LIMIT_FILE_BUF_SIZE, &u4ConfigReadLen, FALSE) == 0) {
 		/* ToDo:: Nothing */
 	} else {
@@ -3466,4 +3476,6 @@ void rlmDomainAssert(BOOLEAN cond)
 
 }
 
-
+void rlmDomainOverridePwrLimitFileName(const char* tx_pwr_limit_file_override) {
+	g_tx_pwr_limit_file = tx_pwr_limit_file_override;
+}

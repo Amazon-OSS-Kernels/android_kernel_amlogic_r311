@@ -1128,6 +1128,18 @@ P_BSS_INFO_T cnmGetBssInfoAndInit(P_ADAPTER_T prAdapter, ENUM_NETWORK_TYPE_T eNe
 		prBssInfo->fgIsNetRequestInActive = FALSE;
 	}
 #endif
+
+#if CFG_SUPPORT_DFS
+	if (prBssInfo) {
+		cnmTimerInitTimer(prAdapter,
+			&prBssInfo->rCsaTimer,
+			(PFN_MGMT_TIMEOUT_FUNC) rlmCsaTimeout,
+			(ULONG)ucBssIndex);
+
+		rlmResetCSAParams(prBssInfo);
+	}
+#endif
+
 	return prBssInfo;
 }
 
@@ -1145,6 +1157,10 @@ VOID cnmFreeBssInfo(P_ADAPTER_T prAdapter, P_BSS_INFO_T prBssInfo)
 {
 	ASSERT(prAdapter);
 	ASSERT(prBssInfo);
+
+#if CFG_SUPPORT_DFS
+	cnmTimerStopTimer(prAdapter, &prBssInfo->rCsaTimer);
+#endif
 
 	prBssInfo->fgIsInUse = FALSE;
 }

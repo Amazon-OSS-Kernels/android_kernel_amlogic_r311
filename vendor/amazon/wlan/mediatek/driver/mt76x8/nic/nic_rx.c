@@ -641,6 +641,7 @@ P_SW_RFB_T incRxDefragMPDU(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSWRfb, OUT 
 	if (prSWRfb->ucSecMode == CIPHER_SUITE_TKIP
 		|| prSWRfb->ucSecMode == CIPHER_SUITE_TKIP_WO_MIC
 		|| prSWRfb->ucSecMode == CIPHER_SUITE_CCMP
+		|| prSWRfb->ucSecMode == CIPHER_SUITE_CCMP_W_CCX
 		|| prSWRfb->ucSecMode == CIPHER_SUITE_CCMP_256
 		|| prSWRfb->ucSecMode == CIPHER_SUITE_GCMP_128
 		|| prSWRfb->ucSecMode == CIPHER_SUITE_GCMP_256) {
@@ -901,7 +902,9 @@ BOOLEAN nicRxIsDuplicateFrame(IN OUT P_SW_RFB_T prSwRfb)
 
 	/* Case 1: Unicast QoS data */
 	if (RXM_IS_QOS_DATA_FRAME(u2FrameCtrl)) {	/* WLAN header shall exist when doing duplicate detection */
-		if (prSwRfb->prStaRec->aprRxReorderParamRefTbl[prSwRfb->ucTid]) {
+		if (prSwRfb->ucTid < CFG_RX_MAX_BA_TID_NUM
+	            &&
+		    prSwRfb->prStaRec->aprRxReorderParamRefTbl[prSwRfb->ucTid]) {
 
 			/* QoS data with an RX BA agreement
 			 *  Case 1: The packet is not an AMPDU subframe, so the RetryBit may be set to 1 (TBC).
