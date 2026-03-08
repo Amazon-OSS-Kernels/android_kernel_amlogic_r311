@@ -94,7 +94,7 @@
 struct semaphore g_halt_sem;
 int g_u4HaltFlag;
 
-#ifdef CFG_SUPPORT_EMPTY_MAC
+#if defined CFG_SUPPORT_EMPTY_MAC || defined CFG_SUPPORT_PRIVACY_INFO
 UINT_8 empty_mac[6] = {0};
 #endif
 

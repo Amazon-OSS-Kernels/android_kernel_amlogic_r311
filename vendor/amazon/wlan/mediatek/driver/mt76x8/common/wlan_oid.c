@@ -12807,6 +12807,8 @@ WLAN_STATUS wlanoidSendBTMQuery(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer,
 {
 	P_STA_RECORD_T prStaRec = NULL;
 	P_BSS_TRANSITION_MGT_PARAM_T prBtmMgt = NULL;
+	UINT_8 uReason = 0;
+	UINT_8 *cReason = (UINT_8 *)pvSetBuffer;
 
 	if (!prAdapter->prAisBssInfo ||
 	    prAdapter->prAisBssInfo->eConnectionState !=
@@ -12821,9 +12823,18 @@ WLAN_STATUS wlanoidSendBTMQuery(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer,
 		       prStaRec);
 		return WLAN_STATUS_FAILURE;
 	}
+
+	if (cReason != NULL) {
+		while (*cReason >= '0' && *cReason <= '9') {
+			uReason = uReason * 10;
+			uReason += *cReason - 48;
+			cReason++;
+		}
+	}
+
 	prBtmMgt = &prAdapter->rWifiVar.rAisSpecificBssInfo.rBTMParam;
 	prBtmMgt->ucDialogToken = wnmGetBtmToken();
-	prBtmMgt->ucQueryReason = pvSetBuffer ? (*(PUINT_8)pvSetBuffer - '0')
+	prBtmMgt->ucQueryReason = pvSetBuffer ? uReason
 					      : BSS_TRANSITION_LOW_RSSI;
 	DBGLOG(OID, INFO, "Send BssTransitionManagementQuery, Reason %d\n",
 	       prBtmMgt->ucQueryReason);
