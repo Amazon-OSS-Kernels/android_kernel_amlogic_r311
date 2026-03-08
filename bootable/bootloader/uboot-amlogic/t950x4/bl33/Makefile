@@ -606,6 +606,10 @@ ifeq ($(TARGET_PRODUCT), ABC)
 KBUILD_CFLAGS += -DCONFIG_DEVICE_PRODUCT_ABC
 endif
 
+ifeq ($(TARGET_PRODUCT), dahlia)
+KBUILD_CFLAGS += -DCONFIG_DEVICE_PRODUCT_DAHLIA
+endif
+
 # Use UBOOTINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
 UBOOTINCLUDE    := \

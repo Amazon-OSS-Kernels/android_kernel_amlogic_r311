@@ -340,8 +340,8 @@ extern int print_board_id()
     const unsigned int  sam_val[] = {0x2a, 0x7d, 0xcf, 0x123, 0x179,\
         0x1d1, 0x22d, 0x285, 0x2db, 0x32f, 0x381, 0x3d4, 0x3ff};
     const unsigned int SAMP_COUNT = sizeof(sam_val)/sizeof(unsigned int);
-    // PROTO BOARD the ssw adc channel is 2;
-    val = get_saradc_val(2);
+    // PROTO BOARD the ssw adc channel is 1;
+    val = get_saradc_val(0);
     for (idx=0; idx<SAMP_COUNT; idx++)
         {
                 if (val <= sam_val[idx])

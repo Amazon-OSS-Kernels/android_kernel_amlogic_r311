@@ -153,6 +153,7 @@
         "DTS_enabled=no\0" \
 	"mem_size=1g\0" \
 	"UbootBuildTag=none\0" \
+	"hw_id_ch2=none\0" \
         "Irq_check_en=0\0"\
         "fs_type=""rootfstype=ramfs""\0"\
         "boardinfo=0\0"\
@@ -189,6 +190,7 @@
             "fi;"\
 	    "setenv bootargs ${bootargs} androidboot.UbootBuildTag=${UbootBuildTag};"\
 	    "setenv bootargs ${bootargs} androidboot.dts=${aml_dt}; "\
+	    "setenv bootargs ${bootargs} androidboot.hw_id=${hw_id_ch2}; "\
             "run cmdline_keys;"\
             "\0"\
         "cec_init="\

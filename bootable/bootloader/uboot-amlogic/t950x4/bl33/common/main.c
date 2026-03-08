@@ -346,7 +346,7 @@ void main_loop(void)
 					while (1) {
 						udelay(1000*1000);
 					}
-				} else if (strstr(oem_data, "ABC-vv")) {
+				} else if (strstr(oem_data, "ABC-vv") || strstr(oem_data, "ABC-vp")) {
 					watchdog_disable();
 					printf("\n\nshipment mode operations finished\n\n");
 					while (1) {

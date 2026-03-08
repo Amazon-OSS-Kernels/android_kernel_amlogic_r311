@@ -59,7 +59,7 @@
 #include <amlogic/spicc.h>
 #endif
 #include <asm/arch/timer.h>
-
+#include <asm/arch/mailbox.h>
 //add amzn start
 #ifdef CONFIG_IDME
 #include <idme.h>
@@ -865,6 +865,7 @@ int checkhw(char * name)
 	int i;
 	char amp_type[256]   = { 0 };
 	int board_id = 0;
+	uint32_t model_name_data[10];
 	for (i=0; i<CONFIG_NR_DRAM_BANKS; i++) {
 		ddr_size += gd->bd->bi_dram[i].size;
 	}
@@ -877,6 +878,11 @@ int checkhw(char * name)
         printf("Can't get amp type, use default\n");
 	}
 	board_id = print_board_id();
+	if (board_id == 5) {
+		model_name_data[0] = 5;
+		setenv("hw_id_ch2","5");
+		scpi_send_data(AOCPU_REE_CHANNEL, CMD_WOL_GPIO, model_name_data, sizeof(model_name_data), NULL, 0);
+	}
 	switch (ddr_size) {
 		case 0x40000000:
 			if (cpu_id.chip_rev == 0xA) {
@@ -888,17 +894,16 @@ int checkhw(char * name)
 				}
 				setenv("cpu_version", "rev_a");
 			} else {
-                                if (strcmp(amp_type, "tas5805") == 0) {
+				if (strcmp(amp_type, "tas5805") == 0) {
 					strcpy(dtb_name, "t5d_t950d4_proto-am301-1g-tas5805\0");
-                                	setenv("cpu_version", "rev_b");
-                                } else if (board_id == 8) {
-					strcpy(dtb_name, "t5d_t950d4_proto-am301-1g_v2\0");
+					setenv("cpu_version", "rev_b");
+				} else if (board_id == 5) {
+					strcpy(dtb_name, "t5d_t950d4_proto-am301-1g-v2\0");
 					setenv("cpu_version", "rev_b");
 				} else {
-                                        strcpy(dtb_name, "t5d_t950d4_proto-am301-1g\0");
-                                        setenv("cpu_version", "rev_b");
-                                }
-
+					strcpy(dtb_name, "t5d_t950d4_proto-am301-1g\0");
+					setenv("cpu_version", "rev_b");
+				}
 /*
 				if (MESON_CPU_PACKAGE_ID_T950X4 == cpu_id.package_id)
 					strcpy(dtb_name, "t5d_t950x4_am311-1g\0");
