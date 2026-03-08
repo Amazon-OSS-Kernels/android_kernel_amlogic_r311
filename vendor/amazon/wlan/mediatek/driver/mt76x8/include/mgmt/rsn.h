@@ -84,6 +84,15 @@
 #if CFG_SUPPORT_802_11W
 #define RSN_CIPHER_SUITE_AES_128_CMAC   0x06AC0F00
 #endif
+#if CFG_SUPPORT_CFG80211_AUTH
+#define RSN_CIPHER_SUITE_GROUP_NOT_USED 0x07AC0F00
+#define RSN_CIPHER_SUITE_GCMP           0x08AC0F00
+#define RSN_CIPHER_SUITE_GCMP_256       0x09AC0F00
+#define RSN_CIPHER_SUITE_CCMP_256       0x0AAC0F00
+#define RSN_CIPHER_SUITE_BIP_GMAC_128   0x0BAC0F00
+#define RSN_CIPHER_SUITE_BIP_GMAC_256   0x0CAC0F00
+#define RSN_CIPHER_SUITE_BIP_CMAC_256   0x0DAC0F00
+#endif
 
 #define WPA_CIPHER_SUITE_NONE           0x00F25000
 #define WPA_CIPHER_SUITE_WEP40          0x01F25000
@@ -99,10 +108,19 @@
 #define RSN_AKM_SUITE_802_1X_SHA256     0x05AC0F00
 #define RSN_AKM_SUITE_PSK_SHA256        0x06AC0F00
 #endif
+#if CFG_SUPPORT_CFG80211_AUTH
+#define RSN_AKM_SUITE_SAE               0x08AC0F00
+#define RSN_AKM_SUITE_8021X_SUITE_B     0x0BAC0F00
+#define RSN_AKM_SUITE_8021X_SUITE_B_192 0x0CAC0F00
+#define RSN_AKM_SUITE_OWE               0x12AC0F00
+#endif
 
 #define WPA_AKM_SUITE_NONE              0x00F25000
 #define WPA_AKM_SUITE_802_1X            0x01F25000
 #define WPA_AKM_SUITE_PSK               0x02F25000
+#if CFG_SUPPORT_CFG80211_AUTH
+#define WLAN_CIPHER_SUITE_NO_GROUP_ADDR 0x000fac07
+#endif
 
 #define ELEM_ID_RSN_LEN_FIXED           20	/* The RSN IE len for associate request */
 
@@ -122,6 +140,9 @@
 #define CIPHER_FLAG_CCMP                        0x00000008	/* BIT 4 */
 #define CIPHER_FLAG_WEP104                      0x00000010	/* BIT 5 */
 #define CIPHER_FLAG_WEP128                      0x00000020	/* BIT 6 */
+#if CFG_SUPPORT_SUITB
+#define CIPHER_FLAG_GCMP256                     0x00000080  /* BIT 7 */
+#endif
 
 #define WAIT_TIME_IND_PMKID_CANDICATE_SEC       6	/* seconds */
 #define TKIP_COUNTERMEASURE_SEC                 60	/* seconds */
@@ -170,6 +191,9 @@
 
 #define ELEM_MAX_LEN_ASSOC_RSP_WSC_IE          (32 - ELEM_HDR_LEN)
 #define ELEM_MAX_LEN_TIMEOUT_IE          (5)
+
+#define SA_QUERY_RETRY_TIMEOUT	3000
+#define SA_QUERY_TIMEOUT	501
 
 /*******************************************************************************
 *                  F U N C T I O N   D E C L A R A T I O N S
@@ -248,6 +272,16 @@ void rsnApSaQueryAction(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb);
 
 #if CFG_SUPPORT_AAA
 VOID rsnGenerateWSCIEForAssocRsp(P_ADAPTER_T prAdapter, P_MSDU_INFO_T prMsduInfo);
+#endif
+
+#if CFG_SUPPORT_OWE
+void rsnGenerateOWEIE(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInfo);
+UINT_32 rsnCalOweIELen(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIndex, P_STA_RECORD_T prStaRec);
+#endif
+
+#if CFG_SUPPORT_H2E
+void rsnGenerateRSNXE(IN P_ADAPTER_T prAdapter,	IN OUT P_MSDU_INFO_T prMsduInfo);
+uint32_t rsnCalRSNXELen(IN P_ADAPTER_T prAdapter,	IN uint8_t ucBssIndex, P_STA_RECORD_T prStaRec);
 #endif
 
 /*******************************************************************************

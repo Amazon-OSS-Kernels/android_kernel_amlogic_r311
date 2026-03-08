@@ -603,6 +603,12 @@ P_BSS_DESC_T
 scanSearchBssDescByBssidAndSsid(IN P_ADAPTER_T prAdapter,
 				IN UINT_8 aucBSSID[], IN BOOLEAN fgCheckSsid, IN P_PARAM_SSID_T prSsid);
 
+#if CFG_SUPPORT_CFG80211_AUTH
+P_BSS_DESC_T
+scanSearchBssDescByBssidAndChanNum(IN P_ADAPTER_T prAdapter,
+				IN UINT_8 aucBSSID[], IN BOOLEAN fgCheckChanNum, IN UINT_8 ucChannelNum);
+#endif
+
 P_BSS_DESC_T scanSearchBssDescByTA(IN P_ADAPTER_T prAdapter, IN UINT_8 aucSrcAddr[]);
 
 P_BSS_DESC_T
@@ -733,4 +739,7 @@ static inline bool is_valid_scan_chnl_cnt(UINT_8 num)
 	return (num && num < MAXIMUM_OPERATION_CHANNEL_LIST);
 }
 #endif
+
+BOOLEAN scnFsmIsScanning(IN P_ADAPTER_T prAdapter);
+
 #endif /* _SCAN_H */

@@ -2739,7 +2739,60 @@ P_SW_RFB_T qmHandleRxPackets(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfbList
 				DBGLOG(QM, EVENT, "Can't find STA_RECORD " MACSTR "\n", MAC2STR(prWlanHeader->aucAddr2));
 			}
 		}
+#if CFG_KEY_ERROR_STATISTIC_RECOVERY
+		else
+		{
+			UINT_16 u2AisFrameCtrl = 0;
+			P_WLAN_MAC_HEADER_T prWlanHeader = NULL;
+			P_BSS_INFO_T prAisBssInfo = NULL;
+			UINT_8 fgIsProtected = FALSE;
 
+			prAisBssInfo = prAdapter->prAisBssInfo;
+
+			prWlanHeader = (P_WLAN_MAC_HEADER_T) prCurrSwRfb->pvHeader;
+			u2AisFrameCtrl = prWlanHeader->u2FrameCtrl;
+			fgIsProtected = (u2AisFrameCtrl & MASK_FC_PROTECTED_FRAME) ? TRUE : FALSE;
+
+			if (prAisBssInfo) {
+				if ((prAisBssInfo->prStaRecOfAP) &&
+						(prAisBssInfo->eConnectionState == PARAM_MEDIA_STATE_CONNECTED) &&
+						EQUAL_MAC_ADDR(prWlanHeader->aucAddr2, prAisBssInfo->aucBSSID) &&
+						fgIsBMC && fgIsProtected &&
+						(prCurrSwRfb->ucWlanIdx == WTBL_RESERVED_ENTRY)) {
+
+					DBGLOG(QM, EVENT, "RXD Trans: FrameCtrl=0x%02x GVLD=0x%x, StaRecIdx=%d, WlanIdx=%d PktLen=%d, Protected=%s\n",
+							u2AisFrameCtrl, prCurrSwRfb->ucGroupVLD,
+							prCurrSwRfb->ucStaRecIdx,
+							prCurrSwRfb->ucWlanIdx,
+							prCurrSwRfb->u2PacketLen,
+							fgIsProtected?"TRUE":"FALSE");
+
+					DBGLOG_MEM8(QM, WARN,
+							(PUINT_8)prCurrSwRfb->pvHeader,
+							(prCurrSwRfb->u2PacketLen > 64) ? 64 : prCurrSwRfb->u2PacketLen);
+
+					RX_INC_CNT(&prAdapter->rRxCtrl, RX_BMC_NO_KEY_COUNT);
+
+					if (RX_GET_CNT(&prAdapter->rRxCtrl, RX_BMC_NO_KEY_COUNT) ==
+							prAdapter->rWifiVar.u4BmcKeyErrorTh) {
+
+						DBGLOG(QM, EVENT,
+								"Trigger BCN timeout due to RX more than"
+								" %llu encrypted BMC packets\n",
+								RX_GET_CNT(&prAdapter->rRxCtrl, RX_BMC_NO_KEY_COUNT));
+
+						prAisBssInfo->u2DeauthReason = BEACON_TIMEOUT_REASON_DUE_2_BMC_ERR;
+#if CFG_SUPPORT_CFG80211_AUTH
+						kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
+								WLAN_STATUS_BEACON_TIMEOUT, NULL, 0);
+#else
+						aisBssBeaconTimeout(prAdapter, prAisBssInfo->u2DeauthReason);
+#endif
+					}
+				}
+			}
+		}
+#endif
 
 #if CFG_SUPPORT_WAPI
 		if (prCurrSwRfb->u2PacketLen > ETHER_HEADER_LEN) {

@@ -334,7 +334,10 @@ VOID nicCmdEventPfmuTagRead(IN P_ADAPTER_T prAdapter, IN P_CMD_INFO_T prCmdInfo,
 	g_rPfmuTag1 = prPfumTagRead->ru4TxBfPFMUTag1;
 	g_rPfmuTag2 = prPfumTagRead->ru4TxBfPFMUTag2;
 
-	kalOidComplete(prGlueInfo, prCmdInfo->fgSetQuery, u4QueryInfoLen, WLAN_STATUS_SUCCESS);
+	if(prCmdInfo->fgIsOid){
+		kalOidComplete(prGlueInfo, prCmdInfo->fgSetQuery, u4QueryInfoLen, WLAN_STATUS_SUCCESS);
+		prCmdInfo->fgIsOid = FALSE;
+	}
 
 	DBGLOG(INIT, INFO, "========================== (R)Tag1 info ==========================\n");
 
@@ -3366,8 +3369,20 @@ VOID nicEventBeaconTimeout(IN P_ADAPTER_T prAdapter, IN P_WIFI_EVENT_T prEvent, 
 		 */
 		prBssInfo->u2DeauthReason = prEventBssBeaconTimeout->ucReasonCode;
 
-		if (prEventBssBeaconTimeout->ucBssIndex == prAdapter->prAisBssInfo->ucBssIndex)
+		if (prEventBssBeaconTimeout->ucBssIndex == prAdapter->prAisBssInfo->ucBssIndex) {
+#if CFG_SUPPORT_CFG80211_AUTH
+			if (!timerPendingTimer(&prAdapter->rWifiVar.rAisFsmInfo.rBeaconLostTimer))
+				cnmTimerStartTimer(prAdapter,
+							&prAdapter->rWifiVar.rAisFsmInfo.rBeaconLostTimer,
+							prAdapter->rWifiVar.ucWaitConnect * MSEC_PER_SEC);
+
+			kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
+						WLAN_STATUS_BEACON_TIMEOUT, NULL, 0);
+#else
 			aisBssBeaconTimeout(prAdapter, prEventBssBeaconTimeout->ucReasonCode);
+#endif
+		}
+
 #if CFG_ENABLE_WIFI_DIRECT
 		else if (prBssInfo->eNetworkType == NETWORK_TYPE_P2P)
 			p2pRoleFsmRunEventBeaconTimeout(prAdapter, prBssInfo);

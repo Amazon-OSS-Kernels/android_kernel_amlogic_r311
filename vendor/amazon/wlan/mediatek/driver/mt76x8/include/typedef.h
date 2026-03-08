@@ -113,6 +113,9 @@
 #define WLAN_STATUS_BWCS_UPDATE                 ((WLAN_STATUS) 0xC0010017L)
 
 #define WLAN_STATUS_JOIN_TIMEOUT                ((WLAN_STATUS) 0xc0010018L)
+#define WLAN_STATUS_BEACON_TIMEOUT              ((WLAN_STATUS) 0xc0010019L)
+#define WLAN_STATUS_JOIN_ABORT                  ((WLAN_STATUS) 0xc0010020L)
+#define WLAN_STATUS_ASSOC_RESP                  ((WLAN_STATUS) 0xc0010021L)
 
 /* NIC status flags */
 #define ADAPTER_FLAG_HW_ERR                     0x00400000

@@ -130,6 +130,10 @@ APPEND_VAR_IE_ENTRY_T txAssocReqIETable[] = {
 	,			/* 221 */
 #endif
 	{(ELEM_HDR_LEN + ELEM_MAX_LEN_WPA), NULL, rsnGenerateWPAIE}	/* 221 */
+	,
+#if CFG_SUPPORT_H2E
+	{0, rsnCalRSNXELen, rsnGenerateRSNXE}			/* 244 */
+#endif
 };
 
 #if CFG_SUPPORT_AAA
@@ -170,8 +174,8 @@ APPEND_VAR_IE_ENTRY_T txAssocRespIETable[] = {
 	,			/* 221 */
 #if CFG_SUPPORT_MTK_SYNERGY
 	{(ELEM_HDR_LEN + ELEM_MIN_LEN_MTK_OUI), NULL, rlmGenerateMTKOuiIE}	/* 221 */
-#endif
 	,
+#endif
 #if CFG_SUPPORT_802_11W
 	{(ELEM_HDR_LEN + ELEM_MAX_LEN_TIMEOUT_IE), NULL, rsnPmfGenerateTimeoutIE}	/* 56 */
 #endif
@@ -1051,6 +1055,14 @@ WLAN_STATUS assocSendDisAssocFrame(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_T p
 	UINT_16 u2PayloadLen;
 	UINT_16 u2EstimatedFrameLen;
 	/* UINT_32 u4Status = WLAN_STATUS_SUCCESS; */
+#if CFG_SUPPORT_CFG80211_AUTH
+	UINT_8 ucRoleIdx = 0;
+	P_BSS_INFO_T prBssInfo = NULL;
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+	uint8_t* pFrameBuf;
+	BOOLEAN fgIsInterruptContext = FALSE;
+#endif
+#endif
 
 	ASSERT(prStaRec);
 	ASSERT(prStaRec->ucBssIndex <= MAX_BSS_INDEX);
@@ -1111,6 +1123,107 @@ WLAN_STATUS assocSendDisAssocFrame(IN P_ADAPTER_T prAdapter, IN P_STA_RECORD_T p
 		}
 
 		prStaRec->rPmfCfg.fgRxDeauthResp = FALSE;
+	}
+#endif
+
+#if CFG_SUPPORT_CFG80211_AUTH
+	{
+		P_WLAN_DISASSOC_FRAME_T prDisassocFrame;
+
+		prDisassocFrame = (P_WLAN_DISASSOC_FRAME_T)
+				((ULONG) (prMsduInfo->prPacket) +
+				MAC_TX_RESERVED_FIELD);
+		DBGLOG(SAA, INFO, "notification of TX disassociation, %d\n",
+				prMsduInfo->u2FrameLength);
+
+	/*
+		check prStaRec is not NULL first
+		prStaRec can be NULL if it is P2P GO
+	*/
+	if ((prStaRec) && (IS_STA_IN_AIS(prStaRec))) {
+#if (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+	if (in_interrupt()) {
+		pFrameBuf = kalMemAlloc(prMsduInfo->u2FrameLength, PHY_MEM_TYPE);
+		fgIsInterruptContext = TRUE;
+	} else {
+		pFrameBuf = kalMemAlloc(prMsduInfo->u2FrameLength, VIR_MEM_TYPE);
+		fgIsInterruptContext = FALSE;
+	}
+
+	if (!pFrameBuf) {
+		DBGLOG(SAA, ERROR, "Alloc buffer for frame failed\n");
+		return WLAN_STATUS_RESOURCES;
+	}
+
+	kalMemCopy((void *) pFrameBuf,
+				(void *) prDisassocFrame,
+				prMsduInfo->u2FrameLength);
+
+	kalWDevLockThread(prAdapter->prGlueInfo,
+						prAdapter->prGlueInfo->prDevHandler,
+						CFG80211_TX_MLME_MGMT,
+						pFrameBuf,
+						prMsduInfo->u2FrameLength,
+						NULL,
+						0,
+						fgIsInterruptContext);
+#else
+		cfg80211_tx_mlme_mgmt(prAdapter->prGlueInfo->prDevHandler,
+				(UINT_8 *)prDisassocFrame,
+				(size_t)prMsduInfo->u2FrameLength);
+#endif
+#else
+		cfg80211_send_disassoc(prAdapter->prGlueInfo->prDevHandler,
+				(UINT_8 *)prDisassocFrame,
+				(size_t)prMsduInfo->u2FrameLength);
+#endif
+	}
+#if CFG_ENABLE_WIFI_DIRECT
+	else if (prAdapter->fgIsP2PRegistered) {
+			prBssInfo =
+			GET_BSS_INFO_BY_INDEX(prAdapter, prStaRec->ucBssIndex);
+			ucRoleIdx = (UINT_8)prBssInfo->u4PrivateData;
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+			if (in_interrupt()) {
+				pFrameBuf = kalMemAlloc(prMsduInfo->u2FrameLength, PHY_MEM_TYPE);
+				fgIsInterruptContext = TRUE;
+			} else {
+				pFrameBuf = kalMemAlloc(prMsduInfo->u2FrameLength, VIR_MEM_TYPE);
+				fgIsInterruptContext = FALSE;
+			}
+
+			if (!pFrameBuf) {
+				DBGLOG(SAA, ERROR, "Alloc buffer for frame failed\n");
+				return WLAN_STATUS_RESOURCES;
+			}
+
+			kalMemCopy((PVOID) pFrameBuf,
+						(PVOID) prDisassocFrame,
+						prMsduInfo->u2FrameLength);
+			kalWDevLockThread(prAdapter->prGlueInfo,
+								prAdapter->prGlueInfo->prP2PInfo[ucRoleIdx]
+											->aprRoleHandler,
+								CFG80211_TX_MLME_MGMT,
+								pFrameBuf,
+								prMsduInfo->u2FrameLength,
+								NULL,
+								0,
+								fgIsInterruptContext);
+#else
+			cfg80211_tx_mlme_mgmt(
+				prAdapter->prGlueInfo->prP2PInfo[ucRoleIdx]
+							->aprRoleHandler,
+				(PUINT_8)prDisassocFrame,
+				(size_t)prMsduInfo->u2FrameLength);
+#endif
+	}
+#endif
+	else {
+		DBGLOG(SAA, INFO,
+			"notification of TX deauthentication, FAILED\n");
+	}
+		DBGLOG(SAA, INFO, "notification of TX disassociation, Done\n");
 	}
 #endif
 
