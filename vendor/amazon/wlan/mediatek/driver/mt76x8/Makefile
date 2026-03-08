@@ -341,10 +341,6 @@ ifeq ($(CFG_KEEP_SAA_STATUS_CODE), y)
 ccflags-y += -DCFG_KEEP_SAA_STATUS_CODE=1
 endif
 
-ifeq ($(CFG_ROAMING_5G_PREFER),y)
-ccflags-y += -DCFG_ROAMING_5G_PREFER=1
-endif
-
 ifneq ($(CFG_SUPPORT_REORDER_TIMER_PER_TID),)
 ccflags-y += -DCFG_SUPPORT_REORDER_TIMER_PER_TID=$(CFG_SUPPORT_REORDER_TIMER_PER_TID)
 endif
@@ -580,7 +576,6 @@ ccflags-y += -DCFG_PREALLOC_MEMORY
 ccflags-y += -I$(src)/prealloc/include
 MODULE_NAME_PREALLOC = $(MODULE_NAME)_prealloc
 PREALLOC_OBJS := prealloc/prealloc.o
-PREALLOC_OBJS += prealloc/chip_reset_info.o
 $(MODULE_NAME_PREALLOC)-objs += $(PREALLOC_OBJS)
 obj-m += $(MODULE_NAME_PREALLOC).o
 endif

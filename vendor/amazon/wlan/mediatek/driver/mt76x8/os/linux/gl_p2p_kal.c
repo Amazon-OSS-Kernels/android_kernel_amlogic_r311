@@ -1191,15 +1191,6 @@ kalP2PGCIndicateConnectionStatus(IN P_GLUE_INFO_T prGlueInfo,
 
 		prGlueP2pInfo = prGlueInfo->prP2PInfo[ucRoleIndex];
 
-		/* This exception occurs at wlanRemove. */
-		if ((prGlueP2pInfo == NULL) ||
-			(prGlueP2pInfo->aprRoleHandler == NULL) ||
-			(prGlueInfo->prAdapter->rP2PNetRegState !=
-				ENUM_NET_REG_STATE_REGISTERED) ||
-			((prGlueInfo->ulFlag & GLUE_FLAG_HALT) == 1)) {
-			break;
-		}
-
 		if (prP2pConnInfo) {
 			cfg80211_connect_result(prGlueP2pInfo->aprRoleHandler,
 						/* struct net_device * dev, */
@@ -1237,15 +1228,6 @@ kalP2PGCIndicateConnectionStatus(IN P_GLUE_INFO_T prGlueInfo,
 		}
 
 		prGlueP2pInfo = prGlueInfo->prP2PInfo[ucRoleIndex];
-
-		/* This exception occurs at wlanRemove. */
-		if ((prGlueP2pInfo == NULL) ||
-			(prGlueP2pInfo->aprRoleHandler == NULL) ||
-			(prGlueInfo->prAdapter->rP2PNetRegState !=
-				ENUM_NET_REG_STATE_REGISTERED) ||
-			((prGlueInfo->ulFlag & GLUE_FLAG_HALT) == 1)) {
-			break;
-		}
 
 		if (prP2pConnInfo) {
 			cfg80211_connect_result(prGlueP2pInfo->aprRoleHandler,
@@ -1300,15 +1282,9 @@ kalP2PGOStationUpdate(IN P_GLUE_INFO_T prGlueInfo,
 		} else {
 			++prP2pGlueInfo->i4Generation;
 
-			/* The exception occurs at wlanRemove */
-			if ((prP2pGlueInfo != NULL) &&
-				(prP2pGlueInfo->aprRoleHandler != NULL) &&
-				(prGlueInfo->prAdapter->rP2PNetRegState ==
-					ENUM_NET_REG_STATE_REGISTERED) &&
-				((prGlueInfo->ulFlag & GLUE_FLAG_HALT) == 0)) {
-				cfg80211_del_sta(prP2pGlueInfo->aprRoleHandler,
-					prCliStaRec->aucMacAddr, GFP_KERNEL);
-			}
+			cfg80211_del_sta(prP2pGlueInfo->aprRoleHandler,
+					 /* struct net_device * dev, */
+					 prCliStaRec->aucMacAddr, GFP_KERNEL);
 		}
 
 	} while (FALSE);

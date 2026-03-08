@@ -1812,15 +1812,11 @@ VOID aisFsmStateAbort(IN P_ADAPTER_T prAdapter, UINT_8 ucReasonOfDisconnect, BOO
 		break;
 
 	case AIS_STATE_REQ_REMAIN_ON_CHANNEL:
-		fgIsCheckConnected = TRUE;
-
 		/* release channel */
 		aisFsmReleaseCh(prAdapter);
 		break;
 
 	case AIS_STATE_REMAIN_ON_CHANNEL:
-		fgIsCheckConnected = TRUE;
-
 		/* 1. release channel */
 		aisFsmReleaseCh(prAdapter);
 
