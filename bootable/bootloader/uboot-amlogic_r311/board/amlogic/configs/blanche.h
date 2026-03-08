@@ -84,14 +84,14 @@
 
 /*https://www.amazon.com*/
 
-#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL6	0xb9467d02 /* abj123 power key */
-#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL7	0xa05f7d02 /* abj123 netflix key */
-#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL8	0x5ea17d02 /* abj123 prime video key */
-#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL9	0x5da27d02 /* abj123 music key */
-#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL10	0x5ca37d02 /* abj123 custom button4 key */
-#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL11	0x609f7d02 /* abj123 home key */
-#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL12	0xb54a7d02 /* abj123 enter key */
-#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL13	0x5fa07d02 /* abj123 voice search key */
+#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL6	0xb9467d02 /* earhart power key */
+#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL7	0xa05f7d02 /* earhart netflix key */
+#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL8	0x5ea17d02 /* earhart prime video key */
+#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL9	0x5da27d02 /* earhart music key */
+#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL10	0x5ca37d02 /* earhart custom button4 key */
+#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL11	0x609f7d02 /* earhart home key */
+#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL12	0xb54a7d02 /* earhart enter key */
+#define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL13	0x5fa07d02 /* earhart voice search key */
 
 #define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL14	0xed12bf40 /* Toshiba remote --- power */
 #define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL15	0xf00f0586 /* Insignia remote --- power */
