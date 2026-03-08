@@ -28,8 +28,9 @@
 
 struct ion_codec_mm_heap {
 	struct ion_heap heap;
-	int max_can_alloc_size;
-	int alloced_size;
+	unsigned long  max_can_alloc_size;
+	unsigned long  alloced_size;
+	struct mutex size_mutex;/*Alloced size mutex*/
 };
 
 #define AML_ION_FLAG_BUFFER_NEEDS_CLEAR (1 << 30)
@@ -43,9 +44,13 @@ ion_phys_addr_t ion_codec_mm_allocate(struct ion_heap *heap,
 		container_of(heap, struct ion_codec_mm_heap, heap);
 	unsigned long offset;
 
+	mutex_lock(&codec_heap->size_mutex);
 	if (codec_heap->alloced_size + size > codec_heap->max_can_alloc_size) {
-		pr_err("ion_codec_mm_allocate failed out size %d,alloced %d\n",
-			(int)size, (int)codec_heap->alloced_size);
+		pr_err(
+			"ion_codec_mm_allocate failed out size %lu,alloced %lu\n",
+			size,
+			codec_heap->alloced_size);
+		mutex_unlock(&codec_heap->size_mutex);
 		return ION_CARVEOUT_ALLOCATE_FAIL;
 	}
 
@@ -55,11 +60,12 @@ ion_phys_addr_t ion_codec_mm_allocate(struct ion_heap *heap,
 		CODEC_MM_FLAGS_DMA_CPU);
 
 	if (!offset) {
-		pr_err("ion_codec_mm_allocate failed out size %d\n",
-			(int)size);
+		pr_err("ion_codec_mm_allocate failed out size %lu\n", size);
+		mutex_unlock(&codec_heap->size_mutex);
 		return ION_CARVEOUT_ALLOCATE_FAIL;
 	}
 	codec_heap->alloced_size += size;
+	mutex_unlock(&codec_heap->size_mutex);
 	return offset;
 }
 
@@ -72,7 +78,9 @@ void ion_codec_mm_free(struct ion_heap *heap, ion_phys_addr_t addr,
 	if (addr == ION_CARVEOUT_ALLOCATE_FAIL)
 		return;
 	codec_mm_free_for_dma(CODEC_MM_ION, addr);
+	mutex_lock(&codec_heap->size_mutex);
 	codec_heap->alloced_size -= size;
+	mutex_unlock(&codec_heap->size_mutex);
 }
 
 static int ion_codec_mm_heap_phys(struct ion_heap *heap,
@@ -186,6 +194,7 @@ struct ion_heap *ion_codec_mm_heap_create(struct ion_platform_heap *heap_data)
 	codec_heap->heap.ops = &codec_mm_heap_ops;
 	codec_heap->heap.type = ION_HEAP_TYPE_CUSTOM;
 	codec_heap->heap.flags = ION_HEAP_FLAG_DEFER_FREE;
+	mutex_init(&codec_heap->size_mutex);
 	return &codec_heap->heap;
 }
 
