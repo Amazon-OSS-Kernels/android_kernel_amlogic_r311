@@ -864,6 +864,7 @@ int checkhw(char * name)
         char config_name[64] = {0};
 	int i;
 	char amp_type[256]   = { 0 };
+	int board_id = 0;
 	for (i=0; i<CONFIG_NR_DRAM_BANKS; i++) {
 		ddr_size += gd->bd->bi_dram[i].size;
 	}
@@ -875,6 +876,7 @@ int checkhw(char * name)
 	if (get_amp_type(amp_type, sizeof(amp_type)) != 0 ) {
         printf("Can't get amp type, use default\n");
 	}
+	board_id = print_board_id();
 	switch (ddr_size) {
 		case 0x40000000:
 			if (cpu_id.chip_rev == 0xA) {
@@ -887,12 +889,15 @@ int checkhw(char * name)
 				setenv("cpu_version", "rev_a");
 			} else {
                                 if (strcmp(amp_type, "tas5805") == 0) {
-				strcpy(dtb_name, "t5d_t950d4_proto-am301-1g-tas5805\0");
-                                setenv("cpu_version", "rev_b");
-                        } else {
-                                strcpy(dtb_name, "t5d_t950d4_proto-am301-1g\0");
-                                setenv("cpu_version", "rev_b");
-                        }
+					strcpy(dtb_name, "t5d_t950d4_proto-am301-1g-tas5805\0");
+                                	setenv("cpu_version", "rev_b");
+                                } else if (board_id == 8) {
+					strcpy(dtb_name, "t5d_t950d4_proto-am301-1g_v2\0");
+					setenv("cpu_version", "rev_b");
+				} else {
+                                        strcpy(dtb_name, "t5d_t950d4_proto-am301-1g\0");
+                                        setenv("cpu_version", "rev_b");
+                                }
 
 /*
 				if (MESON_CPU_PACKAGE_ID_T950X4 == cpu_id.package_id)

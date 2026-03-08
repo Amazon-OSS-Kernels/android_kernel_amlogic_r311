@@ -111,17 +111,29 @@ int do_usb_upgrade_fos( )
 
 #ifdef USB_UPGRADE_IN_ONE_FILE
     char sdc_cfg_file[100] = {0};
-    char oem_data[24] = {0};
+    char oem_data[128] = {0};//oem_data cannot exceed 127 characters
     char* argv[2] = {0, 0};
     char* ammo_title = "ammo_var=";
-    char* ammo_var;
+    char* ammo_var = NULL;
+    char *p = NULL;
 
-    idme_get_var_external("oem_data", oem_data, sizeof(oem_data));
-    ammo_var = strstr(oem_data, ammo_title) + strlen(ammo_title);
-    if (ammo_var == NULL) {
+    idme_get_var_external("oem_data", oem_data, sizeof(oem_data) - 1);
+    p = strtok(oem_data, ":");
+    while(p) {
+        ammo_var = strstr(p, ammo_title);
+        if(NULL != ammo_var) {
+            ammo_var = ammo_var + strlen(ammo_title);
+            break;
+        }
+        p = strtok(NULL, ":");
+    }
+
+    if(NULL == ammo_var) {
         DWN_ERR("ammo_var does not exist, upgrade fail!\n");
         return rcode;
     }
+
+    DWN_MSG("ammo_var=%s\r\n", ammo_var);
 
     strcpy(sdc_cfg_file, ammo_var);
     strcpy(sdc_cfg_file + strlen(ammo_var), "_usb_burn_package.img");

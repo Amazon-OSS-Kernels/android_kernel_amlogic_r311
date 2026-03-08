@@ -26,7 +26,7 @@
 #define MAX_LINE_BUFF (NAME_MAX+VALUE_MAX)
 
 int num = 0;
-char partition[16][32];
+char partition[20][32];
 int narb = 0;
 
 typedef struct {

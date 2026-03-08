@@ -331,6 +331,25 @@ static void print_ssw_id()
 }
 #endif
 
+extern int print_board_id()
+{
+    int val = -1;
+    int idx = 0;
+//ID numbet = 13: 0.00%, 8.27%, 16.33%, 24.24%, 32.67%, 41.05%,
+//50.00%, 58.95%, 67.33%, 75.76%, 83.67%, 91.73%, 100.00%
+    const unsigned int  sam_val[] = {0x2a, 0x7d, 0xcf, 0x123, 0x179,\
+        0x1d1, 0x22d, 0x285, 0x2db, 0x32f, 0x381, 0x3d4, 0x3ff};
+    const unsigned int SAMP_COUNT = sizeof(sam_val)/sizeof(unsigned int);
+    // PROTO BOARD the ssw adc channel is 2;
+    val = get_saradc_val(2);
+    for (idx=0; idx<SAMP_COUNT; idx++)
+        {
+                if (val <= sam_val[idx])
+                        break;
+        }
+    printf("board id is %d\n", idx);
+    return idx;
+}
 
 
 
