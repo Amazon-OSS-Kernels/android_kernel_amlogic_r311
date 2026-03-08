@@ -179,6 +179,12 @@ function exec_build_kernel {
         make ${MAKE_ARGS} ${PARALLEL_EXECUTION}
     fi
 
+    if [[ $? -ne 0 ]]
+    then
+        echo "Build failed"
+        exit 10
+    fi
+
     popd
 }
 
