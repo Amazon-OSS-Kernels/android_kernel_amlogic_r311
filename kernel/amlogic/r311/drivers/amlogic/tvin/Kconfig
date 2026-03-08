@@ -1,0 +1,43 @@
+#
+# Amlogic tvin devices configuration
+#
+
+comment "Amlogic TVIN Drivers"
+
+menuconfig TVIN
+        tristate "Amlogic TVIN support"
+        default n
+        help
+                "Amlogic TVIN module driver"
+config AM_CVBS_PAL_M
+        tristate "Amlogi TVIN for PAL_M format"
+        default n
+        help
+          "Amlogi TVIN for PAL_M format
+                Y: enable
+                N: disable
+                M: build as module
+
+config AM_TRY_FORMAT_MAX_AV
+        tristate "Amlogic try format max for AV"
+        default n
+        help
+            "Amlogic try format max for AV"
+config AM_AV_CH_WHITE_PATTERN_EN
+        boolean "Amlogic av ch_white pattern enable"
+        default n
+        help
+            Enable av ch_white pattern if needed
+
+if TVIN
+source "drivers/amlogic/tvin/vdin/Kconfig"
+source "drivers/amlogic/tvin/tvafe/Kconfig"
+source "drivers/amlogic/tvin/hdmirx/Kconfig"
+source "drivers/amlogic/tvin/hdmirx_ext/Kconfig"
+source "drivers/amlogic/tvin/bt656/Kconfig"
+#source "drivers/amlogic/tvin/csi/Kconfig"
+source "drivers/amlogic/tvin/viu/Kconfig"
+#source "drivers/amlogic/tvin/it660x/Kconfig"
+source "drivers/amlogic/tvin/isp/Kconfig"
+#source "drivers/amlogic/tvin/vdin_ctrl/Kconfig"
+endif

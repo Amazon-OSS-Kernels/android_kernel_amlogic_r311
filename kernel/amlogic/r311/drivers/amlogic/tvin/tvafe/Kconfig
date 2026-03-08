@@ -1,0 +1,88 @@
+#
+# AMLOGIC TVAFE Device Driver Configuration
+#
+
+config TVIN_AFE
+	tristate "Amlogic AFE device driver"
+	default n
+	help
+		AFE device driver,
+		process input source of av/atv/vga/ypbpr/atvdemod,
+		translate analog signal to digtal to vdin process
+
+if TVIN_AFE
+config ADC_DOUBLE_SAMPLING_FOR_SD
+	bool "Enable double sampling function"
+	default n
+	help
+		Adc double sampling for SD
+		only for input source of Component,
+		and only for Standard Definition input
+		to use
+
+config ADC_DOUBLE_SAMPLING_FOR_CVBS
+	bool "Enable double sampling function for AV port"
+	default n
+	help
+		Adc double sampling for AV port
+		Only for input source of AV,
+		Only support on G9TV and after G9TV
+		right now,not add support on M6TV
+
+config TVIN_VBI
+	tristate "Amlogic TVIN VBI device"
+	default n
+	help
+		VBI devices driver
+		Only for ATV input,
+		By now,wo only test CC is ok on M6TV & G9TV
+		CC is usually used in USA
+config TVIN_AVIN_DETECT
+	tristate "Amlogic AVIN DETECT device"
+	default n
+	help
+		avin detect devices driver
+		Only for av input
+endif
+
+config AM_PRODUCT_ANJALI
+	tristate "ANJALI devices"
+	default n
+	help
+		only use for anjali
+
+config AM_ATV_SYNC_SCAN_RANGE
+        tristate "Amlogic ATV sync scan range adjust"
+        default n
+        help
+                Adjust Hsync and Vsync scan range
+
+config AM_VLOCK_MODE
+	tristate "Amlogic vlock mode adjust"
+	default n
+	help
+		Adjust vlock mode
+config AM_ATV_SEARCH_RANGE
+        tristate "Amlogic ATV search range"
+        default n
+        help
+                reduce ATV search limit
+
+config AM_AV_SECAM_CVD2
+        tristate "Amlogic AV SECAM CVD2 Modify color bar inch color"
+        default n
+        help
+                Modify color bar inch color
+
+config AM_ATV_CHANGE_SCREEN_SIZE
+        tristate "Amlogic atv screen ratio is abnormal after switch channel sometimes"
+        default n
+        help
+               Modify AVT change screen size after dec start if needed
+
+config AM_AV_ADD_CHROME_LOCK_DETECT
+	boolean "Amlogic av chrome lock detect"
+	default n
+	help
+		Detect chroma lock detect if needed
+
