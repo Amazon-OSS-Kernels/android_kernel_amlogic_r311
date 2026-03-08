@@ -385,7 +385,7 @@ static int fastboot_add(struct usb_configuration *c)
 	status = usb_add_function(c, &f_fb->usb_function);
 	if (status) {
 		free(f_fb);
-		fastboot_func = f_fb;
+		fastboot_func = NULL;
 	}
 
 	return status;
@@ -618,8 +618,15 @@ static void cb_getvar(struct usb_ep *ep, struct usb_request *req)
 		char str_num[20];
 		char p_name[MAX_PART_NAME_LEN];
 		struct partitions *pPartition;
-		uint64_t sz;
+		uint64_t sz = 0;
+		int ret = -1;
 		strsep(&cmd, ":");
+		if ((cmd == NULL) || (strcmp(cmd, "") == 0)) {
+			printf("partition name is NULL\n");
+			strcpy(response, "FAILpartition name is NULL");
+			fastboot_tx_write_str(response);
+			return;
+		}
 		if (!strncmp("mbr", cmd, strlen("mbr"))) {
 			strcpy(response, "FAILVariable not implemented");
 		} else {
@@ -629,12 +636,18 @@ static void cb_getvar(struct usb_ep *ep, struct usb_request *req)
 				sprintf(str_num, "%016llx", pPartition->size);
 			} else if (!strncmp("bootloader-", cmd, strlen("bootloader-"))) {
 				strsep(&cmd, "-");
-				mmc_boot_size(cmd, &sz);
-				printf("size:%016llx\n", sz);
-				sprintf(str_num, "%016llx", sz);
+				ret = mmc_boot_size(cmd, &sz);
+				printf("ret = %d\n", ret);
+				if (ret == 0) {
+					printf("size:%016llx\n", sz);
+					sprintf(str_num, "%016llx", sz);
+				} else {
+					printf("get partitize error\n");
+					sprintf(str_num, "FAILget partitize error");
+				}
 			} else {
 				printf("find_mmc_partition_by_name fail\n");
-				sprintf(str_num, "get fail");
+				sprintf(str_num, "FAILget fail");
 			}
 			strncat(response, str_num, chars_left);
 		}
