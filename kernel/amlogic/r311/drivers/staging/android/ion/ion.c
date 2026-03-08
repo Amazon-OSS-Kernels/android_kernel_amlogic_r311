@@ -1399,9 +1399,13 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	if (_IOC_SIZE(cmd) > sizeof(data))
 		return -EINVAL;
 
-	if (dir & _IOC_WRITE)
-		if (copy_from_user(&data, (void __user *)arg, _IOC_SIZE(cmd)))
-			return -EFAULT;
+	/*
+	 * The copy_from_user is unconditional here for both read and write
+	 * to do the validate. If there is no write for the ioctl, the
+	 * buffer is cleared
+	 */
+	if (copy_from_user(&data, (void __user *)arg, _IOC_SIZE(cmd)))
+		return -EFAULT;
 
 	switch (cmd) {
 	case ION_IOC_ALLOC:
