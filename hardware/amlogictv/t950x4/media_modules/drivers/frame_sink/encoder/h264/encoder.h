@@ -390,6 +390,22 @@ struct encode_manager_s {
 	struct tasklet_struct encode_tasklet;
 };
 
+struct encdrv_buffer_t {
+	u32 size;
+	u32 cached;
+	ulong phys_addr;
+	ulong base; /* kernel logical address in use kernel */
+	ulong virt_addr; /* virtual user space address */
+};
+
+
+/* To track the allocated memory buffer */
+struct encdrv_buffer_pool_t {
+	struct list_head list;
+	struct encdrv_buffer_t vb;
+	struct file *filp;
+};
+
 extern s32 encode_wq_add_request(struct encode_wq_s *wq);
 extern struct encode_wq_s *create_encode_work_queue(void);
 extern s32 destroy_encode_work_queue(struct encode_wq_s *encode_work_queue);

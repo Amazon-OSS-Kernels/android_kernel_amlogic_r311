@@ -87,7 +87,6 @@ to enable DV of frame mode
 #define CHECK_INTERVAL        (HZ/100)
 
 #define SEI_DATA_SIZE			(8*1024)
-#define SEI_ITU_DATA_SIZE		(4*1024)
 
 #define RATE_MEASURE_NUM 8
 #define RATE_CORRECTION_THRESHOLD 5
@@ -350,8 +349,9 @@ static unsigned int mb_count_threshold = 5; /*percentage*/
 static u32 double_write_mode;
 static u32 without_display_mode;
 
-static int loop_playback_poc_threshold = 400;
+static int loop_playback_poc_threshold = 300;
 static int poc_threshold = 50;
+static int loop_times = 1;
 
 static u32 lookup_check_conut = 30;
 
@@ -506,7 +506,7 @@ struct buffer_spec_s {
 	unsigned int dw_u_v_adr;
 	int fs_idx;
 #ifdef CONFIG_ENABLE_AFD
-	u8  user_data_buf[SEI_ITU_DATA_SIZE];
+	char* user_data_buf;
 	struct userdata_param_t ud_param;
 #endif
 };
@@ -1153,6 +1153,9 @@ static void hevc_mcr_config_canv2axitbl(struct vdec_h264_hw_s *hw, int restore)
 	u32 dw_buffer_size_u_v_h;
 	u32 blkmode = hw->canvas_mode;
 	int dw_mode =  hw->double_write_mode;
+#ifdef CONFIG_ENABLE_AFD
+	struct vdec_s *vdec = hw_to_vdec(hw);
+#endif
 
 	canvas_addr = ANC0_CANVAS_ADDR;
 	for (i = 0; i < num_buff; i++)
@@ -1187,6 +1190,26 @@ static void hevc_mcr_config_canv2axitbl(struct vdec_h264_hw_s *hw, int restore)
 					DRIVER_HEADER_NAME, i);
 				return;
 			}
+#ifdef CONFIG_ENABLE_AFD
+			if (vdec->vdata == NULL) {
+				vdec->vdata = vdec_data_get();
+			}
+
+			if (vdec->vdata != NULL) {
+				struct buffer_spec_s *pic = &hw->buffer_spec[i];
+				int index = 0;
+
+				index = vdec_data_get_index((ulong)vdec->vdata);
+				if (index >= 0) {
+					pic->user_data_buf = vdec->vdata->data[index].user_data_buf;
+					vdec_data_buffer_count_increase((ulong)vdec->vdata, index, i);
+					INIT_LIST_HEAD(&vdec->vdata->release_callback[i].node);
+					decoder_bmmu_box_add_callback_func(hw->bmmu_box, i, (void *)&vdec->vdata->release_callback[i]);
+				} else {
+					dpb_print(DECODE_ID(hw), 0, "vdec data is full\n");
+				}
+			}
+#endif
 		} else
 			maddr = hw->buffer_spec[i].alloc_header_addr;
 		WRITE_VREG(HEVCD_MPP_ANC2AXI_TBL_DATA,  maddr >> 5);
@@ -1803,6 +1826,27 @@ static int alloc_one_buf_spec(struct vdec_h264_hw_s *hw, int i)
 		);
 		return -1;
 	} else {
+#ifdef CONFIG_ENABLE_AFD
+		if (vdec->vdata == NULL) {
+			vdec->vdata = vdec_data_get();
+		}
+
+		if (vdec->vdata != NULL) {
+			struct buffer_spec_s *pic = &hw->buffer_spec[i];
+			int index = 0;
+
+			index = vdec_data_get_index((ulong)vdec->vdata);
+			if (index >= 0) {
+				pic->user_data_buf = vdec->vdata->data[index].user_data_buf;
+				vdec_data_buffer_count_increase((ulong)vdec->vdata, index, i);
+				INIT_LIST_HEAD(&vdec->vdata->release_callback[i].node);
+				decoder_bmmu_box_add_callback_func(hw->bmmu_box, i, (void *)&vdec->vdata->release_callback[i]);
+			} else {
+				dpb_print(DECODE_ID(hw), 0, "vdec data is full\n");
+			}
+		}
+#endif
+			
 		hw->no_mem_count = 0;
 		hw->stat &= ~DECODER_FATAL_ERROR_NO_MEM;
 	}
@@ -6140,13 +6184,16 @@ static int vh264_pic_done_proc(struct vdec_s *vdec)
 								!p_Dpb->fs[i]->pre_output) {
 							hw->loop_flag = 1;
 							hw->loop_last_poc = p_H264_Dpb->mVideo.dec_picture->poc;
+							dump_dpb(p_Dpb, 0);
+							dpb_print(DECODE_ID(hw), PRINT_FLAG_VDEC_STATUS,
+										"%s: loop_last_poc %d, fs->poc %d\n", __func__, hw->loop_last_poc, p_Dpb->fs[i]->poc);
 							break;
 						}
 					}
 				} else {
 					if ((p_H264_Dpb->mVideo.dec_picture->poc >= hw->loop_last_poc - poc_threshold) &&
 						(p_H264_Dpb->mVideo.dec_picture->poc <= hw->loop_last_poc + poc_threshold)) {
-						if (hw->loop_flag >= 5) {
+						if (hw->loop_flag >= loop_times) {
 							for (i = 0; i < p_Dpb->used_size; i++) {
 								if ((hw->loop_last_poc + loop_playback_poc_threshold < p_Dpb->fs[i]->poc) &&
 										!p_Dpb->fs[i]->is_output &&
@@ -8381,11 +8428,18 @@ static void vmh264_udc_fill_vpts(struct vdec_h264_hw_s *hw,
 #ifdef CONFIG_ENABLE_AFD
 	if (p != NULL) {
 		struct buffer_spec_s *pic = &hw->buffer_spec[p->buf_spec_num];
-		memset(pic->user_data_buf, 0, SEI_ITU_DATA_SIZE);
-		if (hw->sei_itu_data_len < SEI_ITU_DATA_SIZE) {
-			memcpy(pic->user_data_buf, hw->sei_itu_data_buf,
-				hw->sei_itu_data_len);
-			pic->ud_param.buf_len = hw->sei_itu_data_len;
+
+		if (pic->user_data_buf != NULL) {
+			memset(pic->user_data_buf, 0, SEI_ITU_DATA_SIZE);
+			if (hw->sei_itu_data_len < SEI_ITU_DATA_SIZE) {
+				memcpy(pic->user_data_buf, hw->sei_itu_data_buf,
+					hw->sei_itu_data_len);
+				pic->ud_param.buf_len = hw->sei_itu_data_len;
+			} else {
+				pic->ud_param.buf_len = 0;
+				dpb_print(DECODE_ID(hw), 0,
+					"sei data len is over 4k\n", hw->sei_itu_data_len);
+			}
 		} else {
 			pic->ud_param.buf_len = 0;
 		}
@@ -10719,6 +10773,9 @@ MODULE_PARM_DESC(loop_playback_poc_threshold, "\n loop_playback_poc_threshold\n"
 
 module_param(poc_threshold, int, 0664);
 MODULE_PARM_DESC(poc_threshold, "\n poc_threshold\n");
+
+module_param(loop_times, int, 0664);
+MODULE_PARM_DESC(loop_times, "\n loop_times\n");
 
 module_param(force_config_fence, uint, 0664);
 MODULE_PARM_DESC(force_config_fence, "\n force enable fence\n");

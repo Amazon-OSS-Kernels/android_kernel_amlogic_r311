@@ -40,7 +40,7 @@
 #include <dvbdev.h>
 
 MODULE_PARM_DESC(aml_ci_debug, "\n\t\t dvb ci debug");
-static int aml_ci_debug = 1;
+static int aml_ci_debug;
 module_param(aml_ci_debug, int, S_IRUGO);
 
 #define pr_dbg(args...)\

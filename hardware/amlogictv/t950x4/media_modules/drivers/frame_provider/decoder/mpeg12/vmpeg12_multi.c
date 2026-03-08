@@ -97,7 +97,7 @@
 
 #define SEQINFO_EXT_AVAILABLE   0x80000000
 #define SEQINFO_PROG            0x00010000
-#define CCBUF_SIZE      (5*1024)
+#define CCBUF_SIZE              SEI_ITU_DATA_SIZE
 
 #define VF_POOL_SIZE        64
 #define DECODE_BUFFER_NUM_MAX 16
@@ -223,7 +223,7 @@ struct pic_info_t {
 	u32 frame_size; // For frame base mode
 	u64 timestamp;
 #ifdef CONFIG_ENABLE_AFD
-	u8  user_data_buf[CCBUF_SIZE];
+	char *user_data_buf;
 	struct userdata_param_t ud_param;
 #endif
 };
@@ -2041,11 +2041,16 @@ static int v4l_res_change(struct vdec_mpeg12_hw_s *hw, int width, int height)
 static void copy_user_data_to_pic(struct vdec_mpeg12_hw_s *hw, struct pic_info_t *pic)
 {
 	//struct vdec_s *vdec = hw_to_vdec(hw);
-
-	memset(pic->user_data_buf, 0, CCBUF_SIZE);
-	if (hw->parse_user_data_size < CCBUF_SIZE) {
-		memcpy(pic->user_data_buf, hw->parse_user_data_buf, hw->parse_user_data_size);
-		pic->ud_param.buf_len = hw->parse_user_data_size;
+	if (pic->user_data_buf != NULL) {
+		memset(pic->user_data_buf, 0, CCBUF_SIZE);
+		if (hw->parse_user_data_size < CCBUF_SIZE) {
+			memcpy(pic->user_data_buf, hw->parse_user_data_buf, hw->parse_user_data_size);
+			pic->ud_param.buf_len = hw->parse_user_data_size;
+		} else {
+			pic->ud_param.buf_len = 0;
+			debug_print(DECODE_ID(hw), 0,
+						"sei data len is over 5k\n", hw->parse_user_data_size);
+		}
 	} else {
 		pic->ud_param.buf_len = 0;
 	}
@@ -2796,6 +2801,29 @@ static int vmpeg12_canvas_init(struct vdec_mpeg12_hw_s *hw)
 					decbuf_size, i);
 				return ret;
 			}
+
+#ifdef CONFIG_ENABLE_AFD
+			if (vdec->vdata == NULL) {
+				vdec->vdata = vdec_data_get();
+			}
+
+			if (vdec->vdata != NULL) {
+				struct pic_info_t *pic = NULL;
+				int index = 0;
+
+				pic = &hw->pics[i];
+
+				index = vdec_data_get_index((ulong)vdec->vdata);
+				if (index >= 0) {
+					pic->user_data_buf = vdec->vdata->data[index].user_data_buf;
+					vdec_data_buffer_count_increase((ulong)vdec->vdata, index, i);
+					INIT_LIST_HEAD(&vdec->vdata->release_callback[i].node);
+					decoder_bmmu_box_add_callback_func(hw->mm_blk_handle, i, (void *)&vdec->vdata->release_callback[i]);
+				} else {
+					debug_print(DECODE_ID(hw), 0, "vdec data is full\n");
+				}
+			}
+#endif
 		}
 
 		if (i == hw->buf_num) {

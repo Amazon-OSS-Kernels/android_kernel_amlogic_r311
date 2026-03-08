@@ -4420,7 +4420,7 @@ void dmx_reset_dmx_hw_ex_unlock(struct aml_dvb *dvb, struct aml_dmx *dmx,
 		ciplus = 0x7C000000 & data;
 	}*/
 
-	pr_error("dmx_reset_dmx_hw_ex_unlock into\n");
+	pr_dbg("dmx_reset_dmx_hw_ex_unlock into\n");
 	WRITE_MPEG_REG(RESET3_REGISTER,
 		       (dmx->id) ? ((dmx->id ==
 				     1) ? RESET_DEMUX1 : RESET_DEMUX2) :

@@ -23,6 +23,8 @@
 #include <linux/fence.h>
 #include <linux/sync_file.h>
 #include <uapi/linux/sync_file.h>
+#include <linux/device.h>
+#include <linux/amlogic/media/codec_mm/codec_mm.h>
 
 #define FENCE_USE_FOR_DRIVER	(0)
 #define FENCE_USE_FOR_APP	(1)

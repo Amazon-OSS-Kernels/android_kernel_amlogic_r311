@@ -73,6 +73,8 @@ enum vdec_type_e {
 #define CORE_MASK_HEVC_BACK (1 << VDEC_HEVCB)
 #define CORE_MASK_COMBINE (1UL << 31)
 
+#define SEI_ITU_DATA_SIZE		(5*1024)
+
 extern void vdec2_power_mode(int level);
 extern void vdec_poweron(enum vdec_type_e core);
 extern void vdec_poweroff(enum vdec_type_e core);
@@ -171,6 +173,33 @@ enum vformat_t;
 #define VDEC_NEED_MORE_DATA_RUN   0x01
 #define VDEC_NEED_MORE_DATA_DIRTY 0x02
 #define VDEC_NEED_MORE_DATA       0x04
+
+#define VDEC_DATA_MAX_INSTANCE_NUM (MAX_INSTANCE_MUN * 2)
+#define VDEC_DATA_NUM 64
+
+struct vdec_data_s {
+	void *private_data;
+	atomic_t  use_count;
+	char *user_data_buf;
+	/* alloc_flag:
+	 * 0, none allocated
+	 * 1, allocated, used
+	 * 2, allocated, free
+	 */
+	u32 alloc_flag;
+};
+
+struct vdec_data_info_s {
+	atomic_t  buffer_count;
+	atomic_t use_flag;
+	struct codec_mm_cb_s release_callback[VDEC_DATA_NUM];
+	struct vdec_data_s data[VDEC_DATA_NUM];
+};
+
+struct vdec_data_core_s {
+	struct vdec_data_info_s vdata[VDEC_DATA_MAX_INSTANCE_NUM];
+	spinlock_t vdec_data_lock;
+};
 
 struct vdec_s {
 	u32 magic;
@@ -286,6 +315,7 @@ struct vdec_s {
 	u32 profile_idc;
 	u32 level_idc;
 	int seted_duration_flag;
+	struct vdec_data_info_s *vdata;
 };
 
 /* common decoder vframe provider name to use default vfm path */
@@ -491,5 +521,13 @@ void vdec_set_profile_level(struct vdec_s *vdec, u32 profile_idc, u32 level_idc)
 extern void vdec_stream_skip_data(struct vdec_s *vdec, int skip_size);
 void vdec_set_vld_wp(struct vdec_s *vdec, u32 wp);
 void vdec_config_vld_reg(struct vdec_s *vdec, u32 addr, u32 size);
+
+void vdec_data_buffer_count_increase(ulong data, int index, int cb_index);
+
+struct vdec_data_info_s *vdec_data_get(void);
+
+int vdec_data_get_index(ulong data);
+
+void vdec_data_release(struct codec_mm_s *mm, struct codec_mm_cb_s *cb);
 
 #endif				/* VDEC_H */

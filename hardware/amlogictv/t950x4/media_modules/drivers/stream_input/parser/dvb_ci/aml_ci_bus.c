@@ -45,7 +45,7 @@
 //gpio irq is can used.
 //
 static struct aml_ci_bus ci_bus;
-static int aml_ci_bus_debug = 1;
+static int aml_ci_bus_debug;
 static int aml_ci_bus_time = 500;
 static int aml_ci_bus_set_delay = 0;
 
@@ -973,7 +973,7 @@ static int aml_ci_bus_get_config_from_dts(struct aml_ci_bus *ci_bus_dev)
 		snprintf(buf, sizeof(buf), "%s", "addr_ts_mode_multiplex");
 		ret = of_property_read_u32(pdev->dev.of_node, buf, &ival);
 		if (ret) {
-			pr_error("dvb ci addr_ts_mode_multiplex request failed\n");
+			pr_dbg("dvb ci addr_ts_mode_multiplex request failed\n");
 		} else {
 			ci_bus_dev->addr_ts_mode_multiplex = ival;
 			pr_dbg("ci_bus_dev->addr_ts_mode_multiplex %d ******\n", ci_bus_dev->addr_ts_mode_multiplex);

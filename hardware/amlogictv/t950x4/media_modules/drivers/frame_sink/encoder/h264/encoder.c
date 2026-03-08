@@ -425,10 +425,15 @@ const char *ucode_name[] = {
 	"ga_h264_enc_cabac",
 };
 
+static spinlock_t s_vpu_lock = __SPIN_LOCK_UNLOCKED(s_vpu_lock);
+static DEFINE_SEMAPHORE(s_vpu_sem);
+static struct list_head s_vbp_head = LIST_HEAD_INIT(s_vbp_head);
+
 static void dma_flush(u32 buf_start, u32 buf_size);
 static void cache_flush(u32 buf_start, u32 buf_size);
 static int enc_dma_buf_get_phys(struct enc_dma_cfg *cfg, unsigned long *addr);
 static void enc_dma_buf_unmap(struct enc_dma_cfg *cfg);
+static s32 enc_free_buffers(struct file *filp);
 
 static const char *select_ucode(u32 ucode_index)
 {
@@ -712,9 +717,12 @@ static void avc_canvas_init(struct encode_wq_s *wq)
 	      CANVAS_ADDR_NOWRAP, CANVAS_BLKMODE_LINEAR);
 }
 
-static void avc_buffspec_init(struct encode_wq_s *wq)
+static s32 avc_buffspec_init(struct encode_wq_s *wq)
 {
 	u32 canvas_width, canvas_height;
+	s32 ret = 0;
+	struct encdrv_buffer_pool_t *vbp;
+
 	u32 start_addr = wq->mem.buf_start;
 	u32 mb_w = (wq->pic.encoder_width + 15) >> 4;
 	u32 mb_h = (wq->pic.encoder_height + 15) >> 4;
@@ -723,67 +731,85 @@ static void avc_buffspec_init(struct encode_wq_s *wq)
 	canvas_width = ((wq->pic.encoder_width + 31) >> 5) << 5;
 	canvas_height = ((wq->pic.encoder_height + 15) >> 4) << 4;
 
-	wq->mem.dct_buff_start_addr = start_addr +
-		wq->mem.bufspec.dct.buf_start;
-	wq->mem.dct_buff_end_addr =
-		wq->mem.dct_buff_start_addr +
-		wq->mem.bufspec.dct.buf_size - 1;
-	enc_pr(LOG_INFO, "dct_buff_start_addr is 0x%x, wq:%p.\n",
-		wq->mem.dct_buff_start_addr, (void *)wq);
+	ret = down_interruptible(&s_vpu_sem);
+	if (ret == 0) {
+		vbp = kzalloc(sizeof(*vbp), GFP_KERNEL);
+		if (!vbp) {
+			up(&s_vpu_sem);
+			return -ENOMEM;
+		}
+		wq->mem.dct_buff_start_addr = start_addr +
+			wq->mem.bufspec.dct.buf_start;
+		wq->mem.dct_buff_end_addr =
+			wq->mem.dct_buff_start_addr +
+			wq->mem.bufspec.dct.buf_size - 1;
+		enc_pr(LOG_INFO, "dct_buff_start_addr is 0x%x, wq:%p.\n",
+			wq->mem.dct_buff_start_addr, (void *)wq);
 
-	wq->mem.bufspec.dec0_uv.buf_start =
-		wq->mem.bufspec.dec0_y.buf_start +
-		canvas_width * canvas_height;
-	wq->mem.bufspec.dec0_uv.buf_size = canvas_width * canvas_height / 2;
-	wq->mem.bufspec.dec1_uv.buf_start =
-		wq->mem.bufspec.dec1_y.buf_start +
-		canvas_width * canvas_height;
-	wq->mem.bufspec.dec1_uv.buf_size = canvas_width * canvas_height / 2;
-	wq->mem.assit_buffer_offset = start_addr +
-		wq->mem.bufspec.assit.buf_start;
-	enc_pr(LOG_INFO, "assit_buffer_offset is 0x%x, wq: %p.\n",
-		wq->mem.assit_buffer_offset, (void *)wq);
-	/*output stream buffer config*/
-	wq->mem.BitstreamStart = start_addr +
-		wq->mem.bufspec.bitstream.buf_start;
-	wq->mem.BitstreamEnd =
-		wq->mem.BitstreamStart +
-		wq->mem.bufspec.bitstream.buf_size - 1;
-	enc_pr(LOG_INFO, "BitstreamStart is 0x%x, wq: %p.\n",
-		wq->mem.BitstreamStart, (void *)wq);
+		wq->mem.bufspec.dec0_uv.buf_start =
+			wq->mem.bufspec.dec0_y.buf_start +
+			canvas_width * canvas_height;
+		wq->mem.bufspec.dec0_uv.buf_size = canvas_width * canvas_height / 2;
+		wq->mem.bufspec.dec1_uv.buf_start =
+			wq->mem.bufspec.dec1_y.buf_start +
+			canvas_width * canvas_height;
+		wq->mem.bufspec.dec1_uv.buf_size = canvas_width * canvas_height / 2;
+		wq->mem.assit_buffer_offset = start_addr +
+			wq->mem.bufspec.assit.buf_start;
+		enc_pr(LOG_INFO, "assit_buffer_offset is 0x%x, wq: %p.\n",
+			wq->mem.assit_buffer_offset, (void *)wq);
+		/*output stream buffer config*/
+		wq->mem.BitstreamStart = start_addr +
+			wq->mem.bufspec.bitstream.buf_start;
+		wq->mem.BitstreamEnd =
+			wq->mem.BitstreamStart +
+			wq->mem.bufspec.bitstream.buf_size - 1;
+		enc_pr(LOG_INFO, "BitstreamStart is 0x%x, wq: %p.\n",
+			wq->mem.BitstreamStart, (void *)wq);
 
-	wq->mem.scaler_buff_start_addr =
-		wq->mem.buf_start + wq->mem.bufspec.scale_buff.buf_start;
-	wq->mem.dump_info_ddr_start_addr =
-		wq->mem.buf_start + wq->mem.bufspec.dump_info.buf_start;
-	enc_pr(LOG_INFO,
-		"CBR: dump_info_ddr_start_addr:%x.\n",
-		wq->mem.dump_info_ddr_start_addr);
-	enc_pr(LOG_INFO, "CBR: buf_start :%d.\n",
-		wq->mem.buf_start);
-	enc_pr(LOG_INFO, "CBR: dump_info.buf_start :%d.\n",
-		wq->mem.bufspec.dump_info.buf_start);
-	wq->mem.dump_info_ddr_size =
-		DUMP_INFO_BYTES_PER_MB * mbs;
-	wq->mem.dump_info_ddr_size =
-		(wq->mem.dump_info_ddr_size + PAGE_SIZE - 1)
-		& ~(PAGE_SIZE - 1);
-	wq->mem.cbr_info_ddr_start_addr =
-		wq->mem.buf_start + wq->mem.bufspec.cbr_info.buf_start;
-	wq->mem.cbr_info_ddr_size =
-		wq->mem.bufspec.cbr_info.buf_size;
-	wq->mem.cbr_info_ddr_virt_addr =
-		codec_mm_vmap(wq->mem.cbr_info_ddr_start_addr,
-		            wq->mem.bufspec.cbr_info.buf_size);
+		wq->mem.scaler_buff_start_addr =
+			wq->mem.buf_start + wq->mem.bufspec.scale_buff.buf_start;
+		wq->mem.dump_info_ddr_start_addr =
+			wq->mem.buf_start + wq->mem.bufspec.dump_info.buf_start;
+		enc_pr(LOG_INFO,
+			"CBR: dump_info_ddr_start_addr:%x.\n",
+			wq->mem.dump_info_ddr_start_addr);
+		enc_pr(LOG_INFO, "CBR: buf_start :%d.\n",
+			wq->mem.buf_start);
+		enc_pr(LOG_INFO, "CBR: dump_info.buf_start :%d.\n",
+			wq->mem.bufspec.dump_info.buf_start);
+		wq->mem.dump_info_ddr_size =
+			DUMP_INFO_BYTES_PER_MB * mbs;
+		wq->mem.dump_info_ddr_size =
+			(wq->mem.dump_info_ddr_size + PAGE_SIZE - 1)
+			& ~(PAGE_SIZE - 1);
+		wq->mem.cbr_info_ddr_start_addr =
+			wq->mem.buf_start + wq->mem.bufspec.cbr_info.buf_start;
+		wq->mem.cbr_info_ddr_size =
+			wq->mem.bufspec.cbr_info.buf_size;
+		wq->mem.cbr_info_ddr_virt_addr =
+			codec_mm_vmap(wq->mem.cbr_info_ddr_start_addr,
+						wq->mem.bufspec.cbr_info.buf_size);
 
-	wq->mem.dblk_buf_canvas =
-		((ENC_CANVAS_OFFSET + 2) << 16) |
-		((ENC_CANVAS_OFFSET + 1) << 8) |
-		(ENC_CANVAS_OFFSET);
-	wq->mem.ref_buf_canvas =
-		((ENC_CANVAS_OFFSET + 5) << 16) |
-		((ENC_CANVAS_OFFSET + 4) << 8) |
-		(ENC_CANVAS_OFFSET + 3);
+		wq->mem.dblk_buf_canvas =
+			((ENC_CANVAS_OFFSET + 2) << 16) |
+			((ENC_CANVAS_OFFSET + 1) << 8) |
+			(ENC_CANVAS_OFFSET);
+		wq->mem.ref_buf_canvas =
+			((ENC_CANVAS_OFFSET + 5) << 16) |
+			((ENC_CANVAS_OFFSET + 4) << 8) |
+			(ENC_CANVAS_OFFSET + 3);
+
+		vbp->vb.phys_addr = wq->mem.buf_start;
+		vbp->vb.size = wq->mem.buf_size;
+
+		spin_lock(&s_vpu_lock);
+		list_add(&vbp->list, &s_vbp_head);
+		spin_unlock(&s_vpu_lock);
+
+		up(&s_vpu_sem);
+	}
+	return 0;
 }
 
 static void avc_init_ie_me_parameter(struct encode_wq_s *wq, u32 quant)
@@ -3186,6 +3212,8 @@ static s32 amvenc_avc_release(struct inode *inode, struct file *file)
 {
 	struct encode_wq_s *wq = (struct encode_wq_s *)file->private_data;
 
+	enc_free_buffers(file);
+
 	if (wq) {
 		enc_pr(LOG_DEBUG, "avc release, wq:%p\n", (void *)wq);
 		destroy_encode_work_queue(wq);
@@ -3204,6 +3232,11 @@ static long amvenc_avc_ioctl(struct file *file, u32 cmd, ulong arg)
 	u32 buf_start;
 	s32 canvas = -1;
 	struct canvas_s dst;
+	struct encdrv_buffer_t buf;
+	struct encdrv_buffer_pool_t *pool, *n;
+	struct encdrv_buffer_t vb;
+	bool find = false;
+	u32 cached = 0;
 
 	switch (cmd) {
 	case AMVENC_AVC_IOC_GET_ADDR:
@@ -3300,9 +3333,39 @@ static long amvenc_avc_ioctl(struct file *file, u32 cmd, ulong arg)
 				"avc flush cache error, wq: %p.\n", (void *)wq);
 			return -1;
 		}
+		if (((addr_info[0] >> 31) > 0) || \
+			((addr_info[1] >> 31) > 0) || \
+			((addr_info[2] >> 31) > 0) || \
+			(addr_info[2] <= addr_info[1])) {
+			enc_pr(LOG_ERROR, "avc flush cache param error, addr_info[0](0x%x), addr_info[1](0x%x), addr_info[2](0x%x)\n", addr_info[0], addr_info[1], addr_info[2]);
+			return -1;
+		}
 		buf_start = getbuffer(wq, addr_info[0]);
-		dma_flush(buf_start + addr_info[1],
-			addr_info[2] - addr_info[1]);
+		buf.phys_addr = buf_start + addr_info[1];
+		buf.size = addr_info[2] - addr_info[1];
+		spin_lock(&s_vpu_lock);
+		list_for_each_entry_safe(pool, n,
+			&s_vbp_head, list) {
+			//if (pool->filp == filp) {
+				vb = pool->vb;
+				if ((vb.phys_addr <= buf.phys_addr)
+					&& ((vb.phys_addr + vb.size)
+						> buf.phys_addr)
+					&& ((vb.phys_addr + vb.size)
+						>= buf.phys_addr + buf.size)
+					&& find == false){
+					cached = vb.cached;
+					find = true;
+					break;
+				}
+			//}
+		}
+		spin_unlock(&s_vpu_lock);
+		//if (find && cached)
+		if (find)
+			dma_flush(
+				(u32)buf.phys_addr,
+				(u32)buf.size);
 		break;
 	case AMVENC_AVC_IOC_FLUSH_DMA:
 		if (copy_from_user(addr_info, (void *)arg,
@@ -3311,9 +3374,40 @@ static long amvenc_avc_ioctl(struct file *file, u32 cmd, ulong arg)
 				"avc flush dma error, wq:%p.\n", (void *)wq);
 			return -1;
 		}
+		if (((addr_info[0] >> 31) > 0) || \
+			((addr_info[1] >> 31) > 0) || \
+			((addr_info[2] >> 31) > 0) || \
+			(addr_info[2] <= addr_info[1])) {
+			enc_pr(LOG_ERROR, "avc flush dma param error, addr_info[0](0x%x), addr_info[1](0x%x), addr_info[2](0x%x)\n", addr_info[0], addr_info[1], addr_info[2]);
+			return -1;
+		}
 		buf_start = getbuffer(wq, addr_info[0]);
-		cache_flush(buf_start + addr_info[1],
-			addr_info[2] - addr_info[1]);
+		buf.phys_addr = buf_start + addr_info[1];
+		buf.size = addr_info[2] - addr_info[1];
+
+		spin_lock(&s_vpu_lock);
+		list_for_each_entry_safe(pool, n,
+			&s_vbp_head, list) {
+			//if (pool->filp == filp) {
+				vb = pool->vb;
+				if ((vb.phys_addr <= buf.phys_addr)
+					&& ((vb.phys_addr + vb.size)
+						> buf.phys_addr)
+					&& ((vb.phys_addr + vb.size)
+						>= buf.phys_addr + buf.size)
+					&& find == false){
+					cached = vb.cached;
+					find = true;
+					break;
+				}
+			//}
+		}
+		spin_unlock(&s_vpu_lock);
+		//if (find && cached)
+		if (find)
+			cache_flush(
+				(u32)buf.phys_addr,
+				(u32)buf.size);
 		break;
 	case AMVENC_AVC_IOC_GET_BUFFINFO:
 		put_user(wq->mem.buf_size, (u32 *)arg);
@@ -3406,7 +3500,7 @@ static long amvenc_avc_ioctl(struct file *file, u32 cmd, ulong arg)
 			addr_info[0] = 0;
 			addr_info[1] = 0;
 		}
-		dma_flush(dst.addr, dst.width * dst.height * 3 / 2);
+		//dma_flush(dst.addr, dst.width * dst.height * 3 / 2);
 		r = copy_to_user((u32 *)arg, addr_info, 2 * sizeof(u32));
 		break;
 	case AMVENC_AVC_IOC_MAX_INSTANCE:
@@ -4549,6 +4643,25 @@ static void enc_dma_buf_unmap(struct enc_dma_cfg *cfg)
 	enc_pr(LOG_DEBUG, "enc_dma_buffer_unmap vaddr %p\n",(unsigned *)vaddr);
 }
 
+static s32 enc_free_buffers(struct file *filp)
+{
+	struct encdrv_buffer_pool_t *pool, *n;
+	struct encdrv_buffer_t vb;
+
+	enc_pr(LOG_DEBUG, "enc_free_buffers\n");
+	list_for_each_entry_safe(pool, n, &s_vbp_head, list) {
+		//if (pool->filp == filp) {
+			vb = pool->vb;
+			if (vb.phys_addr) {
+				spin_lock(&s_vpu_lock);
+				list_del(&pool->list);
+				spin_unlock(&s_vpu_lock);
+				kfree(pool);
+			}
+		//}
+	}
+	return 0;
+}
 
 module_param(fixed_slice_cfg, uint, 0664);
 MODULE_PARM_DESC(fixed_slice_cfg, "\n fixed_slice_cfg\n");
