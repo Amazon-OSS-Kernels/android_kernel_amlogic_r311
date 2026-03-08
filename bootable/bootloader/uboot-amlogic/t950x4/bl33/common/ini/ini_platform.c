@@ -56,15 +56,24 @@ static int splitFilePath(const char *file_path, char part_name[], char file_name
         return -1;
     }
 
-    tmp_end_ptr = strchr(tmp_start_ptr + 1,'/');
-    if (tmp_end_ptr == NULL) {
-        ALOGE("%s, there is only partition name in the path!!!\n", __FUNCTION__);
-        return -1;
-    }
+    #ifdef CONFIG_DEVICE_PRODUCT_SHINE
+    if(strstr(tmp_start_ptr,"firetv_odm")) {
+        tmp_end_ptr = strstr(tmp_start_ptr,"firetv_odm") + strlen("firetv_odm");
+        strcpy(part_name, "bak");
+        //ALOGD("%s, tmp_end_ptr:%s\n", __FUNCTION__, tmp_end_ptr);
+    } else
+    #endif
+    {
+        tmp_end_ptr = strchr(tmp_start_ptr + 1,'/');
+        if (tmp_end_ptr == NULL) {
+            ALOGE("%s, there is only partition name in the path!!!\n", __FUNCTION__);
+            return -1;
+        }
 
-    strncpy(part_name, tmp_start_ptr + 1, tmp_end_ptr - tmp_start_ptr - 1);
-    part_name[tmp_end_ptr - tmp_start_ptr - 1] = '\0';
-    //ALOGD("%s, partition name is %s\n", __FUNCTION__, part_name);
+        strncpy(part_name, tmp_start_ptr + 1, tmp_end_ptr - tmp_start_ptr - 1);
+        part_name[tmp_end_ptr - tmp_start_ptr - 1] = '\0';
+    }
+    //ALOGD("%s, partition name is %s, %d\n", __FUNCTION__, part_name);
 
     tmp_start_ptr = tmp_end_ptr;
 
@@ -112,14 +121,14 @@ static int setBlockDevice(const char *part_name) {
     char tmp_buf[128] = {0};
 
     part_no = get_partition_num_by_name((char *)part_name);
-    //ALOGD("%s, part_no is %d\n", __FUNCTION__, part_no);
+    //ALOGD("[%s, %d] part_no is %d\n", __FUNCTION__, __LINE__, part_no);
     if (part_no >= 0) {
         strcpy(part_buf, CS_BLCOK_DEV_MARJOR_NUM);
         strcat(part_buf, ":");
 
         sprintf(tmp_buf, "%x", part_no);
         strcat(part_buf, tmp_buf);
-
+        //ALOGD("[%s, %d] part_buf is %s\n", __FUNCTION__, __LINE__, part_buf);
         return fs_set_blk_dev(CS_BLCOK_DEV_INTERFACE, part_buf, FS_TYPE_EXT);
     }
 
@@ -132,7 +141,6 @@ int iniIsFileExist(const char *file_path) {
     if (access(file_path, 0) < 0) {
         return 0;
     }
-
     return 1;
 #elif (defined CC_COMPILE_IN_UBOOT)
     char part_name[CC_MAX_INI_FILE_NAME_LEN];
@@ -141,10 +149,12 @@ int iniIsFileExist(const char *file_path) {
     memset((void *)part_name, 0, CC_MAX_INI_FILE_NAME_LEN);
     memset((void *)file_name, 0, CC_MAX_INI_FILE_NAME_LEN);
     if (splitFilePath(file_path, part_name, file_name, NULL) < 0) {
+        //ALOGE("[%s, %d] file_path:%s error\n", __FUNCTION__, __LINE__, file_path);
         return 0;
     }
 
     if (setBlockDevice(part_name) < 0) {
+        //ALOGE("[%s, %d]  part_name:%s error\n", __FUNCTION__, __LINE__, part_name);
         return 0;
     }
 

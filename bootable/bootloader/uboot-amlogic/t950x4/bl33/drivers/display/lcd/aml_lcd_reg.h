@@ -1,20 +1,10 @@
-
+/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 /*
  * drivers/display/lcd/aml_lcd_reg.h
  *
- * Copyright (C) 2015 Amlogic, Inc. All rights reserved.
+ * Copyright (C) 2020 Amlogic, Inc. All rights reserved.
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
- * more details.
- *
-*/
+ */
 
 #ifndef __AML_LCD_REG_H__
 #define __AML_LCD_REG_H__
@@ -26,6 +16,8 @@
 #endif
 
 #include "aml_lcd_dummy_reg.h"
+
+#define REG_ADDR_INVALID        0xffffffff
 
 /* ********************************
  * register define
@@ -40,6 +32,7 @@
 /* memory mapping */
 #define REG_ADDR_AOBUS(reg)             (reg + 0L)
 #define REG_ADDR_PERIPHS(reg)           (reg + 0L)
+#define REG_ADDR_RESET(reg)             (reg + 0L)
 #define REG_ADDR_CBUS(reg)              (REG_BASE_CBUS + REG_OFFSET_CBUS(reg))
 #define REG_ADDR_HIU(reg)               (reg + 0L)
 #define REG_ADDR_VCBUS(reg)             (REG_BASE_VCBUS + REG_OFFSET_VCBUS(reg))
@@ -66,7 +59,7 @@
 #define HHI_HPLL_CNTL6                          HHI_HDMI_PLL_CNTL5
 #endif
 
-/*#define HHI_VIID_CLK_DIV     	0x4a*/
+/*#define HHI_VIID_CLK_DIV     0x4a*/
 #define DAC0_CLK_SEL           28
 #define DAC1_CLK_SEL           24
 #define DAC2_CLK_SEL           20
@@ -75,7 +68,7 @@
 #define ENCL_CLK_SEL           12
 #define VCLK2_XD                0
 
-/*#define HHI_VIID_CLK_CNTL    	0x4b*/
+/*#define HHI_VIID_CLK_CNTL    0x4b*/
 #define VCLK2_EN               19
 #define VCLK2_CLK_IN_SEL       16
 #define VCLK2_SOFT_RST         15
@@ -290,6 +283,24 @@ static inline void lcd_pinmux_clr_mask(unsigned int n, unsigned int _mask)
 
 	_reg += (n << 2);
 	lcd_periphs_write(_reg, (lcd_periphs_read(_reg) & (~(_mask))));
+}
+
+static inline unsigned int lcd_reset_read(unsigned int _reg)
+{
+	return (*(volatile unsigned int *)REG_ADDR_RESET(_reg));
+}
+
+static inline void lcd_reset_write(unsigned int _reg, unsigned int _value)
+{
+	*(volatile unsigned int *)REG_ADDR_RESET(_reg) = (_value);
+}
+
+static inline void lcd_reset_setb(unsigned int _reg, unsigned int _value,
+		unsigned int _start, unsigned int _len)
+{
+	lcd_reset_write(_reg, ((lcd_reset_read(_reg) &
+			~(((1L << (_len)) - 1) << (_start))) |
+			(((_value) & ((1L << (_len)) - 1)) << (_start))));
 }
 
 static inline unsigned int dsi_host_read(unsigned int _reg)

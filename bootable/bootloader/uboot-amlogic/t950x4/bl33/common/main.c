@@ -37,7 +37,7 @@ DECLARE_GLOBAL_DATA_PTR;
 	#define TE(...)
 #endif
 
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) 
+#if defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC)
 static u32 fb_width;
 static u32 fb_height;
 static u32 display_bpp;
@@ -254,7 +254,7 @@ void main_loop(void)
 #ifdef CONFIG_IDME
 	bootmode = idme_boot_mode();
 	is_diag_bootmode = (bootmode == IDME_BOOTMODE_DIAG);
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) 
+#if defined(UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC)
 	is_transition_bootmode = ((bootmode == IDME_BOOTMODE_TRANSITION) || (bootmode == IDME_BOOTMODE_STANDBY_LOGO_POST_SHIPPING_SW_SWITCH));
 #else
 	is_transition_bootmode = (bootmode == IDME_BOOTMODE_TRANSITION);
@@ -270,17 +270,15 @@ void main_loop(void)
 	if (is_transition_bootmode) {
 		if (!is_transition_done) {
 			ret = 0;
-#if !defined(UBOOT_TARGET_PRODUCT_NAME_ALMOND) && !defined(UBOOT_TARGET_PRODUCT_NAME_ABC) && !defined(UBOOT_TARGET_PRODUCT_NAME_ABC)
-			ret += run_command("amlmmc erase dfs", 0);
-			ret += run_command("amlmmc erase dkernel", 0);
-			ret += run_command("amlmmc erase diag_userdata", 0);
-			ret += run_command("amlmmc erase dvendor", 0);
-#ifndef UBOOT_TARGET_PRODUCT_NAME_ABC
-			ret += run_command("amlmmc erase oemconfig", 0);
-#endif
-			if (ret)
-				printf("Erase Diag partitions error\n");
-#endif
+			idme_get_var_external("oem_data", oem_data, sizeof(oem_data));
+			if (strstr(oem_data, "ABC") != NULL || strstr(oem_data, "ABC-tm") != NULL) {
+				ret += run_command("amlmmc erase dfs", 0);
+				ret += run_command("amlmmc erase dkernel", 0);
+				ret += run_command("amlmmc erase diag_userdata", 0);
+				ret += run_command("amlmmc erase dvendor", 0);
+				if (ret)
+					printf("Erase Diag partitions error\n");
+			}
 			ret = ret ? ret : run_command("idme bootmode 1", 0);
 			if (ret) {
 				printf("Change to FOS bootmode error\n");
@@ -304,63 +302,52 @@ void main_loop(void)
 				printf("Transition from Diag to FOS failed\n");
 			} else {
 				printf("Transition from Diag to FOS succeed\n");
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC)
-			if (bootmode == IDME_BOOTMODE_TRANSITION) {
-				run_command("reboot", 0);
-			} else {
-				printf("Transition to FOS standby mode");
-				run_command("osd open;osd clear;logo_display $logo_name;bmp scale;vout output ${outputmode};", 0);
+				if (strstr(oem_data, "almond") != NULL || strstr(oem_data, "ABC-jt") != NULL || strstr(oem_data, "ABC") != NULL) {
+					if (bootmode == IDME_BOOTMODE_TRANSITION) {
+						run_command("reboot", 0);
+					} else {
+						printf("Transition to FOS standby mode");
+						run_command("osd open;osd clear;logo_display $logo_name;bmp scale;vout output ${outputmode};", 0);
 
-				ret = 0;
-				ret = transition_done_ui_init();
-				if (ret < 0) {
-					printf("Transition done GUI init failure\n");
-				} else {
-					int AML_RPMB_STATE = ((readl(AO_SEC_GP_CFG7))>>22) & 0x01;
-					show_transition_done(1, 1, !(AML_RPMB_STATE));
-					run_command("leds_state 0 2 4", 0);
-					printf("Transition done GUI init done\n");
-				}
-				while (1)
-					udelay(1000*1000);
-				}
-#elif defined (UBOOT_TARGET_PRODUCT_NAME_ABC)
-				ret = 0;
-				ret += run_command("osd open", 0);
-				ret += run_command("osd clear", 0);
-				/* mmc 1:d tvconfig, fixed */
-				idme_get_var_external("oem_data", oem_data, sizeof(oem_data));
-				if (strstr(oem_data, "ABC") != NULL) {	//ABC transition
-					if(amzn_target_is_lockdown()){
+						ret = 0;
+						ret = transition_done_ui_init();
+						if (ret < 0) {
+							printf("Transition done GUI init failure\n");
+						} else {
+							int AML_RPMB_STATE = ((readl(AO_SEC_GP_CFG7))>>22) & 0x01;
+							show_transition_done(1, 1, !(AML_RPMB_STATE));
+							run_command("leds_state 0 2 4", 0);
+							printf("Transition done GUI init done\n");
+						}
+					while (1)
+						udelay(1000*1000);
+					}
+				} else if (strstr(oem_data, "ABC") != NULL || strstr(oem_data, "ABC-tm")) {
+					ret = 0;
+					ret += run_command("osd open", 0);
+					ret += run_command("osd clear", 0);
+					/* mmc 1:d tvconfig, fixed */
+					if (amzn_target_is_lockdown()) {
 						//locked down transition
 						ret += run_command("ext4load mmc 1:d ${loadaddr} /logo_img_files/transition_done.bmp", 0);
-					}else {
+					} else {
 						//unlocked transition
 						ret += run_command("ext4load mmc 1:d ${loadaddr} /logo_img_files/transition_done_red.bmp", 0);
 					}
-				} else{	//ABC-hh transition
-					ret += run_command("ext4load mmc 1:d ${loadaddr} /logo_img_files/transition_done.bmp", 0);
-				}
-				if (ret == 0) {
-					ret += run_command("bmp display ${loadaddr}", 0);
-					ret += run_command("bmp scale", 0);
-					if (ret) {
-						printf("Displaying transition bmp failed.\n");
+					if (ret == 0) {
+						ret += run_command("bmp display ${loadaddr}", 0);
+						ret += run_command("bmp scale", 0);
+						run_command("vout output ${outputmode}", 0);
+					} else {
+						printf("Cannot load transition bmp.\n");
 					}
-					run_command("vout output ${outputmode}", 0);
-					run_command("led_mode 3", 0);
-				} else {
-					printf("Cannot load transition bmp.\n");
-				}
-				watchdog_disable();
-				printf("Stop after transition from diag to FOS\n");
-				while (1) {
-					udelay(1000*1000);
-				}
-
-#else
-				run_command("reboot", 0);
-#endif
+					watchdog_disable();
+					printf("Stop after transition from diag to FOS\n");
+					while (1) {
+						udelay(1000*1000);
+					}
+				} else
+					run_command("reboot", 0);
 			}
 		} else {
 			printf("Transition had already been done, stop transitting\n");

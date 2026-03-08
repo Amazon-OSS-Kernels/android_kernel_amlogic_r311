@@ -15,6 +15,7 @@
 
 #ifndef _AML_LCD_COMMON_H
 #define _AML_LCD_COMMON_H
+#include <div64.h>
 #include <amlogic/aml_lcd.h>
 #include "aml_lcd_clk_config.h"
 #include "aml_lcd_unifykey.h"
@@ -41,7 +42,18 @@
 /* 20201027: add tcon support for txhd*/
 /* 20201105: optimize big size tcon bin parse in tvconfig*/
 /* 20201116: optimize phy ctrl compatibility*/
-#define LCD_DRV_VERSION    "20201116"
+/* 20210311: add global reset to clear tcon last state*/
+/* 20210608: add tcon multi lut support*/
+/* 20211009: support 59 & 47 frame rate for tv mode*/
+/* 20211009: add t5w support*/
+/* 20211210: support load tcon bin by ioctl*/
+/* 20211229: update multi lut init and switch flow*/
+/* 20220421: fix lcd clk mistake for vmode change with fr_adj_type 4*/
+/* 20220629: add ini ver2 support and support phy lane contrl*/
+/* 20220719: support t5,t5w,t3 set vswing level in low common type*/
+/* 20220809: fix tcon axi mem mistake for DLG tcon bin*/
+/* 20230222: update tcon tee memory debug info*/
+#define LCD_DRV_VERSION    "20230222"
 
 #define LCD_STATUS_IF_ON      (1 << 0)
 #define LCD_STATUS_ENCL_ON    (1 << 1)
@@ -49,6 +61,15 @@
 
 extern void mdelay(unsigned long n);
 extern unsigned int lcd_debug_test;
+
+static inline unsigned int lcd_do_div(unsigned long long num, unsigned int den)
+{
+	unsigned long long ret = num;
+
+	do_div(ret, den);
+
+	return (unsigned int)ret;
+}
 
 /* lcd common */
 extern int lcd_type_str_to_type(const char *str);
@@ -67,6 +88,8 @@ extern void lcd_timing_init_config(struct lcd_config_s *pconf);
 extern int lcd_vmode_change(struct lcd_config_s *pconf);
 
 /* lcd phy */
+unsigned int lcd_phy_vswing_level_to_value(struct aml_lcd_drv_s *pdrv, unsigned int level);
+unsigned int lcd_phy_preem_level_to_value(struct aml_lcd_drv_s *pdrv, unsigned int level);
 extern void lcd_lvds_phy_set(struct lcd_config_s *pconf, int status);
 extern void lcd_vbyone_phy_set(struct lcd_config_s *pconf, int status);
 extern void lcd_mlvds_phy_set(struct lcd_config_s *pconf, int status);
@@ -78,7 +101,7 @@ extern void lcd_phy_tcon_chpi_bbc_init_tl1(struct lcd_config_s *pconf);
 /* lcd tcon */
 extern void lcd_tcon_info_print(void);
 extern int lcd_tcon_enable(struct lcd_config_s *pconf);
-extern void lcd_tcon_disable(void);
+extern void lcd_tcon_disable(struct lcd_config_s *pconf);
 extern int lcd_tcon_probe(char *dt_addr, struct aml_lcd_drv_s *lcd_drv, int load_id);
 
 /* lcd gpio */
@@ -115,5 +138,9 @@ extern int ldim_config_load_from_unifykey(unsigned char *para);
 extern int ldim_config_load(char *dt_addr);
 #endif
 
+void bl_pwm_ctrl(struct bl_pwm_config_s *bl_pwm, int status);
+#ifdef CONFIG_OF_LIBFDT
+enum bl_pwm_port_e bl_pwm_str_to_num(const char *str);
+#endif
 #endif
 

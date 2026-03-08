@@ -43,6 +43,7 @@ struct lcd_tcon_config_s {
 	unsigned int rsv_mem_size;
 	unsigned int axi_size;
 	unsigned int bin_path_size;
+	unsigned int secure_cfg_size;
 	unsigned int vac_size;
 	unsigned int demura_set_size;
 	unsigned int demura_lut_size;
@@ -50,13 +51,18 @@ struct lcd_tcon_config_s {
 
 	unsigned int *axi_reg;
 	void (*tcon_axi_mem_config)(void);
+	void (*tcon_axi_mem_secure)(void);
+	void (*tcon_axi_mem_update)(unsigned int *table);
 	int (*tcon_enable)(struct lcd_config_s *pconf);
+	int (*tcon_disable)(struct lcd_config_s *pconf);
 };
 
 struct tcon_rmem_config_s {
 	unsigned int mem_paddr;
 	unsigned char *mem_vaddr;
 	unsigned int mem_size;
+	unsigned int sec_handle;
+	unsigned int sec_protect;
 };
 
 struct tcon_rmem_s {
@@ -69,6 +75,7 @@ struct tcon_rmem_s {
 
 	struct tcon_rmem_config_s *axi_rmem;
 	struct tcon_rmem_config_s bin_path_rmem;
+	struct tcon_rmem_config_s secure_cfg_rmem;
 
 	struct tcon_rmem_config_s vac_rmem;
 	struct tcon_rmem_config_s demura_set_rmem;
@@ -82,12 +89,19 @@ struct tcon_data_priority_s {
 };
 
 struct tcon_mem_map_table_s {
+	/*header*/
 	unsigned int version;
+	unsigned char tcon_data_flag;
 	unsigned int data_load_level;
 	unsigned int block_cnt;
+	unsigned char init_load;
+
 	unsigned int valid_flag;
+	unsigned char demura_cnt;
+	unsigned int block_bit_flag;
 
 	unsigned int core_reg_table_size;
+	struct lcd_tcon_init_block_header_s *core_reg_header;
 	unsigned char *core_reg_table;
 
 	struct tcon_data_priority_s *data_priority;
@@ -145,7 +159,7 @@ struct lcd_tcon_local_cfg_s {
 #define TCON_CORE_REG_START_T5           0x0100
 #define REG_CORE_OD_T5                   0x263
 #define BIT_OD_EN_T5                     31
-#define REG_CTRL_TIMING_BASE_T5          0x1b
+#define REG_CTRL_TIMING_BASE_T5          0x300
 #define CTRL_TIMING_OFFSET_T5            12
 #define CTRL_TIMING_CNT_T5               0
 
@@ -167,6 +181,7 @@ struct lcd_tcon_local_cfg_s {
 #ifdef CONFIG_CMD_INI
 extern void *handle_lcd_ext_buf_get(void);
 extern void *handle_tcon_path_mem_get(unsigned int size);
+void *handle_tcon_path_resv_mem_get(unsigned int size);
 int handle_tcon_vac(unsigned char *vac_data, unsigned int vac_mem_size);
 extern int handle_tcon_demura_set(unsigned char *demura_set_data,
 				  unsigned int demura_set_size);
@@ -180,16 +195,22 @@ extern int handle_tcon_data_load(unsigned char **buf, unsigned int index);
 #define TCON_VAC_SET_PARAM_NUM    3
 #define TCON_VAC_LUT_PARAM_NUM    256
 
+void lcd_tcon_init_data_version_update(char *data_buf);
+int lcd_tcon_data_multi_match_find(unsigned char *data_buf);
 int lcd_tcon_spi_data_probe(struct aml_lcd_drv_s *lcd_drv);
 
 int lcd_tcon_valid_check(void);
 struct lcd_tcon_config_s *get_lcd_tcon_config(void);
 struct tcon_rmem_s *get_lcd_tcon_rmem(void);
 struct tcon_mem_map_table_s *get_lcd_tcon_mm_table(void);
+struct lcd_tcon_local_cfg_s *get_lcd_tcon_local_cfg(void);
+int lcd_tcon_mem_tee_protect(int mem_flag, int protect_en);
 
 int lcd_tcon_enable_txhd(struct lcd_config_s *pconf);
 int lcd_tcon_enable_tl1(struct lcd_config_s *pconf);
+int lcd_tcon_disable_tl1(struct lcd_config_s *pconf);
 int lcd_tcon_enable_t5(struct lcd_config_s *pconf);
+int lcd_tcon_disable_t5(struct lcd_config_s *pconf);
 
 #endif
 

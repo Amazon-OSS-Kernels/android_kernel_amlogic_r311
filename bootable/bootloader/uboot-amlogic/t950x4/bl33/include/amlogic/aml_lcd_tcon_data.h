@@ -1,15 +1,8 @@
+/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
 /*
  * include/amlogic/aml_lcd_tcon_data.h
  *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the named License,
- * or any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
+ * Copyright (C) 2020 Amlogic, Inc. All rights reserved.
  *
  */
 
@@ -26,7 +19,7 @@
 
 /* for tconless data format */
 /* for tconless data block type */
-#define LCD_TCON_DATA_BLOCK_TYPE_NONE           0x00
+#define LCD_TCON_DATA_BLOCK_TYPE_BASIC_INIT     0x00
 #define LCD_TCON_DATA_BLOCK_TYPE_DEMURA_SET     0x01
 #define LCD_TCON_DATA_BLOCK_TYPE_DEMURA_LUT     0x02
 #define LCD_TCON_DATA_BLOCK_TYPE_ACC_LUT        0x03
@@ -45,6 +38,7 @@
 #define LCD_TCON_DATA_PART_TYPE_CHK_WR_MASK     0xcb
 #define LCD_TCON_DATA_PART_TYPE_CHK_EXIT        0xce
 #define LCD_TCON_DATA_PART_TYPE_PARAM           0xf0 /* only for tool */
+#define LCD_TCON_DATA_PART_TYPE_CONTROL         0xfc
 #define LCD_TCON_DATA_PART_TYPE_DELAY           0xfd
 
 #define LCD_TCON_DATA_PART_FLAG_TUNINTG_LUT     0x00
@@ -60,13 +54,25 @@
 #define LCD_TCON_INIT_BIN_NAME_SIZE             28
 #define LCD_TCON_INIT_BIN_VERSION_SIZE          8
 
+/* tcon data control define */
+/* block_ctrl */
+#define LCD_TCON_DATA_CTRL_FLAG_MULTI           0x01
+#define LCD_TCON_DATA_CTRL_FLAG_DLG             0xd0
+/* ctrl_method */
+#define LCD_TCON_DATA_CTRL_DEFAULT              0x00
+#define LCD_TCON_DATA_CTRL_MULTI_VFREQ          0x01
+#define LCD_TCON_DATA_CTRL_MULTI_BL_LEVEL       0x11
+#define LCD_TCON_DATA_CTRL_MULTI_BL_PWM_DUTY    0x12
+
 struct lcd_tcon_init_block_header_s {
 	unsigned int crc32;
-	unsigned int reserved;
+	unsigned short h_active;
+	unsigned short v_active;
 	unsigned int block_size;
 	unsigned short header_size;
 	unsigned short reserved1;
-	unsigned int block_type;
+	unsigned short block_type;
+	unsigned short block_ctrl;
 	unsigned char reserved2[5];
 	unsigned char data_byte_width;
 	unsigned short chipid;
@@ -80,7 +86,8 @@ struct lcd_tcon_data_block_header_s {
 	unsigned int block_size;
 	unsigned short header_size;
 	unsigned short ext_header_size;
-	unsigned int block_type;
+	unsigned short block_type;
+	unsigned short block_ctrl;
 	unsigned int block_flag;
 	unsigned short init_priority; /*invalid*/
 	unsigned short chipid;
@@ -91,6 +98,18 @@ struct lcd_tcon_data_block_ext_header_s {
 	unsigned short part_cnt;
 	unsigned char part_mapping_byte;
 	unsigned char reserved[13];
+};
+
+#define LCD_TCON_DATA_PART_CTRL_SIZE_PRE    (LCD_TCON_DATA_PART_NAME_SIZE + 12)
+struct lcd_tcon_data_part_ctrl_s {
+	char name[LCD_TCON_DATA_PART_NAME_SIZE];
+	unsigned short part_id;
+	unsigned char tuning_flag;
+	unsigned char part_type;
+	unsigned short ctrl_data_flag;
+	unsigned short ctrl_method;
+	unsigned short data_byte_width;
+	unsigned short data_cnt;
 };
 
 #define LCD_TCON_DATA_PART_WR_N_SIZE_PRE    (LCD_TCON_DATA_PART_NAME_SIZE + 12)
@@ -179,6 +198,7 @@ struct lcd_tcon_data_part_param_s {
 };
 
 union lcd_tcon_data_part_u {
+	struct lcd_tcon_data_part_ctrl_s *ctrl;
 	struct lcd_tcon_data_part_wr_n_s *wr_n;
 	struct lcd_tcon_data_part_wr_ddr_s *wr_ddr;
 	struct lcd_tcon_data_part_wr_mask_s *wr_mask;
