@@ -26,6 +26,7 @@
 #include <linux/delay.h>
 #include <linux/amlogic/scpi_protocol.h>
 #include <linux/amlogic/leds_state.h>
+#include <linux/uaccess.h>
 
 extern int idme_get_oem_data(char *oem_data);
 static void meson_ledled_set_twenty_percent(struct work_struct *work)
@@ -182,9 +183,34 @@ static int get_led_flag(void)
 	return led_flag;
 }
 
+char get_led_flag_from_file(const char *path)
+{
+       struct file *filp = NULL;
+       loff_t pos = 0;
+       mm_segment_t old_fs = get_fs();
+       char flag = -1;
+
+       set_fs(KERNEL_DS);
+
+       filp = filp_open(path, O_RDONLY, 0444);
+       if (IS_ERR(filp)) {
+               pr_err("failed to open led_flag file: %s\n", path);
+               goto PROCESS_END;
+       }
+
+       vfs_read(filp, &flag, 1, &pos);
+       pr_warn("get led_flag flag=0x%x\n", flag);
+
+       filp_close(filp, NULL);
+
+PROCESS_END:
+       set_fs(old_fs);
+       return flag;
+}
+
 #define DEFAULT_LED_ID 0
-#define abc123_LED_RED_ID 1
-#define abc123_LED_GREEN_ID 0
+#define ABC_LED_RED_ID 1
+#define ABC_LED_GREEN_ID 0
 static ssize_t amazon_led_pattern_store(struct device *dev,
 			   struct device_attribute *attr,
 			   const char *buf, size_t size)
@@ -196,6 +222,7 @@ static ssize_t amazon_led_pattern_store(struct device *dev,
 	int pattern;
 	int res;
 	int led_flag;
+	char flag = 0;
 
 	res = kstrtoint(buf, 10, &pattern);/*sscanf(buf, "%d", &pattern);*/
 	if (res != 0) {
@@ -211,26 +238,26 @@ static ssize_t amazon_led_pattern_store(struct device *dev,
 	if (led_flag == 2) {
 		switch (pattern) {
 		case 1:
-			meson_led_state_set_brightness(abc123_LED_RED_ID, 51);
-			meson_led_state_set_brightness(abc123_LED_GREEN_ID, 0);
+			meson_led_state_set_brightness(ABC_LED_RED_ID, 51);
+			meson_led_state_set_brightness(ABC_LED_GREEN_ID, 0);
 			break;
 		case 2:
-			meson_led_state_set_brightness(abc123_LED_GREEN_ID, 0);
-			meson_led_state_set_brightness(abc123_LED_RED_ID, 0);
+			meson_led_state_set_brightness(ABC_LED_GREEN_ID, 0);
+			meson_led_state_set_brightness(ABC_LED_RED_ID, 0);
 			break;
 		case 3:
-			meson_led_state_set_brightness(abc123_LED_GREEN_ID, 51);
-			meson_led_state_set_brightness(abc123_LED_RED_ID, 0);
+			meson_led_state_set_brightness(ABC_LED_GREEN_ID, 51);
+			meson_led_state_set_brightness(ABC_LED_RED_ID, 0);
 			break;
 		case 4:
-			meson_led_state_set_blink_off(abc123_LED_RED_ID,
+			meson_led_state_set_blink_off(ABC_LED_RED_ID,
 				0, 500, 500, 0, 0);
-			meson_led_state_set_brightness(abc123_LED_GREEN_ID, 0);
+			meson_led_state_set_brightness(ABC_LED_GREEN_ID, 0);
 			break;
 		case 5:
-			meson_led_state_set_blink_off(abc123_LED_GREEN_ID,
+			meson_led_state_set_blink_off(ABC_LED_GREEN_ID,
 				0, 500, 500, 0, 0);
-			meson_led_state_set_brightness(abc123_LED_RED_ID, 0);
+			meson_led_state_set_brightness(ABC_LED_RED_ID, 0);
 			break;
 		case 6:
 			meson_led_state_set_blink_off(DEFAULT_LED_ID, 1, 500, 500, 0, 0);
@@ -261,9 +288,23 @@ static ssize_t amazon_led_pattern_store(struct device *dev,
 					1, 500, 500, 0, 0);
 			break;
 		case 6:
-			meson_led_state_set_blink_off(DEFAULT_LED_ID, 1, 500, 500, 0, 0);
-			//msleep(1100);
-			schedule_delayed_work(&data->led_work, msecs_to_jiffies(1100));
+			flag = get_led_flag_from_file("/data/led/led_standby_flag");
+			/// LED will turn on if ASCII "1"
+			/// is got from led_standby_flag.
+			/// ASCII "1" equals Hex 0x31
+
+			/// LED will turn off if ASCII "0"
+			/// is got from led_standby_flag.
+			/// ASCII "0" equals Hex 0x30
+			if (flag == 0x30) {
+				printk("led_flag===%d==flag=%d=system will goto suspend, close led\n",led_flag,flag);
+				meson_led_state_set_brightness(DEFAULT_LED_ID, 0);
+			} else {
+				printk("led_flag===%d==system will goto suspend,led still work\n",led_flag);
+				meson_led_state_set_blink_off(DEFAULT_LED_ID, 1, 500, 500, 0, 0);
+				//msleep(1100);
+				schedule_delayed_work(&data->led_work, msecs_to_jiffies(1100));
+			}
 			break;
 		default:
 			dev_err(dev, "unknown led pattern,only support 1-6 patterns\n");

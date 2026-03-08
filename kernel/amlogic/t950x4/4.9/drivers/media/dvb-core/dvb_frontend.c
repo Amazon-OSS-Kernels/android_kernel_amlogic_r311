@@ -1063,6 +1063,9 @@ static struct dtv_cmds_h dtv_cmds[DTV_MAX_COMMAND + 1] = {
 	_DTV_CMD(DTV_BLIND_SCAN_FRE_RANGE, 1, 0),
 	_DTV_CMD(DTV_BLIND_SCAN_FRE_STEP, 1, 0),
 	_DTV_CMD(DTV_BLIND_SCAN_TIMEOUT, 1, 0),
+#ifdef CONFIG_AMLOGIC_DTV_DEMOD_V3
+	_DTV_CMD(DTV_BLIND_SCAN_STEP_NEXT, 1, 0),
+#endif
 	/*set blind scan cmd end*/
 #endif
 	/* Get */
@@ -1959,6 +1962,7 @@ static int dtv_property_process_set(struct dvb_frontend *fe,
 	case DTV_BLIND_SCAN_FRE_STEP:
 	case DTV_BLIND_SCAN_TIMEOUT:
 #ifdef CONFIG_AMLOGIC_DTV_DEMOD_V3
+	case DTV_BLIND_SCAN_STEP_NEXT:
 	case DTV_SINGLE_CABLE_VER:
 	case DTV_SINGLE_CABLE_USER_BAND:
 	case DTV_SINGLE_CABLE_BAND_FRE:
