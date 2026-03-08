@@ -715,4 +715,9 @@ config USB_SERIAL_DEBUG
 	  To compile this driver as a module, choose M here: the
 	  module will be called usb-debug.
 
+config USB_SERIAL_PORT
+	tristate "use the TTYUSB0 as the USB serial port"
+	help
+	say y if you need set the TTYUSB0 as the USB serial.
+
 endif # USB_SERIAL

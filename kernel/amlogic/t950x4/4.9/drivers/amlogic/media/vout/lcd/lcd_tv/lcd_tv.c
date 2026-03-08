@@ -698,11 +698,22 @@ static int lcd_suspend(void)
 	if (!lcd_drv)
 		return -1;
 
-	mutex_lock(&lcd_drv->power_mutex);
-	aml_lcd_notifier_call_chain(LCD_EVENT_POWER_OFF, NULL);
-	lcd_resume_flag = 0;
-	LCDPR("%s finished\n", __func__);
-	mutex_unlock(&lcd_drv->power_mutex);
+	if (!lcd_drv->lcd_config)
+		return -1;
+
+	LCDPR("suspend type=%d\n", lcd_drv->lcd_suspend_type);
+	if (lcd_drv->lcd_suspend_type) {
+		if (lcd_drv->workqueue)
+			queue_work(lcd_drv->workqueue, &lcd_drv->lcd_suspend_work);
+		else
+			schedule_work(&lcd_drv->lcd_suspend_work);
+	} else {
+		mutex_lock(&lcd_drv->power_mutex);
+		aml_lcd_notifier_call_chain(LCD_EVENT_POWER_OFF, NULL);
+		lcd_resume_flag = 0;
+		LCDPR("%s finished\n", __func__);
+		mutex_unlock(&lcd_drv->power_mutex);
+	}
 	return 0;
 }
 
@@ -713,12 +724,16 @@ static int lcd_resume(void)
 	if (!lcd_drv)
 		return -1;
 
+	if (!lcd_drv->lcd_config)
+		return -1;
+
 	if ((lcd_drv->lcd_status & LCD_STATUS_VMODE_ACTIVE) == 0)
 		return 0;
 
 	if (lcd_resume_flag)
 		return 0;
 
+	LCDPR("resume type=%d\n", lcd_drv->lcd_resume_type);
 	if (lcd_drv->lcd_resume_type) {
 		if (lcd_drv->workqueue) {
 			queue_work(lcd_drv->workqueue,

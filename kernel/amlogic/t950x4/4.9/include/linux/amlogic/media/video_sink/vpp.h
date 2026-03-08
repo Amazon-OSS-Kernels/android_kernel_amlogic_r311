@@ -28,7 +28,8 @@
 
 extern bool super_scaler;
 extern struct sr_info_s sr_info;
-#define VPP_FLAG_WIDEMODE_MASK      0x0000000F
+#define VPP_FLAG_WIDEMODE_MASK      0x1F000000
+#define VPP_WIDEMODE_BITS           24
 #define VPP_FLAG_INTERLACE_OUT      0x00000010
 #define VPP_FLAG_INTERLACE_IN       0x00000020
 #define VPP_FLAG_CBCR_SEPARATE      0x00000040
@@ -44,11 +45,9 @@ extern struct sr_info_s sr_info;
 
 #ifdef CONFIG_ENABLE_AFD
 #define VPP_FLAG_FORCE_NO_OFFSET	 0x00000004
-#define VPP_FLAG_FORCE_AFD_ENABLE	0x01000000
-#define VPP_FLAG_FROM_TOGGLE_FRAME	0x02000000
-#else
-#define VPP_FLAG_FROM_TOGGLE_FRAME	0x01000000
+#define VPP_FLAG_FORCE_AFD_ENABLE	 0x00000002
 #endif
+#define VPP_FLAG_FROM_TOGGLE_FRAME	0x00000001
 
 #define IDX_H           (2 << 8)
 #define IDX_V_Y         (1 << 13)

@@ -8,3 +8,8 @@ config AMLOGIC_VDAC
 	help
 		VDAC config.
 
+config DISABLE_CVBSOUT
+        bool "DISABLE_CVBSOUT"
+        default n
+        help
+                DISABLE_CVBSOUT.

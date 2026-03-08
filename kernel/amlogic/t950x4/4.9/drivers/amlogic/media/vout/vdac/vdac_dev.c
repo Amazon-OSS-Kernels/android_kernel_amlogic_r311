@@ -344,8 +344,14 @@ static void vdac_enable_avout_av(bool on)
 		if (s_vdac_data->cpu_id == VDAC_CPU_T5 ||
 		    s_vdac_data->cpu_id == VDAC_CPU_T5D) {
 			vdac_enable_dac_bypass(reg_cntl0);
-			if (!s_vdac_data->cdac_disable)
+			if (!s_vdac_data->cdac_disable) {
 				vdac_ana_reg_setb(reg_cntl0, 0x1, 10, 1);
+			}
+#ifdef CONFIG_DISABLE_CVBSOUT
+			else{
+				vdac_ana_reg_setb(reg_cntl0, 0x0, 12, 1);
+			}
+#endif
 			vdac_ana_reg_setb(reg_cntl1, 0x5c, 0, 7);
 			vdac_ctrl_config(0, reg_cntl1, 7);
 		} else {

@@ -15444,3 +15444,7 @@ AMLOGIC DRM DRIVER
 M: Sky Zhou <sky.zhou@amlogic.com>
 F: drivers/amlogic/drm/meson_async_atomic.c
 
+AMLOGIC WIRELESS DRIVER
+M: Devidas Puranik <puranikd@amazon.com>
+F: net/wireless/Makefile
+F: net/wireless/db-dfs-IN.txt

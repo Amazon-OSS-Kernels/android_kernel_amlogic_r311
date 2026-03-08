@@ -5284,6 +5284,19 @@ int set_layer_display_canvas(
 		update_mif = false;
 
 	if (update_mif) {
+		if (layer->global_debug & DEBUG_FLAG_PRINT_FRAME_DETAIL) {
+			struct canvas_s tmp;
+
+			canvas_read(cur_canvas_tbl[0], &tmp);
+			pr_info("%s %d: vf:%px, y:%02x, adr:0x%lx, canvas0:%x, pnum:%d, type:%x, flag:%x, afbc:0x%x-0x%x, size:%d %d\n",
+				__func__, layer_id, vf,
+				cur_canvas_tbl[0], tmp.addr,
+				vf->canvas0Addr, vf->plane_num,
+				vf->type, vf->flag,
+				vf->compHeadAddr, vf->compBodyAddr,
+				vf->width, vf->height);
+		}
+
 		if (vf->canvas0Addr != (u32)-1) {
 			canvas_copy(
 				vf->canvas0Addr & 0xff,
@@ -5483,14 +5496,20 @@ static int update_afd_param(u8 id,
 #endif
 
 static unsigned int match_ar_threshold = 5;
+static struct disp_info_s g_hold_dispinfo[MAX_VD_LAYER];
 
 static bool need_hold_disp_ratio(struct vframe_s *vf, u8 layer_id)
 {
-	struct disp_info_s *layer = NULL;
+	struct disp_info_s *layer_info = NULL;
+	struct video_layer_s *layer = NULL;
 	s32 dst_w, dst_h, src_w, src_h;
 	bool ret = false;
 	u32 min_dst_ratio, max_dst_ratio, src_ratio = 0, dst_ratio = 0;
 	static u32 hold_cnt[MAX_VD_LAYER] = {0, 0};
+	static s32 last_layer_left[MAX_VD_LAYER] = {0, 0};
+	static s32 last_layer_top[MAX_VD_LAYER] = {0, 0};
+	static s32 last_layer_width[MAX_VD_LAYER] = {0, 0};
+	static s32 last_layer_height[MAX_VD_LAYER] = {0, 0};
 
 	if (!vf) {
 		hold_cnt[layer_id] = 0;
@@ -5501,9 +5520,10 @@ static bool need_hold_disp_ratio(struct vframe_s *vf, u8 layer_id)
 		return ret;
 	}
 
-	layer = &glayer_info[layer_id];
-	dst_w = layer->layer_width;
-	dst_h = layer->layer_height;
+	layer_info = &glayer_info[layer_id];
+	layer = &vd_layer[layer_id];
+	dst_w = layer_info->layer_width;
+	dst_h = layer_info->layer_height;
 	src_w = (vf->type & VIDTYPE_COMPRESS) ?
 		vf->compWidth : vf->width;
 	src_h = (vf->type & VIDTYPE_COMPRESS) ?
@@ -5517,11 +5537,22 @@ static bool need_hold_disp_ratio(struct vframe_s *vf, u8 layer_id)
 	min_dst_ratio = src_ratio * (100 - match_ar_threshold) / 100;
 	if (!src_ratio || !dst_ratio) {
 		ret = false;
+		if (layer->global_debug & DEBUG_FLAG_HOLD_KEEP_RATIO)
+			pr_info("%s: no hold src:%dx%d ratio:%d [%d, %d]; dst: %dx%d, ratio:%d\n",
+				__func__, src_w, src_h, src_ratio,
+				min_dst_ratio, max_dst_ratio,
+				dst_w, dst_h, dst_ratio);
+
 	} else if (max_dst_ratio >= dst_ratio && dst_ratio >= min_dst_ratio) {
 		ret = false;
+		if (layer->global_debug & DEBUG_FLAG_HOLD_KEEP_RATIO)
+			pr_info("%s: no hold src:%dx%d ratio:%d [%d, %d]; dst: %dx%d, ratio:%d\n",
+				__func__, src_w, src_h, src_ratio,
+				min_dst_ratio, max_dst_ratio,
+				dst_w, dst_h, dst_ratio);
 	} else {
 		ret = true;
-		pr_info("%s: src:%dx%d ratio:%d [%d, %d]; dst: %dx%d, ratio:%d\n",
+		pr_info("%s: need hold src:%dx%d ratio:%d [%d, %d]; dst: %dx%d, ratio:%d\n",
 			__func__, src_w, src_h, src_ratio,
 			min_dst_ratio, max_dst_ratio,
 			dst_w, dst_h, dst_ratio);
@@ -5536,6 +5567,19 @@ static bool need_hold_disp_ratio(struct vframe_s *vf, u8 layer_id)
 		ret = false;
 		pr_info("hold disp ratio timeout: %d > %d\n",
 			hold_cnt[layer_id], HOLD_RATIO_TIMEOUT);
+	}
+	if (!ret) {
+		last_layer_left[layer_id] = layer_info->layer_left;
+		last_layer_top[layer_id] = layer_info->layer_top;
+		last_layer_width[layer_id] = layer_info->layer_width;
+		last_layer_height[layer_id] = layer_info->layer_height;
+	} else {
+		memcpy(&g_hold_dispinfo[layer_id], layer_info,
+		       sizeof(struct disp_info_s));
+		g_hold_dispinfo[layer_id].layer_left = last_layer_left[layer_id];
+		g_hold_dispinfo[layer_id].layer_top = last_layer_top[layer_id];
+		g_hold_dispinfo[layer_id].layer_width = last_layer_width[layer_id];
+		g_hold_dispinfo[layer_id].layer_height = last_layer_height[layer_id];
 	}
 	return ret;
 }
@@ -5621,6 +5665,7 @@ s32 layer_swap_frame(
 	/* enable new config on the new frames */
 	if (first_picture || force_toggle || frame_changed) {
 		u32 op_flag = OP_VPP_MORE_LOG;
+		bool need_hold = false;
 
 		if (layer->next_frame_par == layer->cur_frame_par)
 			layer->next_frame_par =
@@ -5637,9 +5682,10 @@ s32 layer_swap_frame(
 		else if (layer->force_switch_mode == 2)
 			op_flag |= OP_FORCE_NOT_SWITCH_VF;
 
+		need_hold = need_hold_disp_ratio(vf, layer_id);
 		ret = vpp_set_filters(
-			&glayer_info[layer->layer_id], vf,
-			layer->next_frame_par, vinfo,
+			need_hold ? &g_hold_dispinfo[layer->layer_id] : &glayer_info[layer->layer_id],
+			vf, layer->next_frame_par, vinfo,
 			(is_dolby_vision_on() &&
 			is_dolby_vision_stb_mode() &&
 			for_dolby_vision_certification()),
@@ -5648,15 +5694,9 @@ s32 layer_swap_frame(
 		memcpy(&gpic_info[layer->layer_id], &vf->pic_mode,
 		       sizeof(struct vframe_pic_mode_s));
 
-		if (need_hold_disp_ratio(vf, layer_id) &&
-		    (ret == vppfilter_success ||
-		     ret == vppfilter_success_and_switched ||
-		     ret == vppfilter_success_and_changed))
-			ret = vppfilter_changed_but_hold;
-
 		if ((ret == vppfilter_success_and_changed) ||
 		    (ret == vppfilter_changed_but_hold) ||
-		    (ret == vppfilter_changed_but_switch))
+		    (ret == vppfilter_changed_but_switch) || need_hold)
 			layer->property_changed = true;
 
 		if ((ret != vppfilter_changed_but_hold) &&
@@ -6580,11 +6620,18 @@ static noinline int __invoke_psci_fn_smc(u64 function_id, u64 arg0, u64 arg1,
 
 void vpp_probe_en_set(u32 enable)
 {
-	if (cpu_after_eq(MESON_CPU_MAJOR_ID_G12A)) {
-		if (enable)
-			__invoke_psci_fn_smc(0x82000080, 1, 0, 0);
-		else
-			__invoke_psci_fn_smc(0x82000080, 0, 0, 0);
+	u32 bootmode;
+
+	bootmode = idme_get_bootmode();
+	if (bootmode == 2) {
+		if (cpu_after_eq(MESON_CPU_MAJOR_ID_G12A)) {
+			if (enable)
+				__invoke_psci_fn_smc(0x82000080, 1, 0, 0);
+			else
+				__invoke_psci_fn_smc(0x82000080, 0, 0, 0);
+		}
+	} else {
+		pr_info("can not enable vpp probe in fos\n");
 	}
 }
 

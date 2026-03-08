@@ -361,8 +361,20 @@ struct fe_blind_scan_parameters {
 #define DTV_BLIND_SCAN_FRE_RANGE        107
 #define DTV_BLIND_SCAN_FRE_STEP         108
 #define DTV_BLIND_SCAN_TIMEOUT          109
+
+#ifdef CONFIG_AMLOGIC_DTV_DEMOD_V3
+#define DTV_SINGLE_CABLE_VER            110
+#define DTV_SINGLE_CABLE_USER_BAND      111
+#define DTV_SINGLE_CABLE_BAND_FRE       112
+#define DTV_SINGLE_CABLE_BANK           113
+#define DTV_SINGLE_CABLE_UNCOMMITTED    114
+#define DTV_SINGLE_CABLE_COMMITTED      115
+/* Blind scan end*/
+#define DTV_DELIVERY_SUB_SYSTEM			116
+#else
 /* Blind scan end*/
 #define DTV_DELIVERY_SUB_SYSTEM			110
+#endif
 #define DTV_MAX_COMMAND		DTV_DELIVERY_SUB_SYSTEM
 
 #else  /*!defined(CONFIG_AMLOGIC_DVB_COMPAT)*/
@@ -838,6 +850,35 @@ struct dvbsx_blindscanpara {
 	__u32 frequencyStep;/* tuner step frequency in kHz */
 	__s32 timeout;/* blindscan event timeout*/
 };
+
+#ifdef CONFIG_AMLOGIC_DTV_DEMOD_V3
+struct dvbsx_singlecable_parameters {
+	/* not singlecable: 0, 1.0X - 1(EN50494), 2.0X - 2(EN50607) */
+	__u32 version;
+	__u32 userband;  /* 1.0X: 0 - 7, 2.0X: 0 - 31 */
+	__u32 frequency; /* KHz */
+	__u32 bank;
+	/*
+	 * Uncommitted switches setting for SCD2 (Similar to DiSEqC WriteN1 command,
+	 * but lower 4 bits only)
+	 *  Bit[0] : Switch 1 Position A or B
+	 *  Bit[1] : Switch 2 Position A or B
+	 *  Bit[2] : Switch 3 Position A or B
+	 *  Bit[3] : Switch 4 Position A or B
+	 */
+	__u32 uncommitted;
+	/*
+	 * Committed switches setting for SCD2 (Similar to DiSEqC WriteN0 command,
+	 * but lower 4 bits only)
+	 *  Bit[0] : Low or High Band
+	 *  Bit[1] : Vertical or Horizontal Polarization
+	 *  Bit[2] : Satellite Position A or B
+	 *  Bit[3] : Option Switch Position A or B
+	 */
+	__u32 committed;
+};
+#endif
+
 #endif /*CONFIG_AMLOGIC_DVB_COMPAT*/
 /**
  * When set, this flag will disable any zigzagging or other "normal" tuning

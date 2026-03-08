@@ -1715,22 +1715,25 @@ void aml_aed_set_frddr_reserved(void)
 	frddrs[DDR_A].reserved = true;
 }
 
+/* For resample it should always 24bit input*/
 void get_toddr_bits_config(enum toddr_src src,
 	int bit_depth, int *msb, int *lsb)
 {
 	switch (src) {
 	case FRHDMIRX:
-		/* TODO: PAO to SPDIF */
+		/* TODO: PAO to SPDIF msb:23;lsb:0 */
 		*msb = 24 - 1;
-		*lsb = (bit_depth > 24) ? 0 : 24 - bit_depth;
+		*lsb = 0;
 		break;
 	case SPDIFIN:
+		/* msb:27;lsb:4 */
 		*msb = 28 - 1;
-		*lsb = (bit_depth <= 24) ? 28 - bit_depth : 4;
+		*lsb = 4;
 		break;
 	default:
+		/* msb:31;lsb:8 */
 		*msb = 31;
-		*lsb = 32 - bit_depth;
+		*lsb = 8;
 		break;
 	}
 }

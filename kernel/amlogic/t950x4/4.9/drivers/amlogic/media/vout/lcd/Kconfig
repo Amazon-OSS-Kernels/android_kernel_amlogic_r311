@@ -30,6 +30,13 @@ config AMLOGIC_LCD_TABLET
 		LCD Tablet output module
 		Configure the LCD output model for Tablet output
 
+config AMLOGIC_LCD_EXTERN
+	bool "LCD Extern Module"
+	default n
+	depends on AMLOGIC_LCD
+	help
+		LCD Extern Module
+
 if AMLOGIC_LCD
 source "drivers/amlogic/media/vout/lcd/lcd_extern/Kconfig"
 endif

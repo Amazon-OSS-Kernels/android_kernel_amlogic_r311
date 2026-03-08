@@ -223,6 +223,7 @@ void bufq_nin_reg(struct di_ch_s *pch);
 struct dim_nins_s *nins_peek(struct di_ch_s *pch);
 struct dim_nins_s *nins_get(struct di_ch_s *pch);
 struct vframe_s *nins_peekvfm(struct di_ch_s *pch);
+struct vframe_s *nins_peekvfm_ori(struct di_ch_s *pch);
 bool nins_out_some(struct di_ch_s *pch,
 		   struct dim_nins_s *ins,
 		   unsigned int q);

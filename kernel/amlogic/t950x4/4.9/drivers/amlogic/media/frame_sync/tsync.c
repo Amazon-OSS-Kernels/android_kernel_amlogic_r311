@@ -745,12 +745,27 @@ static void tsync_state_switch_timer_fun(unsigned long arg)
 	add_timer(&tsync_state_switch_timer);
 }
 
-void tsync_mode_reinit(void)
+u8 tsync_get_demux_pcrscr_valid(void)
+{
+	u8 demux_pcrscr_valid;
+
+	if (tsdemux_pcrscr_valid_cb)
+		demux_pcrscr_valid = tsdemux_pcrscr_valid_cb();
+	else
+		demux_pcrscr_valid = 0;
+	return demux_pcrscr_valid;
+}
+EXPORT_SYMBOL(tsync_get_demux_pcrscr_valid);
+
+void tsync_mode_reinit(u8 type)
 {
 	tsync_av_mode = TSYNC_STATE_S;
 	tsync_av_dynamic_duration_ms = 0;
+	if (tsync_mode == TSYNC_MODE_PCRMASTER)
+		tsync_pcr_mode_reinit(type);
 }
 EXPORT_SYMBOL(tsync_mode_reinit);
+
 void tsync_avevent_locked(enum avevent_e event, u32 param)
 {
 	u32 t;
@@ -1749,6 +1764,10 @@ static ssize_t store_pcrscr(struct class *class,
 	if (r != 0)
 		return -EINVAL;
 
+	if (tsync_get_mode() == TSYNC_MODE_PCRMASTER)
+		tsync_dbg(LOG_DEBUG, "%s: pcrpts %x -> %x, diff %d ms\n",
+			__func__, timestamp_pcrscr_get(), pts,
+			(int)(timestamp_pcrscr_get() - pts) / 90);
 	timestamp_pcrscr_set(pts);
 	set_pts_realign();
 
@@ -2185,6 +2204,10 @@ static ssize_t store_latency(struct class *class,
 	r = kstrtoint(buf, 0, &latency);
 	if (r != 0)
 		return -EINVAL;
+	if (tsync_get_mode() == TSYNC_MODE_PCRMASTER)
+		tsync_dbg(LOG_DEBUG, "%s: latency %x -> %x, diff %d ms\n",
+			__func__, timestamp_get_pcrlatency(), latency,
+			(int)(timestamp_get_pcrlatency() - latency) / 90);
 	timestamp_set_pcrlatency(latency);
 	return size;
 }

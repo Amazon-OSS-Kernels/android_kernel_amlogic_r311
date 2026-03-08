@@ -17,6 +17,7 @@
 
 #ifndef _INC_LCD_VOUT_H
 #define _INC_LCD_VOUT_H
+#include <linux/delay.h>
 #include <linux/types.h>
 #include <linux/platform_device.h>
 #include <linux/amlogic/aml_gpio_consumer.h>
@@ -24,6 +25,9 @@
 #include <linux/amlogic/media/vout/vout_notify.h>
 #include <linux/amlogic/iomap.h>
 #include <linux/amlogic/media/vout/lcd/lcd_tcon_data.h>
+#ifdef CONFIG_HAS_WAKELOCK
+#include <linux/wakelock.h>
+#endif
 
 extern void lcd_vlock_m_update(unsigned int vlock_m);
 extern void lcd_vlock_frac_update(unsigned int vlock_farc);
@@ -78,6 +82,7 @@ extern unsigned char lcd_debug_print_flag;
  * global control define
  * **********************************
  */
+
 enum lcd_mode_e {
 	LCD_MODE_TV = 0,
 	LCD_MODE_TABLET,
@@ -386,6 +391,7 @@ enum lcd_power_type_e {
 	LCD_POWER_TYPE_WAIT_GPIO,
 	LCD_POWER_TYPE_CLK_SS,
 	LCD_POWER_TYPE_TCON_SPI_DATA_LOAD,
+	LCD_POWER_TYPE_SWITCH_DURATION,    /* 7 */
 	LCD_POWER_TYPE_MAX,
 };
 
@@ -436,6 +442,12 @@ struct lcd_power_ctrl_s {
 	struct lcd_power_step_s power_off_step[LCD_PWR_STEP_MAX];
 	int power_on_step_max; /*  internal use for debug */
 	int power_off_step_max; /* internal use for debug */
+	unsigned int on_off_duration;
+	unsigned int off_on_duration;
+	unsigned long long pwr_on_start_time;
+	unsigned long long pwr_on_done_time;
+	unsigned long long pwr_off_start_time;
+	unsigned long long pwr_off_done_time;
 };
 
 #define LCD_INIT_LEVEL_NORMAL         0
@@ -500,6 +512,7 @@ struct aml_lcd_drv_s {
 	unsigned char lcd_clk_path; /* 0=hpll, 1=gp0_pll */
 	unsigned char lcd_config_load;
 	unsigned char lcd_resume_type; /* 0=directly, 1=workqueue */
+	unsigned char lcd_suspend_type; /* 0=directly, 1=workqueue */
 	unsigned char lcd_auto_test;
 	unsigned char lcd_test_state;
 	unsigned char lcd_test_flag;
@@ -536,15 +549,28 @@ struct aml_lcd_drv_s {
 	struct workqueue_struct *workqueue;
 	struct work_struct lcd_probe_work;
 	struct work_struct  lcd_resume_work;
+	struct work_struct  lcd_suspend_work;
 	struct resource *res_vsync_irq;
 	struct resource *res_vsync2_irq;
 	struct resource *res_vx1_irq;
 	struct resource *res_tcon_irq;
 
 	struct mutex power_mutex;
+#ifdef CONFIG_HAS_WAKELOCK
+	struct wake_lock wake_lock;
+#endif
 };
 
 extern struct aml_lcd_drv_s *aml_lcd_get_driver(void);
+
+#define LCD_DELAY_SLEEP_THRESHOLD (100) //ms
+static inline void lcd_wait_ms(size_t ms)
+{
+	if (ms > LCD_DELAY_SLEEP_THRESHOLD)
+		msleep(ms);
+	else
+		mdelay(ms);
+}
 
 /* **********************************
  * IOCTL define

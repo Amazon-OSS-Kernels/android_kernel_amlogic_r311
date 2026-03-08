@@ -318,4 +318,5 @@ u32 get_tvin_delay(void);
 u32 get_tvin_delay_max_ms(void);
 u32 get_tvin_delay_min_ms(void);
 void get_video_axis_offset(s32 *x_offset, s32 *y_offset);
+extern unsigned int idme_get_bootmode(void);
 #endif /* VIDEO_H */

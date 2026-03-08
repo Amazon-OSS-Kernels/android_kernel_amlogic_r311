@@ -47,6 +47,10 @@ static unsigned int quirks;
 module_param(quirks, uint, S_IRUGO);
 MODULE_PARM_DESC(quirks, "Bit flags for quirks to be enabled as default");
 
+#ifdef CONFIG_USB_SERIAL_PORT
+unsigned int db_wait = 0;
+#endif
+
 /* TODO: copied from ehci-hcd.c - can this be refactored? */
 /*
  * xhci_handshake - spin reading hc until handshake completes or fails
@@ -2680,7 +2684,13 @@ static int xhci_reserve_bandwidth(struct xhci_hcd *xhci,
 	return -ENOMEM;
 }
 
-
+#ifdef CONFIG_USB_SERIAL_PORT
+extern void queue_trb(struct xhci_hcd *xhci, struct xhci_ring *ring,
+			bool more_trbs_coming,
+			u32 field1, u32 field2, u32 field3, u32 field4);
+extern int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend);
+extern void xhci_ring_device(struct xhci_hcd *xhci, int slot_id);
+#endif
 /* Issue a configure endpoint command or evaluate context command
  * and wait for it to finish.
  */
@@ -2693,10 +2703,27 @@ static int xhci_configure_endpoint(struct xhci_hcd *xhci,
 	unsigned long flags;
 	struct xhci_input_control_ctx *ctrl_ctx;
 	struct xhci_virt_device *virt_dev;
+#ifdef CONFIG_USB_SERIAL_PORT
+	int i;
+	struct xhci_ring *ring;
+#endif
 
 	if (!command)
 		return -EINVAL;
 
+#ifdef CONFIG_USB_SERIAL_PORT
+	if ((udev) && (udev->speed == USB_SPEED_FULL) && (udev->state == USB_STATE_NOTATTACHED)) {
+               db_wait  = 1;
+               for(i = 0; i < MAX_HC_SLOTS; i++) {
+                       if ((xhci->devs[i]) && (xhci->devs[i]->udev)) {
+                               if (xhci->devs[i]->udev != udev) {
+                                       xhci_stop_device(xhci, xhci->devs[i]->udev->slot_id, 1);
+                               }
+                       }
+               }
+               msleep(100);
+       }
+#endif
 	spin_lock_irqsave(&xhci->lock, flags);
 	virt_dev = xhci->devs[udev->slot_id];
 
@@ -2741,12 +2768,62 @@ static int xhci_configure_endpoint(struct xhci_hcd *xhci,
 				"FIXME allocate a new ring segment");
 		return -ENOMEM;
 	}
+
+#ifdef CONFIG_USB_SERIAL_PORT
+	/*Full speed device disconnect*/
+	if ((udev) && (udev->speed == USB_SPEED_FULL) && (udev->state == USB_STATE_NOTATTACHED)) {
+		for (i = 1; i < 31; ++i) {
+			ring = xhci->devs[udev->slot_id]->eps[i].ring;
+			if (ring) {
+				queue_trb(xhci, ring, 0, 
+					ring->first_seg->trbs->generic.field[0], 
+					ring->first_seg->trbs->generic.field[1], 
+					ring->first_seg->trbs->generic.field[2], 
+					(ring->first_seg->trbs->generic.field[3] & ~0x1) | ring->cycle_state | TRB_IOC);
+				
+				writel(DB_VALUE(i, 0), &xhci->dba->doorbell[udev->slot_id]);
+				mdelay(5);
+
+				queue_trb(xhci, ring, 0, 
+					ring->first_seg->trbs->generic.field[0], 
+					ring->first_seg->trbs->generic.field[1], 
+					ring->first_seg->trbs->generic.field[2], 
+					(ring->first_seg->trbs->generic.field[3] & ~0x1) | ring->cycle_state | TRB_IOC);
+				
+				writel(DB_VALUE(i, 0), &xhci->dba->doorbell[udev->slot_id]);
+				mdelay(5);
+
+				queue_trb(xhci, ring, 0, 
+					ring->first_seg->trbs->generic.field[0], 
+					ring->first_seg->trbs->generic.field[1], 
+					ring->first_seg->trbs->generic.field[2], 
+					(ring->first_seg->trbs->generic.field[3] & ~0x1) | ring->cycle_state | TRB_IOC);
+
+				writel(DB_VALUE(i, 0), &xhci->dba->doorbell[udev->slot_id]);
+				mdelay(5);
+				break;
+			}
+		}
+	}
+#endif
 	xhci_ring_cmd_db(xhci);
 	spin_unlock_irqrestore(&xhci->lock, flags);
 
 	/* Wait for the configure endpoint command to complete */
 	wait_for_completion(command->completion);
 
+#ifdef CONFIG_USB_SERIAL_PORT
+	if ((udev) && (udev->speed == USB_SPEED_FULL) && (udev->state == USB_STATE_NOTATTACHED)) {
+		db_wait	 = 0;
+		for(i = 0; i < MAX_HC_SLOTS; i++) {
+			if ((xhci->devs[i]) && (xhci->devs[i]->udev)) {
+				if (xhci->devs[i]->udev != udev) {
+					xhci_ring_device(xhci, xhci->devs[i]->udev->slot_id);
+				}
+			}
+		}
+	}
+#endif
 	if (!ctx_change)
 		ret = xhci_configure_endpoint_result(xhci, udev,
 						     &command->status);

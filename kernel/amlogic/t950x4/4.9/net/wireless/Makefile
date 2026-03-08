@@ -19,6 +19,7 @@ CFLAGS_trace.o := -I$(src)
 
 ccflags-y += -D__CHECK_ENDIAN__
 
+#REGDB_SUFFIX e.g. -dfs-IN for db-dfs-IN.txt
 $(obj)/regdb.c: $(src)/db$(REGDB_SUFFIX).txt $(src)/genregdb.awk
 	@$(AWK) -f $(srctree)/$(src)/genregdb.awk < $< > $@
 

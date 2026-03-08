@@ -176,6 +176,11 @@ int set_resample_source(enum resample_idx id, enum toddr_src src)
 
 int get_resample_version(void)
 {
+	if (!s_resample_a || !s_resample_a->chipinfo) {
+		pr_debug("Not init audio resample\n");
+		return -1;
+	}
+
 	return s_resample_a->chipinfo->resample_version;
 }
 

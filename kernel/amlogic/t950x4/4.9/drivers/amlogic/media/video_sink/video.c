@@ -175,6 +175,8 @@ static struct video_frame_detect_s video_frame_detect;
 static long long time_setomxpts;
 static long long time_setomxpts_last;
 struct nn_value_t nn_scenes_value[AI_PQ_TOP];
+static long long last_setomxpts_time;
+static bool notunel_pause;
 
 /*----omx_info  bit0: keep_last_frame, bit1~31: unused----*/
 static u32 omx_info = 0x1;
@@ -2599,8 +2601,8 @@ static inline bool vpts_expire(struct vframe_s *cur_vf,
 				ret = true;
 			} else {
 				ret = false;
-pr_info("%s: src:%dx%d ratio:%d [%d, %d]; dst: %dx%d, ratio:%d\n",
-				__func__, src_w, src_h, src_ratio,
+				pr_info("%s: src:%dx%d ratio:%d [%d, %d]; dst: %dx%d, ratio:%d\n",
+					__func__, src_w, src_h, src_ratio,
 						min_dst_ratio, max_dst_ratio,
 						dst_w, dst_h, dst_ratio);
 			}
@@ -2610,10 +2612,14 @@ pr_info("%s: src:%dx%d ratio:%d [%d, %d]; dst: %dx%d, ratio:%d\n",
 				hold_frames++;
 			if (hold_frames >= HOLD_RATIO_TIMEOUT) {
 				ret = true;
-				pr_info("hold frames timeout: %d > %d\n",
-					hold_frames, HOLD_RATIO_TIMEOUT);
+				pr_info("%s hold frames timeout: %d > %d\n",
+					__func__, hold_frames, HOLD_RATIO_TIMEOUT);
 			}
 			return ret;
+		} else if (cur_vf && cur_vf != next_vf &&
+			cur_vf->width == next_vf->width &&
+			cur_vf->height == next_vf->height) {
+			hold_frames = 0;
 		}
 	}
 	if ((freerun_mode == FREERUN_NODUR) || hdmi_in_onvideo)
@@ -2677,7 +2683,9 @@ pr_info("%s: src:%dx%d ratio:%d [%d, %d]; dst: %dx%d, ratio:%d\n",
 	}
 	/* check video PTS discontinuity */
 	if ((enable_video_discontinue_report) &&
-	    (first_frame_toggled) &&
+	    (first_frame_toggled || (!first_frame_toggled &&
+	    tsync_get_mode() == TSYNC_MODE_PCRMASTER && pts &&
+	    pts > systime && pts - systime > TIME_UNIT90K * 10)) &&
 	    (AM_ABSSUB(systime, pts) > tsync_vpts_discontinuity_margin()) &&
 	    ((next_vf->flag & VFRAME_FLAG_NO_DISCONTINUE) == 0)) {
 		/*
@@ -2704,7 +2712,8 @@ pr_info("%s: src:%dx%d ratio:%d [%d, %d]; dst: %dx%d, ratio:%d\n",
 			pr_info("vsync_pts_align=%d\n", vsync_pts_align);
 		}
 
-		if ((int)(systime - pts) >= 0) {
+		if ((int)(systime - pts) >= 0 &&
+			tsync_get_mode() != TSYNC_MODE_PCRMASTER) {
 			if (next_vf->pts != 0)
 				tsync_avevent_locked(VIDEO_TSTAMP_DISCONTINUITY,
 						     next_vf->pts);
@@ -2742,10 +2751,16 @@ pr_info("%s: src:%dx%d ratio:%d [%d, %d]; dst: %dx%d, ratio:%d\n",
 			 *  to notify tsync and adjust the sysclock to
 			 * make playback smooth.
 			 */
-			if (next_vf->pts != 0)
+			if (next_vf->pts != 0) {
 				tsync_avevent_locked(VIDEO_TSTAMP_DISCONTINUITY,
 					next_vf->pts);
-			else if (next_vf->pts == 0) {
+				if ((u64)(timestamp_pcrscr_get() +
+					vsync_pts_inc) >= 0xFFFFFFFF)
+					return true;
+			} else if (next_vf->pts == 0) {
+				if (pts == 0)
+					pts = timestamp_vpts_get() + (cur_vf ?
+						DUR2PTS(cur_vf->duration) : 0);
 				tsync_avevent_locked(VIDEO_TSTAMP_DISCONTINUITY,
 					pts);
 				return true;
@@ -2868,21 +2883,20 @@ pr_info("%s: src:%dx%d ratio:%d [%d, %d]; dst: %dx%d, ratio:%d\n",
 			org_vpts = timestamp_vpts_get() +
 				(cur_vf ? DUR2PTS(cur_vf->duration) : 0);
 		if ((org_vpts + vsync_pts_inc - systime) <=
-			M_PTS_SMOOTH_MIN) {
+			M_PTS_SMOOTH_MIN && !video_frame_repeat_count) {
 			smooth_sync_expired = 1;
 			video_frame_repeat_count = 0;
 			//pr_info("smooth_sync: ok\n");
 		}
 		if ((org_vpts + vsync_pts_inc - systime) <
-			M_PTS_SMOOTH_MAX &&
-			(org_vpts + vsync_pts_inc - systime) >
-			M_PTS_SMOOTH_MIN && smooth_sync_expired == 0) {
+			M_PTS_SMOOTH_MAX && smooth_sync_expired == 0) {
 			if (!video_frame_repeat_count) {
 				vpts_ref = org_vpts;
 				video_frame_repeat_count++;
 				//pr_info("smooth_sync enabled\n");
 			}
-			if ((int)(org_vpts + vsync_pts_inc - systime) > 0) {
+			if ((int)(org_vpts - vsync_pts_align - vsync_pts_inc -
+				systime) > 0) {
 				adjust_pts = vpts_ref + (vsync_pts_inc -
 					vsync_pts_inc / M_PTS_SMOOTH_FACTOR) *
 					video_frame_repeat_count;
@@ -2902,10 +2916,12 @@ pr_info("%s: src:%dx%d ratio:%d [%d, %d]; dst: %dx%d, ratio:%d\n",
 			return expired;
 		}
 	}
-	if (tsync_get_mode() == TSYNC_MODE_PCRMASTER)
+	if (tsync_get_mode() == TSYNC_MODE_PCRMASTER) {
+		tsync_pcr_vpts_process(next_vf->pts, vsync_pts_inc,
+			DUR2PTS(next_vf->duration), vsync_pts_align);
 		expired = (timestamp_pcrscr_get() + vsync_pts_align >= pts) ?
 				true : false;
-	else
+	} else
 		expired = (int)(timestamp_pcrscr_get() +
 				vsync_pts_align - pts) >= 0;
 
@@ -3622,7 +3638,8 @@ static void hdmi_in_delay_maxmin_old(struct vframe_s *vf)
 	int vdin_keep_count = VDIN_KEEP_COUNT;
 
 	if (vf->source_type != VFRAME_SOURCE_TYPE_HDMI &&
-		vf->source_type != VFRAME_SOURCE_TYPE_CVBS)
+		vf->source_type != VFRAME_SOURCE_TYPE_CVBS &&
+		vf->source_type != VFRAME_SOURCE_TYPE_TUNER)
 		return;
 
 	if (vf->type & VIDTYPE_DI_PW) {
@@ -3849,6 +3866,14 @@ bool black_threshold_check(u8 id)
 		return ret;
 
 	frame_par = layer->cur_frame_par;
+
+#ifdef CONFIG_ENABLE_AFD
+	if (frame_par &&
+		(frame_par->VPP_pic_in_height_ < 2 ||
+		frame_par->VPP_line_in_length_ < 2))
+		    return true;
+#endif
+
 	if ((layer_info->layer_width <= black_threshold_width) ||
 	    (layer_info->layer_height <= black_threshold_height)) {
 		if (frame_par &&
@@ -5141,8 +5166,9 @@ static irqreturn_t vsync_isr_in(int irq, void *dev_id)
 	vsync_count++;
 	timer_count++;
 	if (display_frame_count < 3 && vf &&
-		(vf->source_type == VFRAME_SOURCE_TYPE_HDMI ||
-		vf->source_type == VFRAME_SOURCE_TYPE_CVBS))
+	    (vf->source_type == VFRAME_SOURCE_TYPE_HDMI ||
+	    vf->source_type == VFRAME_SOURCE_TYPE_CVBS ||
+	    vf->source_type == VFRAME_SOURCE_TYPE_TUNER))
 		hdmi_in_delay_maxmin_old(vf);
 
 #if defined(CONFIG_AMLOGIC_MEDIA_ENHANCEMENT_VECM)
@@ -5291,6 +5317,14 @@ static irqreturn_t vsync_isr_in(int irq, void *dev_id)
 					pr_info("omxpts is not update for a while,do not need compenstate\n");
 			} else {
 				diff -=  delta1 * 90 / 1000;
+			}
+		} else if (!notunel_pause && (last_setomxpts_time > 0)) {
+			delta1 = func_div(sched_clock() -
+					last_setomxpts_time, 1000);
+			if (delta1 > 60 * vsync_pts_inc * 1000 / 90) {
+				notunel_pause = true;
+				if (debug_flag & DEBUG_FLAG_PTS_TRACE)
+					pr_info("omxpts is not update for a while,maybe it paused\n");
 			}
 		}
 
@@ -7124,6 +7158,8 @@ static void video_vf_unreg_provider(void)
 	vdin_err_crc_cnt = 0;
 	smooth_sync_expired = 0;
 	video_frame_repeat_count = 0;
+	last_setomxpts_time = 0;
+	notunel_pause = false;
 
 #ifdef PTS_LOGGING
 	{
@@ -7388,6 +7424,7 @@ static int video_receiver_event_fun(int type, void *data, void *private_data)
 		dovi_drop_frame_num = 0;
 		mutex_unlock(&omx_mutex);
 		video_inuse = 1;
+		notunel_pause = false;
 /*notify di 3d mode is frame*/
 /*alternative mode,passing two buffer in one frame */
 		if ((process_3d_type & MODE_3D_FA) &&
@@ -8113,6 +8150,10 @@ static void set_omx_pts(u32 *p)
 		}
 	} else {
 		omx_continuous_drop_count++;
+		if (notunel_pause) {
+			omx_continuous_drop_flag = true;
+			notunel_pause = false;
+		}
 		if ((omx_continuous_drop_count >=
 		     OMX_CONTINUOUS_DROP_LEVEL) &&
 		    !(debug_flag &
@@ -8146,6 +8187,7 @@ static void set_omx_pts(u32 *p)
 			time_setomxpts = sched_clock();
 			omx_pts = tmp_pts;
 			set_omx_index = frame_num;
+			last_setomxpts_time = time_setomxpts;
 			ATRACE_COUNTER("omxpts", omx_pts);
 		}
 	}

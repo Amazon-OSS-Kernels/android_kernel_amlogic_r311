@@ -20,6 +20,8 @@
 
 #include <linux/amlogic/aml_demod_common.h>
 
+typedef int (*hook_func_t)(void);
+typedef int (*hook_func1_t)(bool);
 #if (defined CONFIG_AMLOGIC_ATV_DEMOD)
 /* For audio driver get atv audio state */
 void aml_fe_get_atvaudio_state(int *state);

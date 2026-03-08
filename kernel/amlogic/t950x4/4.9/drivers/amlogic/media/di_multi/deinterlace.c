@@ -5294,6 +5294,7 @@ unsigned char dim_pre_de_buf_config(unsigned int channel)
 			vframe->width = dimp_get(edi_mp_force_width);
 		if (dimp_get(edi_mp_force_height))
 			vframe->height = dimp_get(edi_mp_force_height);
+		vframe->width = roundup(vframe->width, width_roundup);
 
 		/* backup frame motion info */
 		vframe->combing_cur_lev = dimp_get(edi_mp_cur_lev);/*cur_lev;*/
@@ -5440,11 +5441,13 @@ unsigned char dim_pre_de_buf_config(unsigned int channel)
 				ppre->di_chan2_buf_dup_p = NULL;
 			}
 
-			PR_INF("%s:ch[%d]:%ums %dth source change:\n",
+			PR_INF("%s:ch[%d]:%ums %dth source change:%d:%d\n",
 			       "pre cfg",
 			       channel,
 			       jiffies_to_msecs(jiffies_64),
-			       ppre->in_seq);
+			       ppre->in_seq,
+			       ppre->width_bk,
+			       di_buf->vframe->index_disp);
 			PR_INF("source change:0x%x/%d/%d/%d=>0x%x/%d/%d/%d\n",
 			       ppre->cur_inp_type,
 			       ppre->cur_width,

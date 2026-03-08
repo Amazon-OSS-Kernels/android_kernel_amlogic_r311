@@ -18,15 +18,16 @@
 #include <linux/init.h>
 #include <linux/i2c.h>
 #include <linux/regmap.h>
-
-#include <sound/soc.h>
-#include <sound/pcm.h>
-#include <sound/initval.h>
 #include <linux/amlogic/aml_gpio_consumer.h>
 
+#include <sound/initval.h>
+#include <sound/core.h>
+#include <sound/pcm.h>
+#include <sound/pcm_params.h>
+#include <sound/soc.h>
+#include <sound/tlv.h>
 #include "acm8625.h"
 
-#define ED_DRC_EN	0
 #define ACM8625_DRV_NAME    "acm8625"
 
 #define ACM8625_RATES	     (SNDRV_PCM_RATE_8000 | \
@@ -47,6 +48,8 @@
 #define ACM8625_PAGE_00     (0x00) //page 00
 #define ACM8625_PAGE_04     (0x04) //page 04
 #define ACM8625_REG_00      (0x00)
+#define ACM8625_REG_04      (0x04) //Mute and state Control
+#define ACM8625_REG_05      (0x05) //Processing control
 #define ACM8625_REG_7C      (0x7C) //Left volume
 #define ACM8625_REG_7D      (0x7D) //Left volume
 #define ACM8625_REG_7E      (0x7E) //Left volume
@@ -55,8 +58,6 @@
 #define ACM8625_REG_81      (0x81) //Right volume
 #define ACM8625_REG_82      (0x82) //Right volume
 #define ACM8625_REG_83      (0x83) //Right volume
-#define ACM8625_REG_04      (0x04) //Mute and state Control
-
 
 #define ACM8625_VOLUME_MAX  (578)
 #define ACM8625_VOLUME_MIN  (0)
@@ -642,21 +643,22 @@ const uint32_t acm8625_volume[] = {
 	0x6FEFA16D,		//577   47dB
 	0x7D982575,		//578   48dB
 };
-#if ED_DRC_EN
-#define ACM8625_EQPARAM_LENGTH 610
-#define ACM8625_EQ_LENGTH 245
-#define FILTER_PARAM_BYTE 244
-static  int m_eq_tab[ACM8625_EQPARAM_LENGTH][2];
-#define ACM8625_DRC_PARAM_LENGTH 29
-#define ACM8625_DRC_PARAM_COUNT  58
-static  int m_drc_tab[ACM8625_DRC_PARAM_LENGTH][2];
-#endif
+
+#define ACM8625_EQ_PARAM_LENGTH 604
+#define ACM8625_EQ_PARAM_COUNT 1208
+#define ACM8625_DRC_PARAM_LENGTH 358
+#define ACM8625_DRC_PARAM_COUNT 716
+
 struct acm8625_priv {
 	struct regmap *regmap;
 	struct acm8625_platform_data *pdata;
 	int vol;
 	int mute;
 	struct snd_soc_codec *codec;
+	int eq_enable;
+	char *m_eq_tab;
+	int drc_enable;
+	char *m_drc_tab;
 };
 
 const struct regmap_config acm8625_regmap = {
@@ -664,6 +666,22 @@ const struct regmap_config acm8625_regmap = {
 	.val_bits = 8,
 	.cache_type = REGCACHE_RBTREE,
 };
+
+/* Digital Off during DSP configuration */
+static void acm8625_write_prepare(struct snd_soc_codec *codec)
+{
+	snd_soc_write(codec, ACM8625_REG_00, ACM8625_PAGE_00);
+	snd_soc_write(codec, ACM8625_REG_04, 0);
+	snd_soc_write(codec, ACM8625_REG_00, ACM8625_PAGE_00);
+	snd_soc_write(codec, ACM8625_REG_00, ACM8625_PAGE_00);
+	snd_soc_write(codec, ACM8625_REG_00, ACM8625_PAGE_00);
+}
+
+static void acm8625_write_ready(struct snd_soc_codec *codec)
+{
+	snd_soc_write(codec, ACM8625_REG_00, ACM8625_PAGE_00);
+	snd_soc_write(codec, ACM8625_REG_04, 0x3);
+}
 
 static int acm8625_vol_info(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_info *uinfo)
@@ -806,105 +824,132 @@ static int acm8625_mute_locked_get(struct snd_kcontrol *kcontrol,
 	ucontrol->value.integer.value[0] = acm8625->mute;
 	return 0;
 }
-#if ED_DRC_EN
+
 static int acm8625_set_EQ_enum(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct acm8625_priv *acm8625 = snd_soc_codec_get_drvdata(codec);
+
+	acm8625->eq_enable = ucontrol->value.integer.value[0];
+
 	return 0;
 }
 
 static int acm8625_get_EQ_enum(struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
-	return 0;
-}
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct acm8625_priv *acm8625 = snd_soc_codec_get_drvdata(codec);
+	bool enable = (bool)acm8625->eq_enable & 0x1;
 
-static int acm8625_set_DRC_enum(struct snd_kcontrol *kcontrol,
-				   struct snd_ctl_elem_value *ucontrol)
-{
-	return 0;
-}
+	ucontrol->value.integer.value[0] = enable;
+	if (enable == 1) {
+		snd_soc_write(codec, ACM8625_REG_00, ACM8625_PAGE_00);
+		snd_soc_write(codec, ACM8625_REG_05, 0x0);
+	} else {
+		snd_soc_write(codec, ACM8625_REG_00, ACM8625_PAGE_00);
+		snd_soc_write(codec, ACM8625_REG_05, 0x8);
+	}
 
-static int acm8625_get_DRC_enum(struct snd_kcontrol *kcontrol,
-					struct snd_ctl_elem_value *ucontrol)
-{
 	return 0;
 }
 
 static int acm8625_set_DRC_param(struct snd_kcontrol *kcontrol,
-				   struct snd_ctl_elem_value *ucontrol)
+				  const unsigned int __user *bytes,
+				  unsigned int size)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	void *data;
+	struct acm8625_priv *acm8625 = snd_soc_codec_get_drvdata(codec);
 	char tmp_string[ACM8625_DRC_PARAM_COUNT];
 	char *p_string = &tmp_string[0];
-	u8 *val;
-	unsigned int i = 0;
+	char *p = acm8625->m_drc_tab;
+	unsigned int i = 0, res;
+	struct snd_ctl_tlv *tlv;
+	char *val = (char *)bytes + sizeof(*tlv);
 
-	data = kmemdup(ucontrol->value.bytes.data,
-		ACM8625_DRC_PARAM_COUNT, GFP_KERNEL | GFP_DMA);
-	if (!data)
-		return -ENOMEM;
+	res = copy_from_user(p_string, val, ACM8625_DRC_PARAM_COUNT);
+	if (res)
+		return -EFAULT;
 
-	val = (u8 *)data;
-	memcpy(p_string, val, ACM8625_DRC_PARAM_COUNT);
+	memcpy(p, p_string, ACM8625_DRC_PARAM_COUNT);
 
-	for (i = 0; i < ACM8625_DRC_PARAM_COUNT/2; i++) {
-		m_drc_tab[i][0] = tmp_string[2*i];
-		m_drc_tab[i][1] = tmp_string[2*i+1];
+	acm8625_write_prepare(codec);
+	for (i = 0; i < ACM8625_DRC_PARAM_LENGTH; i++) {
+		snd_soc_write(codec, *p, *(p + 1));
+		p += 2;
 	}
+	acm8625_write_ready(codec);
 
-	for (i = 0; i < ACM8625_DRC_PARAM_LENGTH; i++)
-		snd_soc_write(codec, m_drc_tab[i][0], m_drc_tab[i][1]);
-
-	kfree(data);
 	return 0;
 }
 
 static int acm8625_get_DRC_param(struct snd_kcontrol *kcontrol,
-					struct snd_ctl_elem_value *ucontrol)
+			    unsigned int __user *bytes,
+			    unsigned int size)
 {
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct acm8625_priv *acm8625 = snd_soc_codec_get_drvdata(codec);
+	struct snd_ctl_tlv *tlv;
+	char *val = (char *)bytes + sizeof(*tlv);
+	char *p = acm8625->m_drc_tab;
+	int res = 0;
+
+	res = copy_to_user(val, p, ACM8625_DRC_PARAM_COUNT);
+	if (res)
+		return -EFAULT;
+
 	return 0;
 }
 
 static int acm8625_set_EQ_param(struct snd_kcontrol *kcontrol,
-				   struct snd_ctl_elem_value *ucontrol)
+				  const unsigned int __user *bytes,
+				  unsigned int size)
 {
 	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	void *data;
-	char tmp_string[ACM8625_EQ_LENGTH];
+	struct acm8625_priv *acm8625 = snd_soc_codec_get_drvdata(codec);
+	char tmp_string[ACM8625_EQ_PARAM_COUNT];
 	char *p_string = &tmp_string[0];
-	u8 *val;
-	int band_id;
-	unsigned int i = 0, j = 0;
+	char *p = acm8625->m_eq_tab;
+	unsigned int i = 0, res;
+	struct snd_ctl_tlv *tlv;
+	char *val = (char *)bytes + sizeof(*tlv);
 
-	data = kmemdup(ucontrol->value.bytes.data,
-		ACM8625_EQ_LENGTH, GFP_KERNEL | GFP_DMA);
-	if (!data)
-		return -ENOMEM;
+	res = copy_from_user(p_string, val, ACM8625_EQ_PARAM_COUNT);
+	if (res)
+		return -EFAULT;
 
-	val = (u8 *) data;
-	memcpy(p_string, val, ACM8625_EQ_LENGTH);
-	band_id = tmp_string[0];
-	for (j = 0, i = band_id * FILTER_PARAM_BYTE / 2;
-			j < FILTER_PARAM_BYTE / 2; i++, j++) {
-		m_eq_tab[i][0] = tmp_string[2*j+1];
-		m_eq_tab[i][1] = tmp_string[2*j+2];
+	memcpy(p, p_string, ACM8625_EQ_PARAM_COUNT);
+
+	acm8625_write_prepare(codec);
+	for (i = 0; i < ACM8625_EQ_PARAM_LENGTH; i++) {
+		snd_soc_write(codec, *p, *(p + 1));
+		p += 2;
+		/*pr_info("acm8625_eq_tab[%d] = {0x%x, 0x%x}\n",*/
+		/*	i, tmp_string[2*i], tmp_string[2*i+1]);*/
 	}
-	if (band_id == 4) {
-		for (i = 0; i < ACM8625_EQPARAM_LENGTH; i++)
-			snd_soc_write(codec, m_eq_tab[i][0], m_eq_tab[i][1]);
-	}
-	kfree(data);
+	acm8625_write_ready(codec);
+
 	return 0;
 }
 
 static int acm8625_get_EQ_param(struct snd_kcontrol *kcontrol,
-					struct snd_ctl_elem_value *ucontrol)
+				unsigned int __user *bytes,
+				unsigned int size)
 {
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct acm8625_priv *acm8625 = snd_soc_codec_get_drvdata(codec);
+	struct snd_ctl_tlv *tlv;
+	char *val = (char *)bytes + sizeof(*tlv);
+	char *p = acm8625->m_eq_tab;
+	int res = 0;
+
+	res = copy_to_user(val, p, ACM8625_EQ_PARAM_COUNT);
+	if (res)
+		return -EFAULT;
+
 	return 0;
 }
-#endif
 
 static const struct snd_kcontrol_new acm8625_vol_control[] = {
 	{
@@ -916,21 +961,18 @@ static const struct snd_kcontrol_new acm8625_vol_control[] = {
 	 },
 	{
 	 .iface = SNDRV_CTL_ELEM_IFACE_MIXER,
-	 .name = "Maser Volume Mute",
+	 .name = "Master Volume Mute",
 	 .info = acm8625_mute_info,
 	 .get = acm8625_mute_locked_get,
 	 .put = acm8625_mute_locked_put,
 	},
-#if ED_DRC_EN
 	SOC_SINGLE_BOOL_EXT("Set EQ Enable", 0,
 			   acm8625_get_EQ_enum, acm8625_set_EQ_enum),
-	SOC_SINGLE_BOOL_EXT("Set DRC Enable", 0,
-			   acm8625_get_DRC_enum, acm8625_set_DRC_enum),
-	SND_SOC_BYTES_EXT("EQ table", ACM8625_EQ_LENGTH,
+	SND_SOC_BYTES_TLV("EQ table", ACM8625_EQ_PARAM_COUNT,
 			   acm8625_get_EQ_param, acm8625_set_EQ_param),
-	SND_SOC_BYTES_EXT("DRC table", ACM8625_DRC_PARAM_COUNT,
+	SND_SOC_BYTES_TLV("DRC table", ACM8625_DRC_PARAM_COUNT,
 			   acm8625_get_DRC_param, acm8625_set_DRC_param),
-#endif
+
 };
 
 static int acm8625_set_bias_level(struct snd_soc_codec *codec,
@@ -970,22 +1012,21 @@ static int acm8625_trigger(struct snd_pcm_substream *substream, int cmd,
 		case SNDRV_PCM_TRIGGER_RESUME:
 		case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 			pr_debug("%s(), start\n", __func__);
-			snd_soc_write(codec, ACM8625_REG_00, ACM8625_PAGE_00);
-			snd_soc_write(codec, ACM8625_DIG_VAL_CTL_LEFT, 0xd0);
-			snd_soc_write(codec, ACM8625_DIG_VAL_CTL_RIGHT, 0xd0);
+			if (!acm8625->mute)
+				acm8625_mute(codec, 0);
 			break;
 		case SNDRV_PCM_TRIGGER_STOP:
 		case SNDRV_PCM_TRIGGER_SUSPEND:
 		case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 			pr_debug("%s(), stop\n", __func__);
-			snd_soc_write(codec, ACM8625_REG_00, ACM8625_PAGE_00);
-			snd_soc_write(codec, ACM8625_DIG_VAL_CTL_LEFT, 0x00);
-			snd_soc_write(codec, ACM8625_DIG_VAL_CTL_RIGHT, 0x00);
+			if (!acm8625->mute)
+				acm8625_mute(codec, 1);
 			break;
 		}
 	}
 	return 0;
 }
+
 static int reset_acm8625_GPIO(struct device *dev)
 {
 	struct acm8625_priv *acm8625 =  dev_get_drvdata(dev);
@@ -1056,14 +1097,13 @@ static int acm8625_snd_resume(struct snd_soc_codec *codec)
 	usleep_range(3 * 1000, 4 * 1000);
 
 	ret = acm8625_reg_init(codec);
-//	    regmap_register_patch(acm8625->regmap, acm8625_init_sequence,
-//				  ARRAY_SIZE(acm8625_init_sequence));
 	if (ret != 0) {
 		dev_err(codec->dev, "Failed to initialize ACM8625: %d\n", ret);
 		goto err;
 	}
 
 	acm8625_set_volume(codec, acm8625->vol);
+	acm8625_mute(codec, acm8625->mute);
 	acm8625_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 
 	return 0;
@@ -1179,7 +1219,7 @@ static int acm8625_i2c_probe(struct i2c_client *i2c,
 
 	acm8625_parse_dt(acm8625, i2c->dev.of_node);
 	acm8625->regmap = regmap;
-	acm8625->vol = 390;	//
+	acm8625->vol = 400;
 
 	dev_set_drvdata(&i2c->dev, acm8625);
 
@@ -1191,14 +1231,45 @@ static int acm8625_i2c_probe(struct i2c_client *i2c,
 
 	reset_acm8625_GPIO(&i2c->dev);
 
+	acm8625->m_drc_tab =
+		devm_kzalloc(&i2c->dev,
+			     sizeof(char) * ACM8625_DRC_PARAM_COUNT,
+			     GFP_KERNEL);
+	if (!acm8625->m_drc_tab)
+		return -ENOMEM;
+
+	acm8625->m_eq_tab =
+		devm_kzalloc(&i2c->dev,
+			     sizeof(char) * ACM8625_EQ_PARAM_COUNT,
+			     GFP_KERNEL);
+	if (!acm8625->m_eq_tab)
+		return -ENOMEM;
+
 	return ret;
 }
 
 static int acm8625_i2c_remove(struct i2c_client *i2c)
 {
+	struct acm8625_priv *acm8625 =
+			(struct acm8625_priv *)i2c_get_clientdata(i2c);
+
+	snd_soc_unregister_codec(&i2c->dev);
+	devm_kfree(&i2c->dev, acm8625->m_drc_tab);
+	devm_kfree(&i2c->dev, acm8625->m_eq_tab);
+	devm_kfree(&i2c->dev, acm8625->pdata);
 	devm_kfree(&i2c->dev, i2c_get_clientdata(i2c));
 
 	return 0;
+}
+
+static void acm8625_i2c_shutdown(struct i2c_client *i2c)
+{
+	struct acm8625_priv *acm8625 =
+			(struct acm8625_priv *)i2c_get_clientdata(i2c);
+	struct acm8625_platform_data *pdata = acm8625->pdata;
+
+	if (pdata->reset_pin)
+		gpio_direction_output(pdata->reset_pin, GPIOF_OUT_INIT_LOW);
 }
 
 static const struct i2c_device_id acm8625_i2c_id[] = {
@@ -1220,6 +1291,7 @@ MODULE_DEVICE_TABLE(of, acm8625_of_match);
 static struct i2c_driver acm8625_i2c_driver = {
 	.probe = acm8625_i2c_probe,
 	.remove = acm8625_i2c_remove,
+	.shutdown = acm8625_i2c_shutdown,
 	.id_table = acm8625_i2c_id,
 	.driver = {
 		   .name = ACM8625_DRV_NAME,
@@ -1229,6 +1301,5 @@ static struct i2c_driver acm8625_i2c_driver = {
 
 module_i2c_driver(acm8625_i2c_driver);
 
-MODULE_AUTHOR("Andy Liu <andy-liu@ti.com>");
 MODULE_DESCRIPTION("ACM8625 Audio Amplifier Driver");
 MODULE_LICENSE("GPL v2");

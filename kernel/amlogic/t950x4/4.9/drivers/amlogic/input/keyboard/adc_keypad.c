@@ -702,9 +702,6 @@ static int meson_adc_kp_probe(struct platform_device *pdev)
 	kp->input->rep[REP_DELAY] = 0xffffffff;
 	kp->input->rep[REP_PERIOD] = 0xffffffff;
 
-	kp->input->keycodesize = sizeof(unsigned short);
-	kp->input->keycodemax = 0x1ff;
-
 	/*init class*/
 	kp->kp_class.name = DRIVE_NAME;
 	kp->kp_class.owner = THIS_MODULE;

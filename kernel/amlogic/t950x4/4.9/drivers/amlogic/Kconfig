@@ -17,6 +17,12 @@ config AMLOGIC_MODIFY
 		standard kernel source code. All modify of kernel
 		standard code should be wrapped by this config
 
+config AMLOGIC_ATV_V3
+        bool "Amlogic ATV for V3"
+        default n
+        help
+                V3 ATV has some special seeting
+
 if AMLOGIC_DRIVER
 menu "Amlogic Device Drivers"
 

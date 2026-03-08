@@ -396,7 +396,11 @@ int xhci_find_slot_id_by_port(struct usb_hcd *hcd, struct xhci_hcd *xhci,
  * to complete.
  * suspend will set to 1, if suspend bit need to set in command.
  */
+#ifdef CONFIG_USB_SERIAL_PORT
+int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend)
+#else
 static int xhci_stop_device(struct xhci_hcd *xhci, int slot_id, int suspend)
+#endif
 {
 	struct xhci_virt_device *virt_dev;
 	struct xhci_command *cmd;

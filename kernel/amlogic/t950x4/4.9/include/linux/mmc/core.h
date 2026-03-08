@@ -148,13 +148,6 @@ struct mmc_request {
 #endif
 };
 
-struct vendor_command_data {
-    u8 sub_number;
-    u8 dummy_data[3];
-    u8 block_cnt[4];
-    u8 reserved[504];
-};
-
 struct mmc_card;
 struct mmc_async_req;
 
@@ -230,8 +223,5 @@ static inline void mmc_claim_host(struct mmc_host *host)
 struct device_node;
 extern u32 mmc_vddrange_to_ocrmask(int vdd_min, int vdd_max);
 extern int mmc_of_parse_voltage(struct device_node *np, u32 *mask);
-extern int mmc_send_vendor_samsung_password_write(struct mmc_card *card, unsigned char *buf);
-extern int mmc_send_vendor_samsung_ssr_read(struct mmc_card *card, unsigned char *buf);
-extern int mmc_send_vendor_cmd56_write(struct mmc_host *host, struct mmc_card *card, struct vendor_command_data *cmd_data, u32 arg);
-extern int mmc_send_vendor_cmd56_read(struct mmc_host *host, struct mmc_card *card, u32 arg, u8 *buf);
+
 #endif /* LINUX_MMC_CORE_H */

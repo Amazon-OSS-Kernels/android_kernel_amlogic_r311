@@ -90,6 +90,7 @@ struct aml_demod_sta {
 #ifdef CONFIG_AMLOGIC_DTV_DEMOD_V3
 	u8_t is_blind_scan;
 	u8_t ci_mode;
+	u8_t is_singlecable;
 #endif
 	enum fe_delivery_system delsys;
 };

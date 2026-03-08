@@ -50,10 +50,10 @@
 #include <linux/sign_of_life.h>
 #endif
 
-#ifdef CONFIG_AMAZON_METRICS_LOG
+#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
 #include <linux/metricslog.h>
 #ifndef THERMO_METRICS_STR_LEN
-#define THERMO_METRICS_STR_LEN 128
+#define THERMO_METRICS_STR_LEN 256
 #endif
 #endif
 
@@ -522,7 +522,7 @@ static void handle_critical_trips(struct thermal_zone_device *tz,
 				int trip, enum thermal_trip_type trip_type)
 {
 	int trip_temp;
-#ifdef CONFIG_AMAZON_METRICS_LOG
+#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
 	char buf[THERMO_METRICS_STR_LEN + 1];
 #endif
 
@@ -554,7 +554,13 @@ static void handle_critical_trips(struct thermal_zone_device *tz,
 			dev_err(&tz->device,
 				"Thermal zone: %s reaching critial", tz->type);
 #endif
-#ifdef CONFIG_AMAZON_METRICS_LOG
+#ifdef CONFIG_AMAZON_MINERVA_METRICS_LOG
+		snprintf(buf, THERMO_METRICS_STR_LEN,
+			"%s:%s:100:%s,thermal_temp=%d;CT;1,thermal_caught_shutdown=1;CT;1:NR",
+			KERNEL_METRICS_GROUP_ID, KERNEL_POWER_SUSPEND_STATE_SCHEMA_ID,
+			"thermal_metric_prefix", tz->temperature / 1000);
+		log_to_metrics(ANDROID_LOG_INFO, "ThermalEvent", buf);
+#elif defined(CONFIG_AMAZON_METRICS_LOG)
 		snprintf(buf, THERMO_METRICS_STR_LEN,
 			"%s,thermal_temp=%d;CT;1,thermal_caught_shutdown=1;CT;1:NR",
 			"thermal_metric_prefix", tz->temperature / 1000);
@@ -590,7 +596,7 @@ static void handle_critical_trips(struct thermal_zone_device *tz,
 static void handle_thermal_trip(struct thermal_zone_device *tz, int trip)
 {
 	enum thermal_trip_type type;
-#ifdef CONFIG_AMAZON_METRICS_LOG
+#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
 	char buf[THERMO_METRICS_STR_LEN + 1];
 	static int tripdone[THERMAL_MAX_TRIPS];
 	int trip_temperature;
@@ -608,16 +614,24 @@ static void handle_thermal_trip(struct thermal_zone_device *tz, int trip)
 	else
 		handle_non_critical_trips(tz, trip, type);
 
-#ifdef CONFIG_AMAZON_METRICS_LOG
+#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
 	tz->ops->get_trip_temp(tz, trip, &trip_temperature);
 	tz->ops->get_trip_hyst(tz, trip, &trip_hyster);
 	if (tz->temperature > trip_temperature) {
 		if (tripdone[trip] == 0) {
 			tripdone[trip] = 1;
+#ifdef CONFIG_AMAZON_MINERVA_METRICS_LOG
+			snprintf(buf, THERMO_METRICS_STR_LEN,
+				"%s:%s:100:thermzone:def:Throttle_%s_trip%d=%d;CT;1:NR",
+				KERNEL_METRICS_GROUP_ID, KERNEL_POWER_SUSPEND_STATE_SCHEMA_ID,
+				tz->type, trip+1,
+				tz->temperature/1000);
+#elif defined(CONFIG_AMAZON_METRICS_LOG)
 			snprintf(buf, THERMO_METRICS_STR_LEN,
 				"thermzone:def:Throttle_%s_trip%d=%d;CT;1:NR",
 				tz->type, trip+1,
 				tz->temperature/1000);
+#endif
 			log_to_metrics(ANDROID_LOG_INFO, "ThermalEvent", buf);
 		}
 
@@ -735,7 +749,7 @@ static void update_temperature(struct thermal_zone_device *tz)
 {
 	int temp, ret;
 
-#ifdef CONFIG_AMAZON_METRICS_LOG
+#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
 	char buf[THERMO_METRICS_STR_LEN + 1];
 	static struct timespec   prev_time[THERMAL_MAX_TRIPS];
 	struct timespec  current_time;
@@ -758,8 +772,7 @@ static void update_temperature(struct thermal_zone_device *tz)
 	tz->temperature = temp;
 	mutex_unlock(&tz->lock);
 
-#ifdef CONFIG_AMAZON_METRICS_LOG
-
+#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
 	tz->ops->get_trip_temp(tz, 0, &trip_temp);
 	if (tz->temperature >= trip_temp)
 		/* Log in metrics around every 5 mins */
@@ -772,11 +785,20 @@ static void update_temperature(struct thermal_zone_device *tz)
 	delta_time = timespec_sub(current_time, prev_time[tz->id]);
 
 	if (abs(delta_time.tv_sec) >= mask) {
+#ifdef CONFIG_AMAZON_MINERVA_METRICS_LOG
+		snprintf(buf, THERMO_METRICS_STR_LEN,
+				"%s:%s:100:thermzone:def:%s=%d;CT;1:NR",
+				KERNEL_METRICS_GROUP_ID, KERNEL_POWER_SUSPEND_STATE_SCHEMA_ID,
+				tz->type,
+				tz->temperature/1000);
+		log_to_metrics(ANDROID_LOG_INFO, "ThermalEvent", buf);
+#elif defined(CONFIG_AMAZON_METRICS_LOG)
 		snprintf(buf, THERMO_METRICS_STR_LEN,
 				"thermzone:def:%s=%d;CT;1:NR",
 				tz->type,
 				tz->temperature/1000);
 		log_to_metrics(ANDROID_LOG_INFO, "ThermalEvent", buf);
+#endif
 		prev_time[tz->id] = current_time;
 	}
 #endif

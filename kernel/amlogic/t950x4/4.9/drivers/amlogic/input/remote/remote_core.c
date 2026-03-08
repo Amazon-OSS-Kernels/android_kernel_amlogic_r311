@@ -221,9 +221,6 @@ int remote_register_device(struct remote_dev *dev)
 	__set_bit(REL_Y, dev->input_device->relbit);
 	__set_bit(REL_WHEEL, dev->input_device->relbit);
 
-	dev->input_device->keycodesize = sizeof(unsigned short);
-	dev->input_device->keycodemax = 0x1ff;
-
 	ret = input_register_device(dev->input_device);
 
 	dev->debug_current     = 0;

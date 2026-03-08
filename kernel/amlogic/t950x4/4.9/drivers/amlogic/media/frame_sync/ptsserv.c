@@ -102,15 +102,17 @@ static struct pts_table_s pts_table[PTS_TYPE_MAX] = {
 		.status = PTS_IDLE,
 		.rec_num = VIDEO_REC_SIZE,
 		.lookup_threshold = VIDEO_LOOKUP_RESOLUTION,
-		.last_checkin_pts = -1,
 		.first_checkin_pts = -1,
+		.last_checkin_pts = -1,
+		.last_checkout_pts = -1,
 	},
 	{
 		.status = PTS_IDLE,
 		.rec_num = AUDIO_REC_SIZE,
 		.lookup_threshold = AUDIO_LOOKUP_RESOLUTION,
-		.last_checkin_pts = -1,
 		.first_checkin_pts = -1,
+		.last_checkin_pts = -1,
+		.last_checkout_pts = -1,
 	},
 };
 
@@ -222,18 +224,22 @@ int calculation_stream_delayed_ms(u8 type, u32 *latestbitrate,
 		/* #endif */
 		pTable = &pts_table[type];
 
-	if (((pTable->last_checkin_pts == -1) ||
-		(pTable->last_checkout_pts == -1)) &&
-		type != PTS_TYPE_AUDIO)
+	if (pTable->last_checkin_pts == -1)
 		return 0;
 
 	if (type == PTS_TYPE_AUDIO) {
-		if (pTable->last_checkin_pts == -1) {
-			return 0;
-		} else if ((pTable->last_checkout_pts == -1) &&
+		if ((pTable->last_checkout_pts == -1) &&
 			   (timestamp_apts_started() == 0)) {
 			timestampe_delayed = (pTable->last_checkin_pts -
 						pTable->first_checkin_pts) / 90;
+			pTable->last_pts_delay_ms = timestampe_delayed;
+			return timestampe_delayed;
+		}
+	} else {
+		if (pTable->last_checkout_pts == -1 &&
+			timestamp_firstvpts_get() == 0) {
+			timestampe_delayed = (pTable->last_checkin_pts -
+				pTable->first_checkin_pts) / 90;
 			pTable->last_pts_delay_ms = timestampe_delayed;
 			return timestampe_delayed;
 		}
@@ -418,7 +424,7 @@ static inline void pts_checkin_offset_calc_cached(u32 offset,
 {
 	s32 diff = offset - pTable->last_checkin_offset;
 
-	if (diff > 0) {
+	if (diff >= 0) {
 		if ((val - pTable->last_checkin_pts) > 0) {
 			int newbitrate =
 				diff * 8 * 90 / (1 +
@@ -1463,6 +1469,8 @@ int pts_start(u8 type)
 	ulong flags;
 	struct pts_table_s *pTable;
 
+	pr_info("%s, type=%d\n", __func__, type);
+
 	if (type >= PTS_TYPE_MAX)
 		return -EINVAL;
 	/* #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8 */
@@ -1586,6 +1594,8 @@ int pts_stop(u8 type)
 	ulong flags;
 	struct pts_table_s *pTable;
 
+	pr_info("%s, type=%d\n", __func__, type);
+
 	if (type >= PTS_TYPE_MAX)
 		return -EINVAL;
 	/* #if MESON_CPU_TYPE >= MESON_CPU_TYPE_MESON8 */
@@ -1606,14 +1616,22 @@ int pts_stop(u8 type)
 		free_pts_list(pTable);
 
 		pTable->status = PTS_IDLE;
-		pTable->last_checkin_pts = -1;
-		pTable->first_checkin_pts = -1;
 
-		if (type == PTS_TYPE_AUDIO) {
+		if (type == PTS_TYPE_AUDIO)
 			timestamp_apts_set(-1);
-			timestamp_apts_start(0);
-		}
-		tsync_mode_reinit();
+		/*+[SE][BUG][SWPL-20085][chengshun] some drm stream
+		 * begin not have audio and video info, lead save
+		 * last program pts info
+		 */
+#ifdef CALC_CACHED_TIME
+		pTable->last_checkin_offset = 0;
+		pTable->last_checkin_pts = -1;
+		pTable->last_checkout_pts = -1;
+		pTable->last_checkout_offset = -1;
+		pTable->last_avg_bitrate = 0;
+		pTable->last_bitrate = 0;
+#endif
+		tsync_mode_reinit(type);
 		return 0;
 
 	} else {

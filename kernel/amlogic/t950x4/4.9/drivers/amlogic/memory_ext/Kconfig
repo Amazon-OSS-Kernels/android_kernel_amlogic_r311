@@ -91,3 +91,9 @@ config AMLOGIC_WATCHPOINT
 		This driver export a debug sysfs in order
 		to using watch point function on ARMv8.
 		say y to enable Amlogic watch point driver
+
+config ASYMMETRIC_MEM
+	tristate "ASYMMETRIC_MEM"
+        default n
+        help
+                special setting for ASYMMETRIC_MEM

@@ -217,10 +217,10 @@ EXPORT_SYMBOL(timestamp_pcrscr_get_u64);
 
 void timestamp_set_pcrlatency(u32 latency)
 {
-	if (latency < 500 * 90)
+	if (latency < 3000 * 90)
 		pcrscr_lantcy = latency;
 	else
-		pcrscr_lantcy = 500 * 90;
+		pcrscr_lantcy = 3000 * 90;
 }
 EXPORT_SYMBOL(timestamp_set_pcrlatency);
 

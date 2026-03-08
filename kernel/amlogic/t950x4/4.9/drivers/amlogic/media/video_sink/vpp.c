@@ -1334,7 +1334,7 @@ RESTART_ALL:
 RESTART:
 	aspect_factor = (vpp_flags & VPP_FLAG_AR_MASK) >> VPP_FLAG_AR_BITS;
 	/* don't use input->wide_mode */
-	wide_mode = vpp_flags & VPP_FLAG_WIDEMODE_MASK;
+	wide_mode = (vpp_flags & VPP_FLAG_WIDEMODE_MASK) >> VPP_WIDEMODE_BITS;
 
 	if ((vpp_flags & VPP_FLAG_AR_MASK) == VPP_FLAG_AR_MASK) {
 		ext_sar = true;
@@ -3294,7 +3294,7 @@ RESTART_ALL:
 
 RESTART:
 	/* don't use input->wide_mode */
-	wide_mode = vpp_flags & VPP_FLAG_WIDEMODE_MASK;
+	wide_mode = (vpp_flags & VPP_FLAG_WIDEMODE_MASK) >> VPP_WIDEMODE_BITS;
 
 	/*
 	 *if we have ever set a cropped display area for video layer
@@ -3791,7 +3791,6 @@ RERTY:
 				local_input.custom_ar =
 					vf->pic_mode.custom_ar;
 		}
-
 		local_input.crop_top = vf->pic_mode.vs;
 		local_input.crop_left = vf->pic_mode.hs;
 		local_input.crop_bottom = vf->pic_mode.ve;
@@ -3892,7 +3891,8 @@ RERTY:
 
 	/* don't restore the wide mode */
 	/* input->wide_mode = wide_mode; */
-	vpp_flags |= wide_mode | (aspect_ratio << VPP_FLAG_AR_BITS);
+	vpp_flags |= (wide_mode << VPP_WIDEMODE_BITS) |
+		(aspect_ratio << VPP_FLAG_AR_BITS);
 
 	if (vinfo->field_height != vinfo->height)
 		vpp_flags |= VPP_FLAG_INTERLACE_OUT;
