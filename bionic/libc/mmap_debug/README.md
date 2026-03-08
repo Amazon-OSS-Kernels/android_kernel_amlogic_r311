@@ -51,8 +51,6 @@ If MAX\_FRAMES is present, it indicates the maximum number of frames to
 capture in a backtrace. The default is 16 frames, the maximumum value
 this can be set to is 256.
 
-Wiki Link:
-
 https://www.amazon.com
 
 Steps:
