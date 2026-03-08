@@ -1,0 +1,37 @@
+menuconfig AMLOGIC_MEMORY_EXTEND
+	bool "AMLOGIC memory extend support"
+	default y
+	help
+		Amlogic memory extend is drivers which extend for memory management
+		functions, can be used for memory debug or other features.
+		This is a gernal config for this Kconfig.
+
+config AMLOGIC_PAGE_TRACE
+	bool "Amlogic trace for page allocate"
+	depends on AMLOGIC_MEMORY_EXTEND
+	depends on KALLSYMS
+	default y
+	help
+		Amlogic page trace will record function address of caller for page
+		allocate/free, according with allocate flags and order. trace
+		information is stored in a pre-allocated memory block. And can be shown
+		with allocate page count information of each caller functions from
+		/proc/pagetrace
+
+config AMLOGIC_CMA
+	bool "Amlogic CMA change"
+	depends on AMLOGIC_MEMORY_EXTEND
+	depends on CMA
+	default y
+	help
+		Amlogic CMA optimization for cma alloc/free problems
+		Including policy change of CMA usage
+
+config AMLOGIC_MEM_PRE_WAKE_KSWAP
+	bool "Amlogic pre wake kswapd"
+	depends on AMLOGIC_MEMORY_EXTEND
+	default y
+	help
+		Amlogic MM optimization. If many applications have large amount
+		of memory allocation request in very shot time, wake up kswapd
+		quickly before each allocate to avoid memory can't get problem
