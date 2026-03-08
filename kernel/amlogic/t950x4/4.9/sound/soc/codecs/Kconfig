@@ -1098,6 +1098,9 @@ config SND_SOC_NAU8825
 config SND_SOC_TPA6130A2
 	tristate "Texas Instruments TPA6130A2 headphone amplifier"
 	depends on I2C
+config AMLOGIC_AQ_NEW_VERSION
+	tristate "new AQ logic for acm8625"
+	default n
 
 # for Amlogic Codecs
 source "sound/soc/codecs/amlogic/Kconfig"

@@ -644,10 +644,15 @@ const uint32_t acm8625_volume[] = {
 	0x7D982575,		//578   48dB
 };
 
+#ifdef CONFIG_AMLOGIC_AQ_NEW_VERSION
+#define ACM8625_EQ_PARAM_COUNT 1800
+#define ACM8625_DRC_PARAM_COUNT  1800
+#else
 #define ACM8625_EQ_PARAM_LENGTH 604
 #define ACM8625_EQ_PARAM_COUNT 1208
 #define ACM8625_DRC_PARAM_LENGTH 358
 #define ACM8625_DRC_PARAM_COUNT 716
+#endif
 
 struct acm8625_priv {
 	struct regmap *regmap;
@@ -659,6 +664,8 @@ struct acm8625_priv {
 	char *m_eq_tab;
 	int drc_enable;
 	char *m_drc_tab;
+	int eq_table_size;
+	int drc_table_size;
 };
 
 const struct regmap_config acm8625_regmap = {
@@ -890,10 +897,25 @@ static int acm8625_set_DRC_param(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_tlv *tlv;
 	char *val = (char *)bytes + sizeof(*tlv);
 
+#ifdef CONFIG_AMLOGIC_AQ_NEW_VERSION
+	if (!acm8625->drc_table_size)
+		return -EFAULT;
+#endif
+
 	res = copy_from_user(p_string, val, ACM8625_DRC_PARAM_COUNT);
 	if (res)
 		return -EFAULT;
 
+#ifdef CONFIG_AMLOGIC_AQ_NEW_VERSION
+	memcpy(p, p_string, acm8625->drc_table_size);
+
+	acm8625_write_prepare(codec);
+	for (i = 0; i < (acm8625->drc_table_size / 2); i++) {
+		snd_soc_write(codec, *p, *(p + 1));
+		p += 2;
+	}
+	acm8625_write_ready(codec);
+#else
 	memcpy(p, p_string, ACM8625_DRC_PARAM_COUNT);
 
 	acm8625_write_prepare(codec);
@@ -902,6 +924,7 @@ static int acm8625_set_DRC_param(struct snd_kcontrol *kcontrol,
 		p += 2;
 	}
 	acm8625_write_ready(codec);
+#endif
 
 	return 0;
 }
@@ -937,10 +960,25 @@ static int acm8625_set_EQ_param(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_tlv *tlv;
 	char *val = (char *)bytes + sizeof(*tlv);
 
+#ifdef CONFIG_AMLOGIC_AQ_NEW_VERSION
+	if (!acm8625->eq_table_size)
+		return -EFAULT;
+#endif
+
 	res = copy_from_user(p_string, val, ACM8625_EQ_PARAM_COUNT);
 	if (res)
 		return -EFAULT;
 
+#ifdef CONFIG_AMLOGIC_AQ_NEW_VERSION
+	memcpy(p, p_string, acm8625->eq_table_size);
+
+	acm8625_write_prepare(codec);
+	for (i = 0; i < (acm8625->eq_table_size / 2); i++) {
+		snd_soc_write(codec, *p, *(p + 1));
+		p += 2;
+	}
+	acm8625_write_ready(codec);
+#else
 	memcpy(p, p_string, ACM8625_EQ_PARAM_COUNT);
 
 	acm8625_write_prepare(codec);
@@ -951,6 +989,7 @@ static int acm8625_set_EQ_param(struct snd_kcontrol *kcontrol,
 		/*	i, tmp_string[2*i], tmp_string[2*i+1]);*/
 	}
 	acm8625_write_ready(codec);
+#endif
 
 	return 0;
 }
@@ -969,6 +1008,50 @@ static int acm8625_get_EQ_param(struct snd_kcontrol *kcontrol,
 	res = copy_to_user(val, p, ACM8625_EQ_PARAM_COUNT);
 	if (res)
 		return -EFAULT;
+
+	return 0;
+}
+
+static int acm8625_get_EQ_param_size(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct acm8625_priv *acm8625 = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] = acm8625->eq_table_size;
+
+	return 0;
+}
+
+static int acm8625_set_EQ_param_size(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct acm8625_priv *acm8625 = snd_soc_codec_get_drvdata(codec);
+
+	acm8625->eq_table_size = ucontrol->value.integer.value[0];
+
+	return 0;
+}
+
+static int acm8625_get_DRC_param_size(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct acm8625_priv *acm8625 = snd_soc_codec_get_drvdata(codec);
+
+	ucontrol->value.integer.value[0] = acm8625->drc_table_size;
+
+	return 0;
+}
+
+static int acm8625_set_DRC_param_size(struct snd_kcontrol *kcontrol,
+		struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+	struct acm8625_priv *acm8625 = snd_soc_codec_get_drvdata(codec);
+
+	acm8625->drc_table_size = ucontrol->value.integer.value[0];
 
 	return 0;
 }
@@ -996,7 +1079,14 @@ static const struct snd_kcontrol_new acm8625_vol_control[] = {
 			   acm8625_get_EQ_param, acm8625_set_EQ_param),
 	SND_SOC_BYTES_TLV("DRC table", ACM8625_DRC_PARAM_COUNT,
 			   acm8625_get_DRC_param, acm8625_set_DRC_param),
-
+	SOC_SINGLE_EXT("EQ table size",
+			   0, 0, ACM8625_EQ_PARAM_COUNT, 0,
+			   acm8625_get_EQ_param_size,
+			   acm8625_set_EQ_param_size),
+	SOC_SINGLE_EXT("DRC table size",
+			   0, 0, ACM8625_DRC_PARAM_COUNT, 0,
+			   acm8625_get_DRC_param_size,
+			   acm8625_set_DRC_param_size),
 };
 
 static int acm8625_set_bias_level(struct snd_soc_codec *codec,
@@ -1132,6 +1222,21 @@ static int acm8625_snd_resume(struct snd_soc_codec *codec)
 	acm8625_set_volume(codec, acm8625->vol);
 
 	acm8625_write_prepare(codec);
+#ifdef CONFIG_AMLOGIC_AQ_NEW_VERSION
+	if (acm8625->eq_enable) {
+		for (i = 0; i < (acm8625->eq_table_size / 2); i++) {
+			snd_soc_write(codec, *p_eq, *(p_eq + 1));
+			p_eq += 2;
+		}
+	}
+
+	if (acm8625->drc_enable) {
+		for (i = 0; i < (acm8625->drc_table_size / 2); i++) {
+			snd_soc_write(codec, *p_drc, *(p_drc + 1));
+			p_drc += 2;
+		}
+	}
+#else
 	if (acm8625->eq_enable) {
 		for (i = 0; i < ACM8625_EQ_PARAM_LENGTH; i++) {
 			snd_soc_write(codec, *p_eq, *(p_eq + 1));
@@ -1145,6 +1250,7 @@ static int acm8625_snd_resume(struct snd_soc_codec *codec)
 			p_drc += 2;
 		}
 	}
+#endif
 	acm8625_write_ready(codec);
 
 	acm8625_mute(codec, acm8625->mute);
@@ -1264,6 +1370,8 @@ static int acm8625_i2c_probe(struct i2c_client *i2c,
 	acm8625_parse_dt(acm8625, i2c->dev.of_node);
 	acm8625->regmap = regmap;
 	acm8625->vol = 400;
+	acm8625->eq_table_size = 0;
+	acm8625->drc_table_size = 0;
 
 	dev_set_drvdata(&i2c->dev, acm8625);
 

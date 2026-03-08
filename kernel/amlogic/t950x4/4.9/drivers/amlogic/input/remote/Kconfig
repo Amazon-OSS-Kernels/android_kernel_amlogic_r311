@@ -10,6 +10,12 @@ menuconfig AMLOGIC_REMOTE
 
 	  If unsure, say Y.
 
+config NEW_REMOTE
+	tristate "support new amazon NEC key event"
+        default n
+        help
+          Say Y here if you want to use the new amazon remote control.
+
 if AMLOGIC_REMOTE
 
 config AMLOGIC_MESON_REMOTE

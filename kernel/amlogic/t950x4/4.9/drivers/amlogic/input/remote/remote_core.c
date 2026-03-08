@@ -145,6 +145,11 @@ void remote_keydown(struct remote_dev *dev, int scancode, int status)
 	}
 
 	if (status == REMOTE_NORMAL) {
+#ifdef CONFIG_NEW_REMOTE
+		/* drop down frame before up timer expire to avoid UI lag */
+		if (dev->keypressed)
+			ir_do_keyup(dev);
+#endif
 		keycode = dev->getkeycode(dev, scancode);
 		if (keycode == KEY_POWER)
 			pm_stay_awake(dev->dev);

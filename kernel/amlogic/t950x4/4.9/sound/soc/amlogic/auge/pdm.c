@@ -1080,6 +1080,8 @@ static int snd_soc_of_get_slot_mask(
 	return val;
 }
 
+extern int idme_get_oem_data(char *oem_data);
+
 static int aml_pdm_platform_probe(struct platform_device *pdev)
 {
 	struct aml_pdm *p_pdm;
@@ -1090,6 +1092,7 @@ static int aml_pdm_platform_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct pdm_chipinfo *p_chipinfo;
 	int ret;
+	char oem_data[128] = {0};
 
 	p_pdm = devm_kzalloc(&pdev->dev,
 			sizeof(struct aml_pdm),
@@ -1129,14 +1132,20 @@ static int aml_pdm_platform_probe(struct platform_device *pdev)
 	}
 
 	/* pinmux */
-	p_pdm->pdm_pins = devm_pinctrl_get_select(&pdev->dev, "pdm_pins");
-	if (IS_ERR(p_pdm->pdm_pins)) {
-		p_pdm->pdm_pins = NULL;
+	idme_get_oem_data(oem_data);
+	if ((strstr(oem_data, "ABC-jm") != NULL) ||
+		(strstr(oem_data, "ABC-jb") != NULL)) {
 		dev_err(&pdev->dev,
-			"Can't get pdm pinmux\n");
-		return PTR_ERR(p_pdm->pdm_pins);
+			"abc123 and abc123 no need pdm pins.\n");
+	} else {
+		p_pdm->pdm_pins = devm_pinctrl_get_select(&pdev->dev, "pdm_pins");
+		if (IS_ERR(p_pdm->pdm_pins)) {
+			p_pdm->pdm_pins = NULL;
+			dev_err(&pdev->dev,
+				"Can't get pdm pinmux\n");
+			return PTR_ERR(p_pdm->pdm_pins);
+		}
 	}
-
 	p_pdm->sysclk_srcpll = devm_clk_get(&pdev->dev, "sysclk_srcpll");
 	if (IS_ERR(p_pdm->sysclk_srcpll)) {
 		dev_err(&pdev->dev,

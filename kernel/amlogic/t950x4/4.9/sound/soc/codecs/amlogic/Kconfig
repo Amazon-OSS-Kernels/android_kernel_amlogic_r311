@@ -227,6 +227,28 @@ config AMLOGIC_SND_SOC_ACM8625
 	  to select the audio interfaces to support below.
 	  Enable Support for ACME ACM8625 CODEC.
 
+config AMLOGIC_SND_SOC_AD82120B
+        tristate "AD82120B"
+        depends on AMLOGIC_SND_SOC_CODECS
+        depends on I2C
+        default n
+        help
+          Say Y or M if you want to add support for codecs attached to
+          the Amlogic Asoc interface. You will also need
+          to select the audio interfaces to support below.
+          Enable Support for AD82120B CODEC.
+
+config AMLOGIC_SND_SOC_AD82088D
+        tristate "AD82088D"
+        depends on AMLOGIC_SND_SOC_CODECS
+        depends on I2C
+        default n
+        help
+          Say Y or M if you want to add support for codecs attached to
+          the Amlogic Asoc interface. You will also need
+          to select the audio interfaces to support below.
+          Enable Support for AD82088D CODEC.
+
 config AMLOGIC_SND_SOC_CS42528
 	bool "Cirrus Logic CS42528"
 	depends on AMLOGIC_SND_SOC_CODECS
