@@ -29,7 +29,7 @@
 #include "mmc_ops.h"
 #include "sd_ops.h"
 
-#ifdef CONFIG_AMAZON_METRICS_LOG
+#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
 #include <linux/metricslog.h>
 #include <linux/vmalloc.h>
 #define LMK_METRIC_TAG "kernel"
@@ -185,15 +185,22 @@ static int mmc_decode_csd(struct mmc_card *card)
 		csd->erase_size <<= csd->write_blkbits - 9;
 	}
 
-#ifdef CONFIG_AMAZON_METRICS_LOG
+#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
 	{
 		char *buf;
 
 		buf = vmalloc(METRICS_LIFETIME_DATA_LEN * sizeof(char));
 		if (buf != NULL) {
+#if defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
+			snprintf(buf, METRICS_LIFETIME_DATA_LEN,
+				"%s:%s:100:emmc:info:permanent_write_protection=%d;CT;1:NR",
+				KERNEL_METRICS_GROUP_ID, KERNEL_METRICS_TEST_SCHEMA_ID,
+				UNSTUFF_BITS(resp, 13, 1));
+#elif defined(CONFIG_AMAZON_METRICS_LOG)
 			snprintf(buf, METRICS_LIFETIME_DATA_LEN,
 				"emmc:info:permanent_write_protection=%d;CT;1:NR",
 				UNSTUFF_BITS(resp, 13, 1));
+#endif
 			log_to_metrics(ANDROID_LOG_INFO, LMK_METRIC_TAG, buf);
 			vfree(buf);
 		} else {
@@ -1410,16 +1417,24 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		mmc_set_erase_size(card);
 	}
 
-#ifdef CONFIG_AMAZON_METRICS_LOG
+#if defined(CONFIG_AMAZON_METRICS_LOG) || defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
 	{
 		char *buf;
 
 		buf = vmalloc(METRICS_LIFETIME_DATA_LEN * sizeof(char));
 		if (buf != NULL) {
+#if defined(CONFIG_AMAZON_MINERVA_METRICS_LOG)
+			snprintf(buf, METRICS_LIFETIME_DATA_LEN,
+				"%s:%s:100:emmc:info:est_life_time_type_a_%x=1, est_life_time_type_b_%x=1;CT;1:NR",
+				KERNEL_METRICS_GROUP_ID, KERNEL_METRICS_TEST_SCHEMA_ID,
+				card->ext_csd.raw_dev_lifetime_est_typ_a,
+				card->ext_csd.raw_dev_lifetime_est_typ_b);
+#elif defined(CONFIG_AMAZON_METRICS_LOG)
 			snprintf(buf, METRICS_LIFETIME_DATA_LEN,
 				"emmc:info:est_life_time_type_a_%x=1, est_life_time_type_b_%x=1;CT;1:NR",
 				card->ext_csd.raw_dev_lifetime_est_typ_a,
 				card->ext_csd.raw_dev_lifetime_est_typ_b);
+#endif
 			log_to_metrics(ANDROID_LOG_INFO, LMK_METRIC_TAG, buf);
 			vfree(buf);
 		} else {
