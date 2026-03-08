@@ -3424,7 +3424,7 @@ static int aml_bl_probe(struct platform_device *pdev)
 	brightness_bypass = 0;
 	bl_pwm_bypass = 0;
 	bl_pwm_duty_free = 0;
-	/*1010 mean ELKA only*/
+	/*1010 mean abc123 only*/
 	if (0 == strcmp(hwid_val, "1010"))
 		bl_step_on_flag = 1;
 	else
