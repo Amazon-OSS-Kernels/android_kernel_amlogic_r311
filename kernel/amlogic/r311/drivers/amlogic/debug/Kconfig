@@ -1,0 +1,24 @@
+config AMLOGIC_DEBUG
+    boolean "Amlogic kernel debug"
+    default n
+    help
+        This is Amlogic kernel debug
+
+config AMLOGIC_DEBUG_LOCKUP
+    boolean "Amlogic lockup debug"
+    depends on LOCKUP_DETECTOR
+    depends on BOOTPARAM_HARDLOCKUP_PANIC
+    depends on BOOTPARAM_SOFTLOCKUP_PANIC
+    depends on AMLOGIC_DEBUG
+    default n
+    help
+        This is Amlogic kernel lockup debug.
+        Debug lockup in isr and deadlock with irq disabled.
+
+config AMLOGIC_DEBUG_STACKOVERFLOW
+    boolean "Amlogic stack overflow debug"
+    depends on AMLOGIC_DEBUG
+    default n
+    help
+        This is Amlogic kernel stack overflow debug.
+        Warn when stack usage if bigger than stack_margin.
