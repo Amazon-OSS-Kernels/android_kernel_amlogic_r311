@@ -15206,7 +15206,7 @@ static int priv_driver_get_1xtx_status(IN struct net_device *prNetDev,
 		return -EFAULT;
 
 	LOGBUF(pcCommand, i4TotalLen, i4BytesWritten,
-	       "r1xTxDoneStatus is %d\n", prAdapter->r1xTxDoneStatus);
+	       "%d\n", prAdapter->r1xTxDoneStatus);
 
 	return i4BytesWritten;
 }
