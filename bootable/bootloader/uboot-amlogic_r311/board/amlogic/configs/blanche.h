@@ -82,7 +82,7 @@
 #define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL4	0xFFFFFFFF
 #define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL5	0xe51afb04
 
-
+/*https://amazon.com*/
 
 #define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL6	0xb9467d02 /* abj123 power key */
 #define CONFIG_IR_REMOTE_POWER_UP_KEY_VAL7	0xa05f7d02 /* abj123 netflix key */
