@@ -129,13 +129,6 @@ _err:
     return NULL;
 }
 
-#ifdef USB_UPGRADE_IN_ONE_FILE
-unsigned image_get_crc(HIMAGE hImg)
-{
-    ImgInfo_t* imgInfo = (ImgInfo_t*)hImg;
-    return imgInfo->imgHead.crc;
-}
-#endif
 
 //close a Amlogic firmware image
 int image_close(HIMAGE hImg)

@@ -37,7 +37,7 @@ DECLARE_GLOBAL_DATA_PTR;
 	#define TE(...)
 #endif
 
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) 
+#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) 
 static u32 fb_width;
 static u32 fb_height;
 static u32 display_bpp;
@@ -253,7 +253,7 @@ void main_loop(void)
 #ifdef CONFIG_IDME
 	bootmode = idme_boot_mode();
 	is_diag_bootmode = (bootmode == IDME_BOOTMODE_DIAG);
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) 
+#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC)
 	is_transition_bootmode = ((bootmode == IDME_BOOTMODE_TRANSITION) || (bootmode == IDME_BOOTMODE_STANDBY_LOGO_POST_SHIPPING_SW_SWITCH));
 #else
 	is_transition_bootmode = (bootmode == IDME_BOOTMODE_TRANSITION);
@@ -269,7 +269,7 @@ void main_loop(void)
 	if (is_transition_bootmode) {
 		if (!is_transition_done) {
 			ret = 0;
-#if !defined(UBOOT_TARGET_PRODUCT_NAME_ALMOND) && !defined(UBOOT_TARGET_PRODUCT_NAME_ABC) && !defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC)
+#if !defined(UBOOT_TARGET_PRODUCT_NAME_ALMOND) && !defined(UBOOT_TARGET_PRODUCT_NAME_ABC) && !defined(UBOOT_TARGET_PRODUCT_NAME_ABC)
 			ret += run_command("amlmmc erase dfs", 0);
 			ret += run_command("amlmmc erase dkernel", 0);
 			ret += run_command("amlmmc erase diag_userdata", 0);
@@ -301,7 +301,7 @@ void main_loop(void)
 				printf("Transition from Diag to FOS failed\n");
 			} else {
 				printf("Transition from Diag to FOS succeed\n");
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC)
 			if (bootmode == IDME_BOOTMODE_TRANSITION) {
 				run_command("reboot", 0);
 			} else {
@@ -356,7 +356,7 @@ void main_loop(void)
 			printf("Force selinux permissive mode\n");
 			setenv("EnableSelinux", "permissive");
 		}
-#if (defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC)) && defined(UFBL_FEATURE_FASTBOOT_LOCKDOWN)
+#if (defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC)) && defined(UFBL_FEATURE_FASTBOOT_LOCKDOWN)
 		if ((dev_flags & DEV_FLAGS_ENABLE_FACTORY_TEST ) == DEV_FLAGS_ENABLE_FACTORY_TEST
 				&& bootmode == IDME_BOOTMODE_NORMAL && is_locked_production_device()) {
 			printf("factory test mode and arb enabled, switch to diag bootmode\n");

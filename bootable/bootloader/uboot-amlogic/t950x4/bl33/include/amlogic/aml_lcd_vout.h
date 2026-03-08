@@ -347,7 +347,6 @@ enum lcd_power_type_e {
 	LCD_POWER_TYPE_WAIT_GPIO,           /* 4 */
 	LCD_POWER_TYPE_CLK_SS,              /* 5 */
 	LCD_POWER_TYPE_TCON_SPI_DATA_LOAD,  /* 6 */
-	LCD_POWER_TYPE_SWITCH_DURATION,     /* 7 */
 	LCD_POWER_TYPE_MAX,
 };
 

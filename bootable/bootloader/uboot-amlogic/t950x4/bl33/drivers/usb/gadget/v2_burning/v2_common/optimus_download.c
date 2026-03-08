@@ -263,11 +263,7 @@ static int optimus_verify_bootloader(struct ImgBurnInfo* pDownInfo, u8* genSum)
 }
 
 
-#if SUM_FUNC_TIME_COST
-static u32 _optimus_cb_simg_write_media(const unsigned destAddrInSec, const unsigned dataSzInBy, const char* data)
-#else
 u32 optimus_cb_simg_write_media(const unsigned destAddrInSec, const unsigned dataSzInBy, const char* data)
-#endif//#if SUM_FUNC_TIME_COST
 {
     int ret = OPT_DOWN_OK;
     unsigned char* partName = (unsigned char*)OptimusImgBurnInfo.partName;
@@ -289,16 +285,6 @@ u32 optimus_cb_simg_write_media(const unsigned destAddrInSec, const unsigned dat
     return dataSzInBy;
 }
 
-#if SUM_FUNC_TIME_COST
-u32 optimus_cb_simg_write_media(const unsigned destAddrInSec, const unsigned dataSzInBy, const char* data)
-{
-    extern unsigned long FlashWrTime;
-    u32 ret = 0;
-    _func_cost_utime_yret(FlashWrTime, ret, _optimus_cb_simg_write_media, destAddrInSec, dataSzInBy, data);
-    return ret;
-}
-#endif//#if SUM_FUNC_TIME_COST
-
 //return value: the data size disposed
 static u32 optimus_download_sparse_image(struct ImgBurnInfo* pDownInfo, u32 dataSz, const u8* data)
 {
@@ -316,14 +302,10 @@ static u32 optimus_download_sparse_image(struct ImgBurnInfo* pDownInfo, u32 data
     return dataSz - unParsedDataLen;
 }
 
-#if SUM_FUNC_TIME_COST
-static u32 _optimus_download_normal_image(struct ImgBurnInfo* pDownInfo, u32 dataSz, const u8* data)
-#else
 //Normal image can write directly to NAND, best aligned to 16K when write
 //FIXME: check it aligned to 16K when called
 //1, write to media     2 -- save the verify info
 static u32 optimus_download_normal_image(struct ImgBurnInfo* pDownInfo, u32 dataSz, const u8* data)
-#endif//#if SUM_FUNC_TIME_COST
 {
     int ret = 0;
     u64 addrOrOffsetInBy = pDownInfo->nextMediaOffset;
@@ -341,16 +323,6 @@ static u32 optimus_download_normal_image(struct ImgBurnInfo* pDownInfo, u32 data
 
     return dataSz;
 }
-
-#if SUM_FUNC_TIME_COST
-static u32 optimus_download_normal_image(struct ImgBurnInfo* pDownInfo, u32 dataSz, const u8* data)
-{
-    extern unsigned long FlashWrTime;
-    u32 ret = 0;
-    _func_cost_utime_yret(FlashWrTime, ret, _optimus_download_normal_image, pDownInfo, dataSz, data);
-    return ret;
-}
-#endif// #if SUM_FUNC_TIME_COST
 
 static int optimus_storage_open(struct ImgBurnInfo* pDownInfo, const u8* data, const u32 dataSz)
 {
@@ -582,7 +554,7 @@ static int optimus_storage_read(struct ImgBurnInfo* pDownInfo, u64 addrOrOffsetI
                 }
                 else
                 {
-                    ret = store_read_ops_(partName, buff, addrOrOffsetInBy, (u64)readSzInBy);
+                    ret = store_read_ops(partName, buff, addrOrOffsetInBy, (u64)readSzInBy);
                     platform_busy_increase_un_reported_size(readSzInBy);
                 }
                 if (ret) {
@@ -1277,8 +1249,6 @@ int is_the_flash_first_burned(void)
 int optimus_set_burn_complete_flag(void)
 {
     int rc = 0;
-
-#ifndef USB_UPGRADE_IN_ONE_FILE
 #if defined(CONFIG_CMD_SAVEENV) && !defined(CONFIG_ENV_IS_NOWHERE)
     const int IsTplLoadedFromBurningPackage = aml_burn_check_uboot_loaded_for_burn(0);
     char upgrade_step[8];
@@ -1323,7 +1293,6 @@ int optimus_set_burn_complete_flag(void)
     }
     udelay(200);
 #endif//#if defined(CONFIG_CMD_SAVEENV) && !defined(CONFIG_ENV_IS_NOWHERE)
-#endif
 
     return rc;
 }

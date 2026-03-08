@@ -224,8 +224,7 @@ static void lcd_power_ctrl(int status)
 			break;
 		}
 
-		if (power_step->type != LCD_POWER_TYPE_WAIT_GPIO &&
-			power_step->type != LCD_POWER_TYPE_SWITCH_DURATION) {
+		if (power_step->type != LCD_POWER_TYPE_WAIT_GPIO) {
 			if (power_step->delay > 0)
 				mdelay(power_step->delay);
 		}

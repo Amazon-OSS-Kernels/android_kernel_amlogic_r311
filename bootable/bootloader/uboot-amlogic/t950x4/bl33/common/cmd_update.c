@@ -440,8 +440,6 @@ int do_uboot_update (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
         printf("target is lockdonw , please unlock!\n");
         goto error;
     }
-
-    #ifndef USB_UPGRADE_IN_ONE_FILE
     ret = update_ui_init();
     if (ret < 0) {
         printf("Image flashing GUI init failure\n");
@@ -450,7 +448,6 @@ int do_uboot_update (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
         show_flash_progress(0, 0, 0);
         printf("Image flashing GUI init done\n");
     }
-    #endif
 
     init_param();
     idme_set();
@@ -462,7 +459,7 @@ int do_uboot_update (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
     char *buf = (char *)malloc(filesize+4);
     if (buf == NULL) {
         printf("malloc buffer(%d) failed!\n", filesize);
-        goto error;
+		goto error;
     }
 
     //get flash_script
@@ -513,31 +510,11 @@ int do_uboot_update (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
         }
 
         if (image_check(image) == 0) {
-            #ifdef USB_UPGRADE_IN_ONE_FILE
-            printf("%s is not exist, try usb_burn\n", image);
-            ret += idme_set();
-            //if (ret)
-            //       goto error;
-            printf("go to usb_burn\n");
-            return 1;
-            #else
             printf("%s is not exist, break......\n", image);
             goto error;
-            #endif
         }
         printf("%s is exist\n", image);
     }
-
-    #ifdef USB_UPGRADE_IN_ONE_FILE
-    ret = update_ui_init();
-    if (ret < 0) {
-        printf("Image flashing GUI init failure\n");
-           goto error;
-    } else {
-        show_flash_progress(0, 0, 0);
-        printf("Image flashing GUI init done\n");
-    }
-    #endif
 
     image_update();
 

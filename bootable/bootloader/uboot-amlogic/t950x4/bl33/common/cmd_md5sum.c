@@ -13,15 +13,6 @@
 #include <u-boot/md5.h>
 #include <asm/io.h>
 
-#ifdef CONFIG_MD5SUM_VERIFY_PARTITION
-#include <amlogic/storage_if.h>
-#include <partition_table.h>
-#include <malloc.h>
-#include <emmc_partitions.h>
-
-DECLARE_GLOBAL_DATA_PTR;
-#endif
-
 /*
  * Store the resulting sum to an address or variable
  */
@@ -142,69 +133,6 @@ int do_md5sum(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 	return 0;
 }
-#elif defined(CONFIG_MD5SUM_VERIFY_PARTITION)
-static int do_checksum(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
-{
-	unsigned long addr = 0x20000000;  //fix add calculate
-	unsigned int i;
-	unsigned char output[16];
-	char *partition = argv[1];
-	int ret_read = 0;
-	u64 size = 0, ret_size = 0;
-	struct MD5Context context;
-
-	if (argc < 2)
-		return CMD_RET_USAGE;
-
-	ret_size = store_get_partititon_size((u8 *)partition, &size);
-	if (ret_size) {
-		printf("Fail to get size for part %s\n", partition);
-		return 0;
-	}
-	printf("partition size is 0x%llx\n", size * 512);
-
-	if (size * 512 < gd->start_addr_sp - addr) {
-		printf("use one time calculate\n");
-		ret_read = store_read_ops((unsigned char *)partition, (unsigned char *)addr, 0, size * 512);
-		if (ret_read) {
-			printf("Fail to read for part %s\n", partition);
-			return 0;
-		}
-		md5_wd((void *)addr, size * 512, output, CHUNKSZ_MD5);
-	} else {
-		printf("use subsection calculate\n");
-		MD5Init(&context);
-		for (i = 0; i < size / 2; i++) {
-			ret_read = store_read_ops((unsigned char *)partition, (unsigned char *)addr, i * 1024, 1024);
-			if (ret_read) {
-				printf("Fail to read for part %s\n", partition);
-				return 0;
-			}
-			MD5Update(&context, (unsigned char *)addr, 1024);
-		}
-
-		MD5Final(output, &context);
-	}
-
-	printf("md5 for %08lx ... %08llx ==> ", addr, addr + size * 512 - 1);
-	for (i = 0; i < 16; i++)
-		printf("%02x", output[i]);
-	printf("\n");
-
-	char checksum[32] = {0};
-	char tmp[16] = {0};
-	for (i = 0; i < 16; i++) {
-		sprintf(tmp, "%02x", (unsigned int)output[i]);
-		strcat(checksum, tmp);
-	}
-
-	setenv("checksum_partition", (const char *)checksum);
-
-	if (argc > 2)
-		store_result(output, argv[2]);
-
-	return 0;
-}
 #else
 static int do_md5sum(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
@@ -243,13 +171,6 @@ U_BOOT_CMD(
 		"    - compute MD5 message digest [save to sum]\n"
 	"md5sum -v address count [*]sum\n"
 		"    - verify md5sum of memory area"
-);
-#elif defined(CONFIG_MD5SUM_VERIFY_PARTITION)
-U_BOOT_CMD(
-	checksum,	5,	1,	do_checksum,
-	"compute MD5 message digest",
-	"partition address [[*]sum]\n"
-		"    - compute MD5 message digest [save to sum]"
 );
 #else
 U_BOOT_CMD(

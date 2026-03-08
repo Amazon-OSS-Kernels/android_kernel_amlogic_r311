@@ -57,8 +57,6 @@
 
 #define UBOOT_TARGET_PRODUCT_NAME_ALMOND
 
-//#define USB_UPGRADE_IN_ONE_FILE
-
 /* Bootloader Control Block function
    That is used for recovery and the bootloader to talk to each other
   */
@@ -87,11 +85,6 @@
 /*config the default parameters for adc power key*/
 #define CONFIG_ADC_POWER_KEY_CHAN   2  /*channel range: 0-7*/
 #define CONFIG_ADC_POWER_KEY_VAL    0  /*sample value range: 0-1023*/
-
-#ifdef USB_UPGRADE_IN_ONE_FILE
-#define USB_TOOLS_NO_ERASE_CRI_DATA             1
-#define CONFIG_PROTECT_USR_PARTITION            "cri_data"
-#endif
 
 /* args/envs */
 #define CONFIG_SYS_MAXARGS  64
@@ -503,7 +496,6 @@
         "upgrade_usb="\
             "if usb start 0; then "\
                  "if fatload usb 0 ${loadaddr} flash_script; then uboot_update ${loadaddr}; fi;"\
-                 "usb_upgrade_fos;"\
             "fi;"\
             "\0"\
 

@@ -87,8 +87,6 @@ int efuse_read_usr(char *buf, size_t count, loff_t *ppos)
 	memset(data, 0, count);
 
 	pdata = data;
-	if (ppos == NULL)
-		return -1;
 	pos = *ppos;
 	ret = efuse_read(pdata, count, (loff_t *)&pos);
 
@@ -118,8 +116,6 @@ int efuse_write_usr(char *buf, size_t count, loff_t *ppos)
 	penc = efuse_buf;
 
 	memcpy(penc, pdata, count);
-	if (ppos == NULL)
-		return -1;
 	pos = *ppos;
 
 	ret = efuse_write(efuse_buf, count, (loff_t *)&pos);

@@ -323,10 +323,6 @@ config ABC
 	bool "Support amazon ABC board"
 	default n
 
-config ABC
-	bool "Support amazon ABC board"
-	default n
-
 if GXB_SKT_V1
 source "board/amlogic/gxb_skt_v1/Kconfig"
 endif
@@ -598,10 +594,6 @@ endif
 
 if ALMOND
 source "board/amlogic/almond/Kconfig"
-endif
-
-if ABC
-source "board/amlogic/ABC/Kconfig"
 endif
 
 if ABC

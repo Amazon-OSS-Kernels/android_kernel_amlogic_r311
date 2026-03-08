@@ -725,7 +725,7 @@ static void cb_getvar(struct usb_ep *ep, struct usb_request *req)
 		s = get_usid_string();
 #if defined(CONFIG_IDME)
 		char buf[24] = {0};
-		if (!idme_get_var_external("serial", buf, sizeof(buf)))
+		if (!idme_get_var_external("oem_data", buf, sizeof(buf)))
 			s = buf;
 #endif
 		if (s)
@@ -995,10 +995,10 @@ static void cb_getvar(struct usb_ep *ep, struct usb_request *req)
 		if (has_boot_slot == 1) {
 			printf("has boot slot\n");
 			if (strcmp(cmd, "a") && strcmp(cmd, "b")) {
-				printf("we only have a/b slot now, variable error\n");
-				strcpy(response, "FAILVariable error, only have a/b slot now");
-				goto exit;
-			}
+                               printf("we only have a/b slot now, variable error\n");
+                               strcpy(response, "FAILVariable error, only have a/b slot now");
+                               goto exit;
+                        }
 			snprintf(str,128, "get_slot_state %s suc_stete", cmd);
 			printf("command:    %s\n", str);
 			ret = run_command(str, 0);
@@ -1038,72 +1038,22 @@ static void cb_getvar(struct usb_ep *ep, struct usb_request *req)
 			char *str_num = NULL;
 			printf("has boot slot\n");
 			if (strcmp(cmd, "a") && strcmp(cmd, "b")) {
-				printf("we only have a/b slot now, variable error\n");
-				strcpy(response, "FAILVariable error, only have a/b slot now");
-				goto exit;
-			}
-			if (strcmp(cmd, "a") == 0) {
-				str_num = getenv("retry-count_a");
-			}else if (strcmp(cmd, "b") == 0) {
-				str_num = getenv("retry-count_b");
-			}
-			if (str_num)
-				strncat(response, str_num, chars_left);
-			else
-				strcpy(response, "FAILGet retry-count error");
+                               printf("we only have a/b slot now, variable error\n");
+                               strcpy(response, "FAILVariable error, only have a/b slot now");
+                               goto exit;
+                       }
+                       if (strcmp(cmd, "a") == 0) {
+                               str_num = getenv("retry-count_a");
+                       }else if (strcmp(cmd, "b") == 0) {
+                               str_num = getenv("retry-count_b");
+                       }
+                       if (str_num)
+                               strncat(response, str_num, chars_left);
+                       else
+                               strcpy(response, "FAILGet retry-count error");
 		} else
 			strcpy(response, "FAILVariable not implemented in non ab mode");
-	} else if ( !strcmp_l1("checksum", cmd)) {
-		char cmd_str[RESPONSE_LEN] = {0};
-		char *default_part[] = {"boot", "vendor", "tvconfig",
-				"odm", "system", "product", "recovery", NULL};
-		char **part_ptr = NULL;
-		int flag = 0;
-		char *checksum;
-		char *cmd_check = strsep(&cmd, ":");
-		//strcat(cmd_str, cmd_check);
-		snprintf(cmd_str, RESPONSE_LEN, "checksum");
-		strncat(cmd_str, " ",1);
-		char *cmd_part = strsep(&cmd, ":");
-		printf("To run cmd[%s]\n", cmd_check);
-
-		if((cmd_part == NULL) || (strlen(cmd_part) == 0)) {
-			printf("partition name is NULL\n");
-			strcpy(response, "FAIL partition name is NULL");
-			printf("run command like this : fastboot getvar checksum:boot_a:0x20000000\n");
-			fastboot_tx_write_str(response);
-			return;
-		}
-
-		for (part_ptr = default_part; *part_ptr != NULL; part_ptr++) {
-			if (strncmp(cmd_part, *part_ptr, sizeof(*part_ptr)-1) == 0) {
-				flag = 1;
-				break;
-			}
-		}
-		if (flag == 0) {
-			printf("illegal partition name.\n");
-			strcpy(response, "FAIL partition name is illegal");
-			fastboot_tx_write_str(response);
-			return;
-		}
-
-		printf("partition is %s\n",cmd_part);
-
-		strncat(cmd_str, cmd_part, strlen(cmd_part));
-		strncat(cmd_str, " ", 1);
-		printf("cmd_str: %s\n", cmd_str);
-
-		run_command(cmd_str, 0);
-
-		char *response = response_str;
-		size_t chars_left;
-		strcpy(response, "OKAY");
-		chars_left = sizeof(response_str) - strlen(response) - 1;
-		checksum = getenv("checksum_partition");
-		strncat(response, checksum, chars_left);
-		fastboot_tx_write_str(response);
-	 } else {
+	} else {
 		error("unknown variable: %s\n", cmd);
 		strcpy(response, "FAILVariable not implemented");
 	}

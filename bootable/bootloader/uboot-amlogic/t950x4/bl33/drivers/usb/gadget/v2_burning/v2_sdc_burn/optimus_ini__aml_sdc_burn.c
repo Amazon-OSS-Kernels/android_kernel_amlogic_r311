@@ -49,12 +49,8 @@ ConfigPara_t g_sdcBurnPara = {
     },
 
     .custom         = {
-        .eraseBootloader    = 1,//default to erase bootloader! no effect for usb_upgrade
-        #ifdef USB_UPGRADE_IN_ONE_FILE
-        .eraseFlash         = 1,//default no erase flash for usb disk upgrade
-        #else
+        .eraseBootloader    = 1,//default to erase bootloader!
         .eraseFlash         = 0,//default no erase flash for usb disk upgrade
-        #endif
         .bitsMap.eraseBootloader    = 1,
         .bitsMap.eraseFlash         = 1,
     },
@@ -327,7 +323,7 @@ static int parse_burn_parts(const char* key, const char* strVal)
 
         partName = (char*)pBurnParts->burnParts[burnIndex];
         if (!strVal) {
-            err("value of %s can't empty\n", key);
+            err("value of %s can't empty\n", strVal);
             return __LINE__;
         }
 
