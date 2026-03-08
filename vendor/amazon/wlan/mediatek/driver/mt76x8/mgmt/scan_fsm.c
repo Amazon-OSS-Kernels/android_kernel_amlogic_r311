@@ -396,6 +396,7 @@ VOID scnFsmMsgAbort(IN P_ADAPTER_T prAdapter, IN P_MSG_HDR_T prMsgHdr)
 	P_SCAN_PARAM_T prScanParam;
 	CMD_SCAN_CANCEL rCmdScanCancel;
 
+	kalMemZero(&rCmdScanCancel, sizeof(CMD_SCAN_CANCEL));
 	ASSERT(prMsgHdr);
 
 	prScanCancel = (P_MSG_SCN_SCAN_CANCEL) prMsgHdr;
@@ -682,6 +683,11 @@ VOID scnEventScanDone(IN P_ADAPTER_T prAdapter, IN P_EVENT_SCAN_DONE prScanDone,
 			prScanInfo->rSparseChannel.ucChannelNum = prScanDone->rSparseChannel.ucChannelNum;
 			prScanInfo->ucSparseChannelArrayValidNum = prScanDone->ucSparseChannelArrayValidNum;
 			DBGLOG(SCN, INFO, "Detected_Channel_Num = %d\n", prScanInfo->ucSparseChannelArrayValidNum);
+			// The array of channel is 64 in struct _SCAN_INFO_T
+			if (prScanInfo->ucSparseChannelArrayValidNum > 64) {
+				DBGLOG(SCN, ERROR, "%s ucSparseChannelArrayValidNum max. out of bound: %u > 64\n", __func__, prScanInfo->ucSparseChannelArrayValidNum);
+				return;
+			}
 
 			for (u4ChCnt = 0; u4ChCnt < prScanInfo->ucSparseChannelArrayValidNum; u4ChCnt++) {
 				prScanInfo->aucChannelNum[u4ChCnt] = prScanDone->aucChannelNum[u4ChCnt];
@@ -1023,6 +1029,7 @@ BOOLEAN scnFsmSchedScanStopRequest(IN P_ADAPTER_T prAdapter)
 	CMD_NLO_CANCEL rCmdNloCancel;
 	WLAN_STATUS rStatus;
 
+	kalMemZero(&rCmdNloCancel, sizeof(CMD_NLO_CANCEL));
 	ASSERT(prAdapter);
 	DBGLOG(SCN, INFO, "scnFsmSchedScanStopRequest\n");
 

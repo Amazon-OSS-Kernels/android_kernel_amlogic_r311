@@ -669,12 +669,13 @@ p2pFuncStartGO(IN P_ADAPTER_T prAdapter,
 
 #if (CFG_SUPPORT_DFS_MASTER == 1)
 		prCmdRddOnOffCtrl = (P_CMD_RDD_ON_OFF_CTRL_T) cnmMemAlloc(prAdapter, RAM_TYPE_MSG,
-						sizeof(*prCmdRddOnOffCtrl));
+						sizeof(CMD_RDD_ON_OFF_CTRL_T));
 
 		if (prCmdRddOnOffCtrl == NULL) {
 			DBGLOG(P2P, ERROR, "Allocate memory for prCmdRddOnOffCtrl failed.");
 			return;
 		}
+		kalMemZero(prCmdRddOnOffCtrl, sizeof(CMD_RDD_ON_OFF_CTRL_T));
 
 		prCmdRddOnOffCtrl->ucDfsCtrl = RDD_START_TXQ;
 		prCmdRddOnOffCtrl->ucRddIdx = prAdapter->aprBssInfo[prBssInfo->ucBssIndex]->eDBDCBand;
@@ -949,6 +950,7 @@ p2pFuncSwitchOPMode(IN P_ADAPTER_T prAdapter,
 			if (1) {
 				P2P_DISCONNECT_INFO rP2PDisInfo;
 
+				kalMemZero(&rP2PDisInfo, sizeof(P2P_DISCONNECT_INFO));
 				rP2PDisInfo.ucRole = 2;
 				wlanSendSetQueryCmd(prAdapter,
 						    CMD_ID_P2P_ABORT,
@@ -1087,12 +1089,13 @@ VOID p2pFuncStartRdd(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIdx)
 	ucReqChnlNum = prP2pRoleFsmInfo->rChnlReqInfo.ucReqChnlNum;
 
 	prCmdRddOnOffCtrl = (P_CMD_RDD_ON_OFF_CTRL_T) cnmMemAlloc(prAdapter, RAM_TYPE_MSG,
-				sizeof(*prCmdRddOnOffCtrl));
+				sizeof(CMD_RDD_ON_OFF_CTRL_T));
 
 	if (!prCmdRddOnOffCtrl) {
 		DBGLOG(P2P, ERROR, "cnmMemAlloc for prCmdRddOnOffCtrl failed!\n");
 		return;
 	}
+	kalMemZero(prCmdRddOnOffCtrl, sizeof(CMD_RDD_ON_OFF_CTRL_T));
 
 	prCmdRddOnOffCtrl->ucDfsCtrl = RDD_START;
 
@@ -1134,12 +1137,13 @@ VOID p2pFuncStopRdd(IN P_ADAPTER_T prAdapter, IN UINT_8 ucBssIdx)
 	DEBUGFUNC("p2pFuncStopRdd()");
 
 	prCmdRddOnOffCtrl = (P_CMD_RDD_ON_OFF_CTRL_T) cnmMemAlloc(prAdapter, RAM_TYPE_MSG,
-				sizeof(*prCmdRddOnOffCtrl));
+				sizeof(CMD_RDD_ON_OFF_CTRL_T));
 
 	if (!prCmdRddOnOffCtrl) {
 		DBGLOG(P2P, ERROR, "cnmMemAlloc for prCmdRddOnOffCtrl failed!\n");
 		return;
 	}
+	kalMemZero(prCmdRddOnOffCtrl, sizeof(CMD_RDD_ON_OFF_CTRL_T));
 
 	prCmdRddOnOffCtrl->ucDfsCtrl = RDD_STOP;
 
@@ -1195,12 +1199,13 @@ VOID p2pFuncDfsSwitchCh(IN P_ADAPTER_T prAdapter, IN P_BSS_INFO_T prBssInfo, IN 
 	nicUpdateBss(prAdapter, prBssInfo->ucBssIndex);
 
 	prCmdRddOnOffCtrl = (P_CMD_RDD_ON_OFF_CTRL_T) cnmMemAlloc(prAdapter, RAM_TYPE_MSG,
-					sizeof(*prCmdRddOnOffCtrl));
+					sizeof(CMD_RDD_ON_OFF_CTRL_T));
 
 	if (!prCmdRddOnOffCtrl) {
 		DBGLOG(P2P, ERROR, "cnmMemAlloc for prCmdRddOnOffCtrl failed!\n");
 		return;
 	}
+	kalMemZero(prCmdRddOnOffCtrl, sizeof(CMD_RDD_ON_OFF_CTRL_T));
 
 	prCmdRddOnOffCtrl->ucDfsCtrl = RDD_START_TXQ;
 	prCmdRddOnOffCtrl->ucRddIdx = prAdapter->aprBssInfo[prBssInfo->ucBssIndex]->eDBDCBand;

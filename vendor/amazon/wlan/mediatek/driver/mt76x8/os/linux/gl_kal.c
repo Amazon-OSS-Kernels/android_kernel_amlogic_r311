@@ -2000,11 +2000,23 @@ kalIPv4FrameClassifier(IN P_GLUE_INFO_T prGlueInfo,
 	/* WLAN_GET_FIELD_16(&pucIpHdr[IPV4_HDR_IP_IDENTIFICATION_OFFSET], &u2IpId); */
 
 	if (pucIpHdr[IPV4_HDR_IP_PROTOCOL_OFFSET] == IP_PROTOCOL_UDP) {
-		PUINT_8 pucUdpHdr = &pucIpHdr[IPV4_HDR_LEN];
+		struct sk_buff *prSkb = (struct sk_buff *)prPacket;
+		UINT_32 u4PacketLen = prSkb->len;
+		UINT_8 ucIHL = (pucIpHdr[0] & 0xF) * 4; /* IHL unit: DW = 4bytes */
+		PUINT_8 pucUdpHdr = &pucIpHdr[ucIHL];
 		UINT_16 u2DstPort;
 		/* UINT_16 u2SrcPort; */
 
 		/* DBGLOG_MEM8(INIT, INFO, pucUdpHdr, 256); */
+		DBGLOG(INIT, INFO, "IP header parsed, ucIHL: %u\n", ucIHL);
+
+		/* UDP packet should have 8 byte header at least */
+		if ((ETHER_HEADER_LEN+ucIHL+UDP_HDR_LEN) > u4PacketLen)
+		{
+			DBGLOG(INIT, WARN, "Invalid UDP packet, should include 8 bytes header at least, packet length too small: %u < %u\n",
+				u4PacketLen, ETHER_HEADER_LEN+ucIHL+UDP_HDR_LEN);
+			return FALSE;
+		}
 
 		/* Get UDP DST port */
 		WLAN_GET_FIELD_BE16(&pucUdpHdr[UDP_HDR_DST_PORT_OFFSET], &u2DstPort);
@@ -2020,6 +2032,12 @@ kalIPv4FrameClassifier(IN P_GLUE_INFO_T prGlueInfo,
 			P_BOOTP_PROTOCOL_T prBootp = (P_BOOTP_PROTOCOL_T) &pucUdpHdr[UDP_HDR_LEN];
 
 			UINT_32 u4DhcpMagicCode;
+
+			if ((ETHER_HEADER_LEN+ucIHL+UDP_HDR_LEN+sizeof(BOOTP_PROTOCOL_T)+sizeof(UINT_32)) > u4PacketLen) {
+				DBGLOG(INIT, WARN, "Invalid bootp packet w/ DHCP magic code, packet length too small: %u < %u\n",
+				       u4PacketLen, ETHER_HEADER_LEN+ucIHL+UDP_HDR_LEN+sizeof(BOOTP_PROTOCOL_T)+sizeof(UINT_32));
+				return FALSE;
+			}
 
 			WLAN_GET_FIELD_BE32(&prBootp->aucOptions[0], &u4DhcpMagicCode);
 #if 0
@@ -4381,15 +4399,17 @@ UINT_32 kalFileWrite(struct file *file, unsigned long long offset, unsigned char
 UINT_32 kalWriteToFile(const PUINT_8 pucPath, BOOLEAN fgDoAppend, PUINT_8 pucData, UINT_32 u4Size)
 {
 	struct file *file = NULL;
-	UINT_32 ret;
+	UINT_32 ret = 0; /* size been written */
 	UINT_32 u4Flags = 0;
 
 	if (fgDoAppend)
 		u4Flags = O_APPEND;
 
 	file = kalFileOpen(pucPath, O_WRONLY | O_CREAT | u4Flags, S_IRWXU);
-	ret = kalFileWrite(file, 0, pucData, u4Size);
-	kalFileClose(file);
+	if (file) {
+		ret = kalFileWrite(file, 0, pucData, u4Size);
+		kalFileClose(file);
+	}
 
 	return ret;
 }
@@ -5268,10 +5288,12 @@ static ssize_t kalMetWriteProcfs(struct file *file, const char __user *buffer, s
 	int u8MetProfEnable;
 
 	IN P_GLUE_INFO_T prGlueInfo;
-	ssize_t result;
 
 	u4CopySize = (count < (sizeof(acBuf) - 1)) ? count : (sizeof(acBuf) - 1);
-	result = copy_from_user(acBuf, buffer, u4CopySize);
+	if (copy_from_user(acBuf, buffer, u4CopySize)) {
+		DBGLOG(INIT, ERROR, "error of copy from user\n");
+		return -EFAULT;
+	}
 	acBuf[u4CopySize] = '\0';
 
 	if (sscanf(acBuf, " %d %d", &u8MetProfEnable, &u16MetUdpPort) == 2)
@@ -5289,12 +5311,14 @@ static ssize_t kalMetCtrlWriteProcfs(struct file *file, const char __user *buffe
 	char acBuf[128 + 1];	/* + 1 for "\0" */
 	UINT_32 u4CopySize;
 	int u8MetProfEnable;
-	ssize_t result;
 
 	IN P_GLUE_INFO_T prGlueInfo;
 
 	u4CopySize = (count < (sizeof(acBuf) - 1)) ? count : (sizeof(acBuf) - 1);
-	result = copy_from_user(acBuf, buffer, u4CopySize);
+	if (copy_from_user(acBuf, buffer, u4CopySize)) {
+		DBGLOG(INIT, ERROR, "error of copy from user\n");
+		return -EFAULT;
+	}
 	acBuf[u4CopySize] = '\0';
 
 	if (sscanf(acBuf, " %d", &u8MetProfEnable) == 1)
@@ -5311,12 +5335,14 @@ static ssize_t kalMetPortWriteProcfs(struct file *file, const char __user *buffe
 	char acBuf[128 + 1];	/* + 1 for "\0" */
 	UINT_32 u4CopySize;
 	int u16MetUdpPort;
-	ssize_t result;
 
 	IN P_GLUE_INFO_T prGlueInfo;
 
 	u4CopySize = (count < (sizeof(acBuf) - 1)) ? count : (sizeof(acBuf) - 1);
-	result = copy_from_user(acBuf, buffer, u4CopySize);
+	if (copy_from_user(acBuf, buffer, u4CopySize)) {
+		DBGLOG(INIT, ERROR, "error of copy from user\n");
+		return -EFAULT;
+	}
 	acBuf[u4CopySize] = '\0';
 
 	if (sscanf(acBuf, " %d", &u16MetUdpPort) == 1)

@@ -2887,6 +2887,15 @@ P_SW_RFB_T qmHandleRxPackets(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfbList
 					    (prCurrSwRfb->ucTid >= CFG_RX_MAX_BA_TID_NUM)) {
 						DBGLOG(QM, TRACE, "FC [0x%04X], no-reordering...\n", u2FrameCtrl);
 					} else {
+						if (prCurrSwRfb->ucTid >= CFG_RX_MAX_BA_TID_NUM)
+						{
+							DBGLOG(QM, WARN, "Invalid prCurrSwRfb->ucTid [%u] > %d\n",
+								prCurrSwRfb->ucTid, CFG_RX_MAX_BA_TID_NUM);
+							RX_INC_CNT(&prAdapter->rRxCtrl, RX_SIZE_ERR_DROP_COUNT);
+							prCurrSwRfb->eDst = RX_PKT_DESTINATION_NULL;
+							QUEUE_INSERT_TAIL(prReturnedQue, (P_QUE_ENTRY_T) prCurrSwRfb);
+							continue;
+						}
 						prReorderQueParm =
 						    ((prCurrSwRfb->prStaRec->
 						      aprRxReorderParamRefTbl)[prCurrSwRfb->ucTid]);
@@ -3460,6 +3469,12 @@ VOID qmProcessBarFrame(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb, OUT P_QU
 		return;
 	}
 #endif
+	/* Check index out of bound */
+	if (prSwRfb->ucTid >= CFG_RX_MAX_BA_TID_NUM) {
+		DBGLOG(QM, WARN, "QM: (Warning) index out of bound: ucTid = %d\n", prSwRfb->ucTid);
+		/* ASSERT(0); */
+		return;
+	}
 
 	/* Check index out of bound */
 	if (prSwRfb->ucTid >= CFG_RX_MAX_BA_TID_NUM) {

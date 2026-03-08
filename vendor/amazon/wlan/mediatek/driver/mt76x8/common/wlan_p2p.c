@@ -539,6 +539,7 @@ wlanoidSetP2pNetworkAddress(IN P_ADAPTER_T prAdapter,
 
 	if (prCmdNetworkAddressList == NULL)
 		return WLAN_STATUS_FAILURE;
+	kalMemZero(prCmdNetworkAddressList, u4CmdSize);
 
 	/* fill P_CMD_SET_NETWORK_ADDRESS_LIST */
 	prCmdNetworkAddressList->ucBssIndex = prNetworkAddressList->ucBssIdx;
@@ -739,6 +740,7 @@ wlanoidSetP2pSetNetworkAddress(IN P_ADAPTER_T prAdapter,
 
 	if (prCmdNetworkAddressList == NULL)
 		return WLAN_STATUS_FAILURE;
+	kalMemZero(prCmdNetworkAddressList, u4CmdSize);
 
 	/* fill P_CMD_SET_NETWORK_ADDRESS_LIST */
 	prCmdNetworkAddressList->ucBssIndex = prNetworkAddressList->ucBssIdx;
