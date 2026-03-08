@@ -53,7 +53,7 @@ this can be set to is 256.
 
 Wiki Link:
 
-https://amazon.com
+www.amazon.com
 
 Steps:
 
@@ -92,7 +92,7 @@ Run,
 python ~/debug/native_dump_viewer.py --symbols <path>  ./mmapleak\:0
 
 native_dump_viewer.py script is in google search OR
-https://amazon.com
+www.amazon.com
 
 
 For example,
