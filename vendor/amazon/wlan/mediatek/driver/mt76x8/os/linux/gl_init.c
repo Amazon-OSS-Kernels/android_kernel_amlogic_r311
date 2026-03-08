@@ -3113,6 +3113,8 @@ VOID wlanRemove(VOID)
 		DBGLOG(INIT, INFO, "p2pNetUnregister...\n");
 		p2pNetUnregister(prGlueInfo, FALSE);
 		DBGLOG(INIT, INFO, "p2pRemove...\n");
+		/* Use memory barrier to ensure p2pNetUnregister is done before calling p2pRemove */
+		smp_mb();
 		/*p2pRemove must before wlanAdapterStop */
 		p2pRemove(prGlueInfo);
 	}
