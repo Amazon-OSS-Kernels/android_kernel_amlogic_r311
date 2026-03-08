@@ -397,8 +397,53 @@ int board_fixup_fdt(void *blob,bootm_headers_t *images)
 	}
 #endif
 
-
-
+#ifdef CONFIG_DEVICE_PRODUCT_SHINE
+	char config_name[64] = {0};
+	char *config_name_path[128]={0};
+	idme_get_var_external("config_name", config_name, sizeof(config_name));
+	strcat(config_name_path,"/tvconfig/");
+	strcat(config_name_path,config_name);
+	strcat(config_name_path,".ini");
+	IniParserInit();
+	if (IniParseFile(config_name_path) < 0) {
+                printf("%s, model ini load file error!\n", __func__);
+                return;
+	}
+	char *buad_rate = IniGetString("DEFAULT", "baud_rate", "null");
+	if (strcmp(buad_rate, "null") == 0) {
+		printf("%s, get baud_rate item failed!\n", __func__);
+	} else{
+		int buad_rate_index = atoi(buad_rate);
+		int n = 1;
+		switch (buad_rate_index) {
+		case 115200:
+			console_config = "console=ttyS0,115200";
+			break;
+		case 460800:
+			console_config = "console=ttyS0,460800";
+			break;
+		case 921600:
+			console_config = "console=ttyS0,921600";
+			break;
+		default:
+			n = 0;
+			printf("no need set new buad_rate\n");
+			break;
+		}
+		if (n){
+			unsigned int pos1 = 0;
+			if (get_kernel_log_level(new_str) == 0){
+				pos1 = strstr(new_str,console_config);
+				if(pos1 == NULL){
+					printf("cann't find console, exit\n");
+				} else {
+					memmove(pos1, pos1+strlen(console_config),(new_str+strlen(new_str)-pos1));
+				}
+			}
+		}
+	}
+	IniParserUninit();
+#endif
 	err = fdt_setprop(blob, nodeoffset,
 			"bootargs", new_str, strlen(new_str) + 1);
 	if (err < 0)

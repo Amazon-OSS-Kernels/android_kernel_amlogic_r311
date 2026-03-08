@@ -315,8 +315,8 @@ config ALMOND
  	bool "Support amazon almond board"
  	default n
 
-config SHINE
-	bool "Support amazon shine board"
+config ABC
+	bool "Support amazon ABC board"
 	default n
 
 config ABC
@@ -600,8 +600,8 @@ if ALMOND
 source "board/amlogic/almond/Kconfig"
 endif
 
-if SHINE
-source "board/amlogic/shine/Kconfig"
+if ABC
+source "board/amlogic/ABC/Kconfig"
 endif
 
 if ABC

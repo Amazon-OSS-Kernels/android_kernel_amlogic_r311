@@ -1,4 +1,4 @@
-ifneq ($(filter almond ABC dahlia ABC123, $(TARGET_PRODUCT)),)
+ifneq ($(filter almond ABC dahlia ABC, $(TARGET_PRODUCT)),)
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
@@ -24,8 +24,8 @@ AML_UBOOT_BOARD_NAME := dahlia
 UFBL_PLAT_PROJ := aml_$(VENDOR_AML_PLATFORM)
 export UFBL_PLAT_PROJ
 
-else ifeq ($(TARGET_PRODUCT),ABC123)
-AML_UBOOT_BOARD_NAME := ABC123
+else ifeq ($(TARGET_PRODUCT),ABC)
+AML_UBOOT_BOARD_NAME := ABC
 UFBL_PLAT_PROJ := aml_$(VENDOR_AML_PLATFORM)
 export UFBL_PLAT_PROJ
 
