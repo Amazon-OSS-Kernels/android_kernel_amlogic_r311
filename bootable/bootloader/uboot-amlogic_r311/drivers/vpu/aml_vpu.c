@@ -421,6 +421,9 @@ static int adjust_vpu_clk_gx(unsigned int clk_level)
 	unsigned int mux, div;
 	int ret = 0;
 
+	if (clk_level > 11)
+		return -1;
+
 	mux = vpu_clk_table[vpu_conf.fclk_type][clk_level][1];
 	if (mux == GPLL_CLK) {
 		ret = switch_gp_pll(1);
