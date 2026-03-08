@@ -213,6 +213,8 @@ struct _GL_P2P_INFO_T {
 	/*BOOLEAN fgEnableHotspotOptimization;*//* TH3 multiple P2P */
 	/*UINT_32 u4PsLevel;*//* TH3 multiple P2P */
 #endif
+	/* Use this flag to avoid free P2P device twice */
+	BOOLEAN fgIsNetDevRegistered;
 };
 
 struct _GL_P2P_DEV_INFO_T {

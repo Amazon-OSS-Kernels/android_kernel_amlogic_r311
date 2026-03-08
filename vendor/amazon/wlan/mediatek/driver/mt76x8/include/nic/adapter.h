@@ -660,7 +660,7 @@ typedef struct _WIFI_VAR_T {
 
 	AIS_FSM_INFO_T rAisFsmInfo;
 
-	ENUM_PWR_STATE_T aePwrState[BSS_INFO_NUM];
+	ENUM_PWR_STATE_T aePwrState[BSS_INFO_NUM + 1];
 
 	BSS_INFO_T arBssInfoPool[BSS_INFO_NUM];
 
