@@ -20,9 +20,10 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <cutils/klog.h>
-#include <log/log.h>
 #include <logwrap/logwrap.h>
+#include <cutils/klog.h>
+
+#include "cutils/log.h"
 
 void fatal(const char *msg) {
     fprintf(stderr, "%s", msg);

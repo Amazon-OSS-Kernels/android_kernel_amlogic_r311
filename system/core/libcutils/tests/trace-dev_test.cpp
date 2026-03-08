@@ -25,7 +25,7 @@
 #include <android-base/test_utils.h>
 #include <gtest/gtest.h>
 
-#include "../trace-dev.cpp"
+#include "../trace-dev.c"
 
 class TraceDevTest : public ::testing::Test {
  protected:
