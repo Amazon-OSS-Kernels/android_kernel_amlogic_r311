@@ -151,7 +151,7 @@ MOD_PARAM_DECLARE_CHANPIDS_TYPES(2);
 
 
 MODULE_PARM_DESC(sec_end_with_tid, "\n\t\t Enable 'tid==0xff means section_end', bit:0/1/2 for dmx:0/1/2");
-static int sec_end_with_tid = 0x3;
+static int sec_end_with_tid = 0x5;
 module_param(sec_end_with_tid, int, 0644);
 
 
@@ -451,6 +451,10 @@ static void dmxn_op_chan(int dmx, int ch, int(*op)(int, int), int ch_op)
 #define LARGE_SEC_BUFF_MASK  0xFFFFFFFF
 #define LARGE_SEC_BUFF_COUNT 32
 #define WATCHDOG_TIMER    250
+#define ASYNCFIFO_TIMER    10
+
+//#define ENABLE_DVR_IRQ
+
 #define ASYNCFIFO_BUFFER_SIZE_DEFAULT (512*1024)
 
 #define DEMUX_INT_MASK\
@@ -1558,8 +1562,9 @@ static void dvr_process_channel(struct aml_asyncfifo *afifo,
 	else
 		pr_dbg_irq_dvr("write data to dvr\n");
 }
-
+#ifdef ENABLE_DVR_IRQ
 static uint32_t last_afifo_time = 0;
+
 static void dvr_irq_bh_handler(unsigned long arg)
 {
 	struct aml_asyncfifo *afifo = (struct aml_asyncfifo *)arg;
@@ -1616,7 +1621,7 @@ static irqreturn_t dvr_irq_handler(int irq_number, void *para)
 	tasklet_schedule(&afifo->asyncfifo_tasklet);
 	return IRQ_HANDLED;
 }
-
+#endif
 /*Enable the STB*/
 static void stb_enable(struct aml_dvb *dvb)
 {
@@ -2816,11 +2821,74 @@ static void asyncfifo_put_buffer(struct aml_asyncfifo *afifo)
 	}
 }
 
+static void dvr_bh_asyncfifo_func(unsigned long arg)
+{
+	struct aml_asyncfifo *afifo = (struct aml_asyncfifo *)arg;
+	struct aml_dvb *dvb = afifo->dvb;
+	struct aml_dmx *dmx;
+	u32 size, total, start_addr;
+	int i, factor, reg_val;
+	unsigned long flags;
+	/*access register_value about ASYNC_FIFO_REG0 every 50 ms*/
+	spin_lock_irqsave(&dvb->slock, flags);
+	pr_dbg_irq_dvr("async fifo %d irq\n", afifo->id);
+
+	if (dvb && afifo->source >= AM_DMX_0 && afifo->source < AM_DMX_MAX) {
+		dmx = &dvb->dmx[afifo->source];
+		if (dmx->init && dmx->record) {
+			struct aml_swfilter *sf = &dvb->swfilter;
+			int issf = 0;
+
+			reg_val = READ_ASYNC_FIFO_REG(afifo->id, REG0);
+			if (reg_val == 0) {
+				spin_unlock_irqrestore(&dvb->slock, flags);
+				return;
+			}
+			total = afifo->buf_len / 128;
+			factor = dmx_get_order(total);
+			size = afifo->buf_len >> factor;
+			start_addr = virt_to_phys((void *)afifo->pages);
+			afifo->buf_toggle =
+				(reg_val - start_addr) / 128;
+			if (sf->user && (sf->afifo == afifo))
+				issf = 1;
+
+			for (i = 0; i < CHANNEL_COUNT; i++) {
+				if (dmx->channel[i].used
+						&& dmx->channel[i].dvr_feed) {
+					dvr_process_channel(afifo,
+							&dmx->channel[i],
+							total,
+							size,
+							issf?sf:NULL);
+				    break;
+				}
+			}
+
+		}
+	}
+	spin_unlock_irqrestore(&dvb->slock, flags);
+	mod_timer(&afifo->asyncfifo_timer,
+		  jiffies + msecs_to_jiffies(ASYNCFIFO_TIMER));
+}
+
+#ifdef ENABLE_DVR_IRQ
+static irqreturn_t dvr_irq_handler(int irq_number, void *para)
+{
+	struct aml_asyncfifo *afifo = (struct aml_asyncfifo *)para;
+
+	tasklet_schedule(&afifo->asyncfifo_tasklet);
+	return IRQ_HANDLED;
+}
+#endif
+
 int async_fifo_init(struct aml_asyncfifo *afifo, int initirq,
 			int buf_len, unsigned long buf)
 {
 	int ret = 0;
+#ifdef ENABLE_DVR_IRQ
 	int irq;
+#endif
 
 	if (afifo->init)
 		return -1;
@@ -2836,7 +2904,14 @@ int async_fifo_init(struct aml_asyncfifo *afifo, int initirq,
 		/*Do not return error*/
 		return -1;
 	}
+	init_timer(&afifo->asyncfifo_timer);
+	afifo->asyncfifo_timer.function = dvr_bh_asyncfifo_func;
+	afifo->asyncfifo_timer.expires =
+		jiffies + msecs_to_jiffies(ASYNCFIFO_TIMER);
+	afifo->asyncfifo_timer.data = (unsigned long)afifo;
+	add_timer(&afifo->asyncfifo_timer);
 
+#ifdef ENABLE_DVR_IRQ
 	tasklet_init(&afifo->asyncfifo_tasklet,
 			dvr_irq_bh_handler, (unsigned long)afifo);
 	if (initirq)
@@ -2845,6 +2920,7 @@ int async_fifo_init(struct aml_asyncfifo *afifo, int initirq,
 				"dvr irq", afifo);
 	else
 		enable_irq(afifo->asyncfifo_irq);
+#endif
 
 	/*alloc buffer*/
 	ret = asyncfifo_set_buffer(afifo, buf_len, buf);
@@ -2873,7 +2949,9 @@ int async_fifo_deinit(struct aml_asyncfifo *afifo, int freeirq)
 	afifo->buf_toggle = 0;
 	afifo->buf_read = 0;
 	afifo->buf_len = 0;
+	del_timer(&afifo->asyncfifo_timer);
 
+#ifdef ENABLE_DVR_IRQ
 	if (afifo->asyncfifo_irq != -1) {
 		if (freeirq)
 			free_irq(afifo->asyncfifo_irq, afifo);
@@ -2881,6 +2959,7 @@ int async_fifo_deinit(struct aml_asyncfifo *afifo, int freeirq)
 			disable_irq(afifo->asyncfifo_irq);
 	}
 	tasklet_kill(&afifo->asyncfifo_tasklet);
+#endif
 
 	afifo->init = 0;
 

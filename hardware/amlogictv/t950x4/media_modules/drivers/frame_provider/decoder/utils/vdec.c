@@ -3323,8 +3323,8 @@ unsigned long vdec_ready_to_run(struct vdec_s *vdec, unsigned long mask)
 
 	/* Wait the matching irq_thread finished */
 	if (vdec->irq_cnt > vdec->irq_thread_cnt) {
-		pr_debug("%s vdec[%lx]: %lld > %lld\n",__func__, (unsigned long)vdec,
-			vdec->irq_cnt,vdec->irq_thread_cnt);
+		//pr_debug("%s vdec[%lx]: %lld > %lld\n",__func__, (unsigned long)vdec,
+		//	vdec->irq_cnt,vdec->irq_thread_cnt);
 		return false;
 	}
 

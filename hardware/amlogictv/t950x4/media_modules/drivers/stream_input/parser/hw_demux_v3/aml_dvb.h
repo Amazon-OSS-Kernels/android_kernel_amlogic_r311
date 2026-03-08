@@ -280,6 +280,7 @@ struct aml_asyncfifo {
 	struct aml_dvb *dvb;
 	struct aml_dvr_block blk;
 	unsigned long stored_pages;
+	struct timer_list    asyncfifo_timer;
 };
 
 enum{

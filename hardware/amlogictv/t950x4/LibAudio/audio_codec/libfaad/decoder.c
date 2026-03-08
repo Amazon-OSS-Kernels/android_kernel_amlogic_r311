@@ -999,13 +999,13 @@ NEXT_CHECK:
         }
         /* Check if frame is valid and get frame info */
         i_frame_size = ((pbuffer[1] & 0x1f) << 8) + pbuffer[2];
-        if (i_frame_size <= 0 || i_frame_size > 6 * 768) {
+        if (i_frame_size <= 0 || i_frame_size > 8 * 768) {
             LATM_LOG("i_frame_size/%d  error\n",i_frame_size);
             pbuffer++;
             pbuffer_size--;
             goto NEXT_CHECK;
         }
-        if (pbuffer_size < (LOAS_HEADER_SIZE + i_frame_size)) {
+        if (pbuffer_size < (LOAS_HEADER_SIZE + i_frame_size + 2)) {
             LATM_LOG("[%s %d]buffer size  %d small then frame size %d,\n", __FUNCTION__,__LINE__,pbuffer_size, i_frame_size+LOAS_HEADER_SIZE);
             *skipbytes = buffer_size-pbuffer_size;
             goto exit_check;
@@ -1773,7 +1773,7 @@ NEXT_CHECK:
             LATM_LOG("i_frame_size  error\n");
             return NULL;
         }
-        if ((int)buffer_size < (LOAS_HEADER_SIZE + i_frame_size)) {
+        if ((int)buffer_size < (LOAS_HEADER_SIZE + i_frame_size + 2)) {
             hInfo->error =  35;
             LATM_LOG("buffer size small then frame size,need more data\n");
             return NULL;

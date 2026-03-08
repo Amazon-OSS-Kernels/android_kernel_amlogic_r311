@@ -261,10 +261,10 @@ static int AACFindLATMSyncWord(unsigned char *buffer, int nBytes)
     for (i = 0; i < nBytes - 2; i++) {
         if (buffer[i] == 0x56 && (buffer[i + 1] & 0xe0) == 0xe0) {
             i_frame_size = ((buffer[i + 1] & 0x1f) << 8) + buffer[i + 2];
-            if (i_frame_size > 4608) {
+            if (i_frame_size > 8 * 768) {
                 audio_codec_print("i_frame_size  exceed  4608 ,%d \n", i_frame_size);
             }
-            if (i_frame_size > 0 && i_frame_size < 4608) {
+            if (i_frame_size > 0 && i_frame_size < 8 * 768) {
                 break;
             }
         }
