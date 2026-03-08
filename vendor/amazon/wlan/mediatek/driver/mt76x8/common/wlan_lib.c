@@ -10210,11 +10210,9 @@ VOID wlanSuspendPmHandle(P_GLUE_INFO_T prGlueInfo)
 	P_STA_RECORD_T prStaRec;
 	P_RX_BA_ENTRY_T prRxBaEntry;
 
-	if (prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap) {
-		prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap |=
-			BLOCK_KEEP_FULL_PWR;
-		wlanKeepFullPwr(prGlueInfo->prAdapter, FALSE);
-	}
+	prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap |=
+		BLOCK_KEEP_FULL_PWR;
+	wlanKeepFullPwr(prGlueInfo->prAdapter, FALSE);
 
 	/* if wifi.cfg EAPOL offload is 0, we set rekey offload when enter wow */
 	if (!prGlueInfo->prAdapter->rWifiVar.ucEapolOffload) {
@@ -10449,11 +10447,8 @@ VOID wlanResumePmHandle(P_GLUE_INFO_T prGlueInfo)
 					  ePwrMode, TRUE);
 	}
 
-	if (prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap) {
-		prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap &=
-			~BLOCK_KEEP_FULL_PWR;
-		wlanKeepFullPwr(prGlueInfo->prAdapter, TRUE);
-	}
+	prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap &=
+		~BLOCK_KEEP_FULL_PWR;
 }
 
 void disconnect_sta(P_ADAPTER_T prAdapter, P_STA_RECORD_T sta_rec)

@@ -2590,7 +2590,7 @@ P_SW_RFB_T qmHandleRxPackets(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfbList
 			u2FrameCtrl = prWlanHeader->u2FrameCtrl;
 			fgIsProtected = (u2FrameCtrl & MASK_FC_PROTECTED_FRAME)?TRUE:FALSE;
 
-			DBGLOG(QM, EVENT, "RXD Trans: FrameCtrl=0x%02x GVLD=0x%x, StaRecIdx=%d, WlanIdx=%d PktLen=%d, Protected=%s\n",
+			DBGLOG_RATELIMIT(QM, EVENT, "RXD Trans: FrameCtrl=0x%02x GVLD=0x%x, StaRecIdx=%d, WlanIdx=%d PktLen=%d, Protected=%s\n",
 				u2FrameCtrl, prCurrSwRfb->ucGroupVLD,
 				prCurrSwRfb->ucStaRecIdx,
 				prCurrSwRfb->ucWlanIdx,
@@ -2598,7 +2598,7 @@ P_SW_RFB_T qmHandleRxPackets(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfbList
 				fgIsProtected?"TRUE":"FALSE");
 
 			if (fgIsBMC && fgIsProtected) {
-				DBGLOG(QM, EVENT,
+				DBGLOG_RATELIMIT(QM, EVENT,
 					"drop encrypted BMC packet without key\n");
 				prCurrSwRfb->eDst = RX_PKT_DESTINATION_NULL;
 				QUEUE_INSERT_TAIL(prReturnedQue,
@@ -5274,10 +5274,11 @@ VOID mqmGenerateWmmInfoIE(IN P_ADAPTER_T prAdapter, IN P_MSDU_INFO_T prMsduInfo)
 		return;
 
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prMsduInfo->ucStaRecIndex);
-	ASSERT(prStaRec);
-
-	if (prStaRec == NULL)
+	if (prStaRec == NULL) {
+		DBGLOG(QM, ERROR, "prStaRec of ucStaRecIndex %d is NULL!\n",
+			prMsduInfo->ucStaRecIndex);
 		return;
+	}
 
 	if (!prStaRec->fgIsWmmSupported)
 		return;
