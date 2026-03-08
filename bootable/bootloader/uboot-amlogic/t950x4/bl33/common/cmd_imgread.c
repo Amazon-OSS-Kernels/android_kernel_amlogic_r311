@@ -698,6 +698,10 @@ static int do_unpackimg(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[
     loadaddr = (unsigned char*)simple_strtoul(argc > 1 ? argv[1] : getenv("loadaddr_misc"), NULL, 16);
 
     pResImgHead = (AmlResImgHead_t*)loadaddr;
+    #ifdef USB_UPGRADE_IN_ONE_FILE
+    const int totalSz = pResImgHead->imgSz;
+    unsigned char* unCompressBuf = loadaddr + totalSz;
+    #endif
 
     if (img_res_check_log_header(pResImgHead)) {
         errorP("Logo header err.\n");
@@ -715,12 +719,30 @@ static int do_unpackimg(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[
         char env_data[IH_NMLEN*2];
         unsigned long picLoadAddr = (unsigned long)loadaddr + (unsigned)pItem->start;
 
+        #ifdef USB_UPGRADE_IN_ONE_FILE
+        int itemSz = pItem->size;
+        unsigned long uncompSz = 0;
+        if ((long)unCompressBuf & 0x7U)
+            unCompressBuf = (unsigned char*)((unsigned long)(unCompressBuf + 8) & 0x7U);
+        imgread_uncomp_pic((unsigned char*)picLoadAddr, pItem->size,
+                unCompressBuf, CONFIG_MAX_PIC_LEN, &uncompSz);
+        if (uncompSz) {
+            picLoadAddr = (unsigned long)unCompressBuf;
+            itemSz      = uncompSz;
+            unCompressBuf += uncompSz;
+        }
+        #endif
+
         snprintf(env_name, sizeof(env_name), "%s_offset", pItem->name);//be bootup_offset ,not bootup_720_offset
         snprintf(env_data, sizeof(env_data), "0x%lx", picLoadAddr);
         setenv(env_name, env_data);
 
         snprintf(env_name, sizeof(env_name), "%s_size", pItem->name);
+        #ifdef USB_UPGRADE_IN_ONE_FILE
+        snprintf(env_data, sizeof(env_data), "0x%x", itemSz);
+        #else
         snprintf(env_data, sizeof(env_data), "0x%x", pItem->size);
+        #endif
         setenv(env_name, env_data);
     }
 

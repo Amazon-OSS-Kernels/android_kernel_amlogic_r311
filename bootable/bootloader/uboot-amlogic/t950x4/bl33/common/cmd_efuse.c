@@ -85,7 +85,7 @@ int cmd_efuse(int argc, char * const argv[], char *buf)
 		printf("\n error: size is zero!!!\n");
 		return -1;
 	}
-	if (size > max_size) {
+	if (size > EFUSE_BYTES) {
 		printf("\n error: size is too large!!!\n");
 		printf("\n offset should be less than %d!\n", max_size);
 		return -1;
@@ -133,6 +133,10 @@ efuse_action:
 		memset(buf, 0, size);
 
 		s = argv[4];
+		if (strlen(s) > size) {
+			printf("error: efuse data should shorter than %d.\n", size);
+			return -1;
+		}
 		memcpy(buf, s, strlen(s));
 		if (efuse_write_usr(buf, size, (loff_t *)&offset) < 0) {
 			printf("error: efuse write fail.\n");

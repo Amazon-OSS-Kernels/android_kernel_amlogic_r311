@@ -598,6 +598,14 @@ KBUILD_AFLAGS += $(KAFLAGS)
 KBUILD_CFLAGS += $(KCFLAGS)
 #KBUILD_CFLAGS += -Werror
 
+ifeq ($(TARGET_PRODUCT), ABC)
+KBUILD_CFLAGS += -DCONFIG_DEVICE_PRODUCT_ABC
+endif
+
+ifeq ($(TARGET_PRODUCT), ABC)
+KBUILD_CFLAGS += -DCONFIG_DEVICE_PRODUCT_ABC
+endif
+
 # Use UBOOTINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
 UBOOTINCLUDE    := \

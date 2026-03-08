@@ -799,6 +799,38 @@ static int amlmmc_erase_non_loader(int argc, char *const argv[])
 			start_blk = (part_info->offset + part_info->size + PARTITION_RESERVED)
 						 >> blk_shift;
 			u64 erase_cnt = (mmc->capacity >> blk_shift) - start_blk;
+#if USB_TOOLS_NO_ERASE_CRI_DATA
+			bool udiskUpgrade = getenv("usb_update");
+			if (udiskUpgrade) udiskUpgrade = !strcmp("1", getenv("usb_update"));
+			if (udiskUpgrade) {//normal erase for usb disk upgrade
+				const char *non_erase_parts[] = CONFIG_PROTECT_USR_PARTITION;
+				int i = 0;
+
+				printf("Udisk Normal erase_flash\n");
+				for (; i < ARRAY_SIZE(non_erase_parts); ++i) {
+					const char* the_part = non_erase_parts[i];
+					struct partitions* usrPart = find_mmc_partition_by_name((char *)the_part);
+					if ( !usrPart ) {
+						printf("Cannot find part[%s]\n", the_part);
+						return 1;
+					}
+					u64 partCnt = (usrPart->offset >> blk_shift) - start_blk;
+					printf("To erase area before usr part(%s) from %llx ~ %llx\n",
+							the_part, start_blk, partCnt);
+					n = mmc->block_dev.block_erase(dev, start_blk, partCnt);
+					if ( n ) {
+						printf("FAil in erase before %s\n", the_part);
+						return 1;
+					}
+					partCnt   += ((usrPart->size + PARTITION_RESERVED) >> blk_shift);
+					start_blk += partCnt;
+					erase_cnt -= partCnt;
+					printf("To erase area after usr part(%s) from %llx ~ %llx\n",
+							the_part, start_blk, erase_cnt);
+				}
+			}
+#endif//#if USB_TOOLS_NO_ERASE_CRI_DATA
+
 			n = mmc->block_dev.block_erase(dev, start_blk, erase_cnt);
 		}
 	} else {
@@ -827,7 +859,11 @@ static int amlmmc_erase_single_part(int argc, char *const argv[])
 	if (!mmc)
 		return 1;
 
-	mmc_init(mmc);
+	if (mmc->has_init == 0) {
+		//printf("%s, emmc not init yet, please init emmc first\n", __func__);
+		return 1;
+	}
+//	mmc_init(mmc);
 
 	blk_shift =  mmc->read_bl_len > 0 ? ffs(mmc->read_bl_len) - 1 : 0;
 	if (emmckey_is_protected(mmc)
@@ -1392,7 +1428,11 @@ int aml_mmc_read(const char *part_name, loff_t offset, size_t len, void *buffer)
 	if (len < log_mmc->read_bl_len)
 		len = log_mmc->read_bl_len;
 
-	mmc_init(log_mmc);
+	if (mmc->has_init == 0) {
+		//printf("%s, emmc not init yet, please init emmc first\n", __func__);
+		return -1;
+	}
+//	mmc_init(log_mmc);
 	get_off_size(log_mmc, (char *)part_name, offset, len, &blk, &cnt, &sz_byte);
 	n = log_mmc->block_dev.block_read(log_dev, blk, cnt, buffer);
 
@@ -1438,7 +1478,11 @@ int aml_mmc_write(const char *part_name, loff_t offset, size_t len, void *buffer
 	if (!log_mmc)
 		log_mmc = mmc;
 
-	mmc_init(log_mmc);
+//	mmc_init(log_mmc);
+	if (mmc->has_init == 0) {
+		//printf("%s, emmc not init yet, please init emmc first\n", __func__);
+		return -1;
+	}
 
 	get_off_size(log_mmc, (char *)part_name, offset, len, &blk, &cnt, &sz_byte);
 

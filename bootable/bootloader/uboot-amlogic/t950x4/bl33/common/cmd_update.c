@@ -185,7 +185,7 @@ int idme_parse(const char *idme) {
 
     //max support 1024+32
     char buff[MAX_LINE_BUFF] = {0};
-    memcpy(buff, idme, MAX_LINE_BUFF);
+    memcpy(buff, idme, MAX_LINE_BUFF - 1);
 
     char *pb = strstr(buff, "=");
     if (!pb) {
@@ -194,10 +194,26 @@ int idme_parse(const char *idme) {
     }
 
     int len = strlen(buff);
+    //for standard format eg: a="1", board_id="ffffff00000000aa"
+    //so size must >= 5
+    if (len < 5) {
+        printf("wrong idme format config!\n");
+        return -1;
+    }
     int offset = pb - buff;
     if (nidme > MAX_IDME_NUM-1) {
         printf("max value(%d) support idme set!\n", MAX_IDME_NUM);
-        return 0;
+        return -1;
+    }
+
+    if (offset < 1 || offset > NAME_MAX-1 ) {
+        printf("idme name wrong!\n");
+        return -1;
+    }
+
+    if (len-offset-3 < 1 || len-offset-3 > VALUE_MAX-1) {
+        printf("idme value wrong!\n");
+        return -1;
     }
 
     //get idme name and value
@@ -209,7 +225,7 @@ int idme_parse(const char *idme) {
 
 int arb_parse(const char *arb_buf) {
 	char buff[MAX_LINE_BUFF] = {0};
-	memcpy(buff, arb_buf, MAX_LINE_BUFF);
+	memcpy(buff, arb_buf, MAX_LINE_BUFF - 1);
 	char *pb = strstr(buff, "=");
 	if (!pb) {
 		//err config
@@ -225,7 +241,7 @@ int arb_parse(const char *arb_buf) {
 
 	//get arb version name and value
 	memcpy(arb_version[narb].name, buff, offset);
-	memcpy(arb_version[narb].value, buff+offset+1, len-offset);
+	memcpy(arb_version[narb].value, buff+offset+1, len-offset-1);
 
 	narb++;
 	return 0;
@@ -340,7 +356,7 @@ int arb_check_version(void)
 			}
 		}
 	}
-       if (bl2_flags & fip_flags & bl30_flags & bl31_flags & bl32_flags & bl33_flags)
+       if (bl2_flags && fip_flags && bl30_flags && bl31_flags && bl32_flags && bl33_flags)
                return 0;
        else {
                printf("check arb_version.txt fail!\n");
@@ -440,6 +456,8 @@ int do_uboot_update (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
         printf("target is lockdonw , please unlock!\n");
         goto error;
     }
+
+    #ifndef USB_UPGRADE_IN_ONE_FILE
     ret = update_ui_init();
     if (ret < 0) {
         printf("Image flashing GUI init failure\n");
@@ -448,6 +466,7 @@ int do_uboot_update (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
         show_flash_progress(0, 0, 0);
         printf("Image flashing GUI init done\n");
     }
+    #endif
 
     init_param();
     idme_set();
@@ -459,7 +478,7 @@ int do_uboot_update (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
     char *buf = (char *)malloc(filesize+4);
     if (buf == NULL) {
         printf("malloc buffer(%d) failed!\n", filesize);
-		goto error;
+        goto error;
     }
 
     //get flash_script
@@ -510,11 +529,31 @@ int do_uboot_update (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
         }
 
         if (image_check(image) == 0) {
+            #ifdef USB_UPGRADE_IN_ONE_FILE
+            printf("%s is not exist, try usb_burn\n", image);
+            ret += idme_set();
+            //if (ret)
+            //       goto error;
+            printf("go to usb_burn\n");
+            return 1;
+            #else
             printf("%s is not exist, break......\n", image);
             goto error;
+            #endif
         }
         printf("%s is exist\n", image);
     }
+
+    #ifdef USB_UPGRADE_IN_ONE_FILE
+    ret = update_ui_init();
+    if (ret < 0) {
+        printf("Image flashing GUI init failure\n");
+           goto error;
+    } else {
+        show_flash_progress(0, 0, 0);
+        printf("Image flashing GUI init done\n");
+    }
+    #endif
 
     image_update();
 

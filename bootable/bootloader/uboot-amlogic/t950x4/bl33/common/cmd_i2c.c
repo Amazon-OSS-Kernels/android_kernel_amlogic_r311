@@ -445,9 +445,9 @@ static int do_i2c_flags(cmd_tbl_t *cmdtp, int flag, int argc,
 static int do_i2c_md ( cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	u_char	chip;
-	uint	addr, length;
+	uint	addr, length, nbytes;
 	int alen;
-	int	j, nbytes, linebytes;
+	int	j, linebytes;
 	int ret;
 #ifdef CONFIG_DM_I2C
 	struct udevice *dev;

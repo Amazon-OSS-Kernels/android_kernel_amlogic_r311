@@ -71,7 +71,8 @@ struct bootloader_message {
 
 /*If the partition has been read five times, the partition will be erased
 */
-static int check_misc_erase(char * miscbuf, int size) {
+static int check_misc_erase(char * miscbuf, int size)
+{
     struct bootloader_message * msg = NULL;
     unsigned int * read_times = NULL;
 
@@ -87,7 +88,7 @@ static int check_misc_erase(char * miscbuf, int size) {
     memcpy(msg, miscbuf, sizeof(struct bootloader_message));
 
     read_times = (int *)msg->reserved;
-    printf("Read times %d.\n", (*read_times)++);
+    printf("Check misc and Read times %d.\n", (*read_times)++);
 
     // save read times.
     store_write_ops((unsigned char *)"misc", (unsigned char *)msg, 0, sizeof(struct bootloader_message));
@@ -193,13 +194,13 @@ static int do_RunBcbCommand(
             printf("Cold reboot, don't run bcb\n");
             return 0;
         }
-    }
-
-    // if the misc have read 5 time, erase the misc.
-    if (check_misc_erase(miscbuf, MISCBUF_SIZE) == MISC_ACTION_ERASE) {
-        printf("Misc read time > %d, don't run bcb. erase misc\n", MAX_READ_TIMES);
-        run_command("amlmmc erase misc", 0);
-        return 0;
+    } else if (strncmp(rebootmode, "shutdown_reboot",15)) {
+    // if the misc have read 5 time, erase the misc. exclude cold boot and shutdown_reboot
+        if (check_misc_erase(miscbuf, MISCBUF_SIZE) == MISC_ACTION_ERASE) {
+            printf("Misc read time > %d, don't run bcb. erase misc\n", MAX_READ_TIMES);
+            run_command("amlmmc erase misc", 0);
+            return 0;
+        }
     }
 
     memcpy(command, miscbuf, sizeof(command));

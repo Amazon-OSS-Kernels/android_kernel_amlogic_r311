@@ -187,6 +187,18 @@ void *handle_lcd_ext_buf_get(void)
 }
 
 #ifdef CONFIG_AML_LCD_TCON
+int __attribute__((weak))
+	get_tcon_bin_size_by_id(int bin_id)
+{
+	return 0;
+}
+
+int __attribute__((weak))
+	read_tcon_bin_data_by_id(unsigned char *data_buf, int buf_size, int bin_id)
+{
+	return 0;
+}
+
 static unsigned int handle_tcon_char_data_size_align(unsigned int size)
 {
 	unsigned int new_size;
@@ -839,6 +851,13 @@ static int handle_lcd_ext_type(struct lcd_ext_attr_s *p_attr)
 	if (model_debug_flag & DEBUG_LCD_EXTERN)
 		ALOGD("%s, value_9 is (%s)\n", __func__, ini_value);
 	p_attr->type.value_9 = strtoul(ini_value, NULL, 0);
+
+	if (p_attr->basic.ext_type == LCD_EXTERN_I2C)
+		gLcdExtCmdSize = p_attr->type.value_3;
+	else if (p_attr->basic.ext_type == LCD_EXTERN_SPI)
+		gLcdExtCmdSize = p_attr->type.value_6;
+	else
+		gLcdExtCmdSize = p_attr->type.value_9;
 
 	return 0;
 }
@@ -2002,8 +2021,9 @@ static int handle_tcon_bin(void)
 
 static int handle_tcon_ext_pmu_data(int index, int flag, unsigned char *buf)
 {
-	char *file_name, str[2][30];
-	unsigned int data_size = 0, i, file_find = 0;
+	char str[2][30];
+	unsigned int data_size = 0, i;
+	int ret = 0;
 
 	if (!buf) {
 		ALOGE("%s, buf is null\n", __func__);
@@ -2017,31 +2037,9 @@ static int handle_tcon_ext_pmu_data(int index, int flag, unsigned char *buf)
 		return -1;
 	}
 
-	sprintf(str[0], "model_tcon_ext_b%d_spi", index);
-	sprintf(str[1], "model_tcon_ext_b%d", index);
-	while (i < 2) {
-		file_name = getenv(str[i]);
-		if (file_name == NULL) {
-			if (model_debug_flag & DEBUG_NORMAL)
-				ALOGD("%s: no %s path\n", __func__, str[i]);
-		} else {
-			if (iniIsFileExist(file_name)) {
-				if (model_debug_flag & DEBUG_NORMAL)
-					ALOGD("%s: %s: %s\n", __func__, str[i], file_name);
-				file_find = 1;
-				break;
-			}
-			if (model_debug_flag & DEBUG_NORMAL) {
-				ALOGE("%s: %s: \"%s\" not exist.\n",
-					__func__, str[i], file_name);
-			}
-		}
-		i++;
-	}
-	if (file_find == 0)
-		return -1;
-
-	data_size = read_bin_file(file_name, LCD_EXTERN_INIT_ON_MAX);
+	sprintf(str[0], "tcon_pmu_data");
+	sprintf(str[1], "null");
+	data_size = get_tcon_bin_size_by_id(TCON_B0_SPI);
 	if (data_size == 0) {
 		ALOGE("%s, %s data_size %d error!\n", __func__, str[i], data_size);
 		return -1;
@@ -2054,11 +2052,19 @@ static int handle_tcon_ext_pmu_data(int index, int flag, unsigned char *buf)
 
 	if (flag) { /* data with reg addr auto fill */
 		buf[0] = (data_size + 1); /* data size include reg start */
-		buf[1] = 0x00;            /* reg start */
-		GetBinData(&buf[2], data_size);
+		buf[1] = 0x00;			  /* reg start */
+		ret = read_tcon_bin_data_by_id(&buf[2], data_size, TCON_B0_SPI);
+		if (ret) {
+			ALOGE("%s. can't read tcon_b0_spi_bin data", __func__);
+			return -1;
+		}
 	} else {
 		buf[0] = data_size;
-		GetBinData(&buf[1], data_size);
+		ret = read_tcon_bin_data_by_id(&buf[1], data_size, TCON_B0_SPI);
+		if (ret) {
+			ALOGE("%s. can't read tcon_b0_spi_bin data", __func__);
+			return -1;
+		}
 	}
 
 	if (model_debug_flag & DEBUG_LCD_EXTERN) {
@@ -2071,9 +2077,7 @@ static int handle_tcon_ext_pmu_data(int index, int flag, unsigned char *buf)
 	if (model_debug_flag & DEBUG_NORMAL)
 		ALOGD("%s %s finish\n", __func__, str[i]);
 
-	BinFileUninit();
-
-	return 0;
+	return ret;
 }
 
 #define TCON_VAC_SET_PARAM_NUM    3
@@ -2337,82 +2341,81 @@ int handle_tcon_demura_set(unsigned char *demura_set_data,
 			   unsigned int demura_set_size)
 {
 	unsigned long int bin_size;
-	char *file_name;
+	int n, ret = 0;
 
-	file_name = getenv("model_tcon_demura_set");
-	if (file_name == NULL) {
-		if (model_debug_flag & DEBUG_NORMAL)
-			ALOGD("%s, no model_tcon_demura_set path\n", __func__);
-		return -1;
-	}
-
-	if ((demura_set_data == NULL) || (!demura_set_size)) {
+	n=8;
+	if (!demura_set_data || !demura_set_size) {
 		ALOGE("%s, buffer or size error!!!\n", __func__);
 		return -1;
 	}
 
-	if (model_debug_flag & DEBUG_NORMAL)
-		ALOGD("%s: model_tcon_demura_set: %s\n", __func__, file_name);
-	if (!iniIsFileExist(file_name)) {
-		ALOGE("%s, file name \"%s\" not exist.\n", __func__, file_name);
-		return -1;
-	}
-
-	bin_size = read_bin_file(file_name, CC_MAX_TCON_DEMURA_SET_SIZE);
-	if (!bin_size || (bin_size > demura_set_size)) {
+	bin_size = get_tcon_bin_size_by_id(TCON_DEMURA_SET);
+	if (!bin_size || bin_size > demura_set_size) {
 		ALOGE("%s, bin_size 0x%lx error!(memory_size 0x%x)\n",
 		      __func__, bin_size, demura_set_size);
 		return -1;
 	}
 
-	GetBinData(demura_set_data, bin_size);
+	ret = read_tcon_bin_data_by_id(&demura_set_data[n], bin_size, TCON_DEMURA_SET);
+	if (ret) {
+		ALOGE("%s, can't read tcon_demura_set in cri_partition\n", __func__);
+		return -1;
+	}
+
+	demura_set_data[0] = bin_size & 0xff;
+	demura_set_data[1] = (bin_size >> 8) & 0xff;
+	demura_set_data[2] = (bin_size >> 16) & 0xff;
+	demura_set_data[3] = (bin_size >> 24) & 0xff;
+
+	demura_set_data[4] = model_data_checksum(&demura_set_data[8], bin_size);
+	demura_set_data[5] = model_data_lrc(&demura_set_data[8], bin_size);
+	demura_set_data[6] = 0x55;
+	demura_set_data[7] = 0xaa;
 
 	if (model_debug_flag & DEBUG_NORMAL)
 		ALOGD("%s finish\n", __func__);
 
-	BinFileUninit();
-
-	return 0;
+	return ret;
 }
 
 int handle_tcon_demura_lut(unsigned char *demura_lut_data,
 			   unsigned int demura_lut_size)
 {
-	unsigned long int bin_size;
-	char *file_name;
+	unsigned long bin_size;
+	int n, ret = 0;
 
-	file_name = getenv("model_tcon_demura_lut");
-	if (file_name == NULL) {
-		if (model_debug_flag & DEBUG_NORMAL)
-			ALOGD("%s, no model_tcon_demura_lut path\n", __func__);
-		return -1;
-	}
-
-	if ((demura_lut_data == NULL) || (!demura_lut_size)) {
+	n = 8;
+	if (!demura_lut_data || !demura_lut_size) {
 		ALOGE("%s, buffer memory or size error!!!\n", __func__);
 		return -1;
 	}
 
-	if (model_debug_flag & DEBUG_NORMAL)
-		ALOGD("%s: model_tcon_demura_lut: %s\n", __func__, file_name);
-	if (!iniIsFileExist(file_name)) {
-		ALOGE("%s, file name \"%s\" not exist.\n", __func__, file_name);
-		return -1;
-	}
-
-	bin_size = read_bin_file(file_name, CC_MAX_TCON_DEMURA_LUT_SIZE);
-	if (!bin_size || (bin_size > demura_lut_size)) {
+	bin_size = get_tcon_bin_size_by_id(TCON_DEMURA_LUT);
+	if (!bin_size || bin_size > demura_lut_size) {
 		ALOGE("%s, bin_size 0x%lx error!(memory_size 0x%x)\n",
 		      __func__, bin_size, demura_lut_size);
 		return -1;
 	}
 
-	GetBinData(demura_lut_data, bin_size);
+	ret = read_tcon_bin_data_by_id(&demura_lut_data[n], bin_size, TCON_DEMURA_LUT);
+	if (ret) {
+		ALOGE("%s, con't read demura_lut from cri partition\n", __func__);
+		return -1;
+	}
+
+	demura_lut_data[0] = bin_size & 0xff;
+	demura_lut_data[1] = (bin_size >> 8) & 0xff;
+	demura_lut_data[2] = (bin_size >> 16) & 0xff;
+	demura_lut_data[3] = (bin_size >> 24) & 0xff;
+
+	demura_lut_data[4] = model_data_checksum(&demura_lut_data[8], bin_size);
+	demura_lut_data[5] = model_data_lrc(&demura_lut_data[8], bin_size);
+	demura_lut_data[6] = 0x55;
+	demura_lut_data[7] = 0xaa;
+
 
 	if (model_debug_flag & DEBUG_NORMAL)
 		ALOGD("%s finish\n", __func__);
-
-	BinFileUninit();
 
 	return 0;
 }

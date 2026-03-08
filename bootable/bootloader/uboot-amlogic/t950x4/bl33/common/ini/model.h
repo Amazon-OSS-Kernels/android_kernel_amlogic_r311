@@ -35,6 +35,16 @@ extern int handle_model_sum(void);
 
 #pragma pack (1)
 
+#ifdef CONFIG_AML_LCD_TCON
+enum tcon_bin_id_t {
+	TCON_B0_SPI = 1,
+	TCON_DEMURA_SET,
+	TCON_DEMURA_LUT,
+	TCON_DEMURA_CRC,
+	TCON_BIN_MAX,
+};
+#endif
+
 enum lcd_type_e {
 	LCD_TTL = 0,
 	LCD_LVDS,
@@ -344,5 +354,8 @@ struct all_info_header_s {
 
 #define CC_MAX_PANEL_ALL_ONE_SEC_TAG_SIZE        (16)
 #define CC_MAX_PANEL_ALL_ONE_SEC_TAG_CONTENT     "panel_all_data0"
+
+unsigned char model_data_checksum(unsigned char *buf, unsigned int len);
+unsigned char model_data_lrc(unsigned char *buf, unsigned int len);
 
 #endif //__PAEL_INI_H__

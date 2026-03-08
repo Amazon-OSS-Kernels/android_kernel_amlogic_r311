@@ -31,7 +31,11 @@ extern int lcd_drawchars (ushort x, ushort y, uchar *str, int count);
 #endif// #ifdef CONFIG_VIDEO_AMLLCD
 
 #ifdef CONFIG_AML_VOUT
+#ifdef USB_UPGRADE_IN_ONE_FILE
+#define _VIDEO_DEV_OPEN "echo 1; osd open;osd clear;echo 2;vout output ${outputmode};echo 3; bmp scale;"
+#else
 #define _VIDEO_DEV_OPEN "hdmitx hpd;osd open;osd clear;vout output ${outputmode};bmp scale;"
+#endif
 #else
 #define _VIDEO_DEV_OPEN "video dev bl_on;"
 #endif// #ifdef CONFIG_VIDEO_AMLTVOUT

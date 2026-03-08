@@ -37,7 +37,7 @@ DECLARE_GLOBAL_DATA_PTR;
 	#define TE(...)
 #endif
 
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) 
+#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) 
 static u32 fb_width;
 static u32 fb_height;
 static u32 display_bpp;
@@ -228,6 +228,7 @@ void main_loop(void)
 #ifdef DTB_BIND_KERNEL
 	unsigned char *dt_addr = NULL;
 	extern int emmc_update_mbr(unsigned char *);
+	char oem_data[64] = {0};
 #endif /* DTB_BIND_KERNEL */
 #endif
 
@@ -253,7 +254,7 @@ void main_loop(void)
 #ifdef CONFIG_IDME
 	bootmode = idme_boot_mode();
 	is_diag_bootmode = (bootmode == IDME_BOOTMODE_DIAG);
-#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC)
+#if defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined(UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined(UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) 
 	is_transition_bootmode = ((bootmode == IDME_BOOTMODE_TRANSITION) || (bootmode == IDME_BOOTMODE_STANDBY_LOGO_POST_SHIPPING_SW_SWITCH));
 #else
 	is_transition_bootmode = (bootmode == IDME_BOOTMODE_TRANSITION);
@@ -274,7 +275,9 @@ void main_loop(void)
 			ret += run_command("amlmmc erase dkernel", 0);
 			ret += run_command("amlmmc erase diag_userdata", 0);
 			ret += run_command("amlmmc erase dvendor", 0);
+#ifndef UBOOT_TARGET_PRODUCT_NAME_ABC
 			ret += run_command("amlmmc erase oemconfig", 0);
+#endif
 			if (ret)
 				printf("Erase Diag partitions error\n");
 #endif
@@ -321,6 +324,40 @@ void main_loop(void)
 				while (1)
 					udelay(1000*1000);
 				}
+#elif defined (UBOOT_TARGET_PRODUCT_NAME_ABC)
+				ret = 0;
+				ret += run_command("osd open", 0);
+				ret += run_command("osd clear", 0);
+				/* mmc 1:d tvconfig, fixed */
+				idme_get_var_external("oem_data", oem_data, sizeof(oem_data));
+				if (strstr(oem_data, "ABC") != NULL) {	//ABC transition
+					if(amzn_target_is_lockdown()){
+						//locked down transition
+						ret += run_command("ext4load mmc 1:d ${loadaddr} /logo_img_files/transition_done.bmp", 0);
+					}else {
+						//unlocked transition
+						ret += run_command("ext4load mmc 1:d ${loadaddr} /logo_img_files/transition_done_red.bmp", 0);
+					}
+				} else{	//ABC-hh transition
+					ret += run_command("ext4load mmc 1:d ${loadaddr} /logo_img_files/transition_done.bmp", 0);
+				}
+				if (ret == 0) {
+					ret += run_command("bmp display ${loadaddr}", 0);
+					ret += run_command("bmp scale", 0);
+					if (ret) {
+						printf("Displaying transition bmp failed.\n");
+					}
+					run_command("vout output ${outputmode}", 0);
+					run_command("led_mode 3", 0);
+				} else {
+					printf("Cannot load transition bmp.\n");
+				}
+				watchdog_disable();
+				printf("Stop after transition from diag to FOS\n");
+				while (1) {
+					udelay(1000*1000);
+				}
+
 #else
 				run_command("reboot", 0);
 #endif
@@ -356,7 +393,7 @@ void main_loop(void)
 			printf("Force selinux permissive mode\n");
 			setenv("EnableSelinux", "permissive");
 		}
-#if (defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC)) && defined(UFBL_FEATURE_FASTBOOT_LOCKDOWN)
+#if (defined (UBOOT_TARGET_PRODUCT_NAME_ALMOND) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC) || defined (UBOOT_TARGET_PRODUCT_NAME_ABC)) && defined(UFBL_FEATURE_FASTBOOT_LOCKDOWN)
 		if ((dev_flags & DEV_FLAGS_ENABLE_FACTORY_TEST ) == DEV_FLAGS_ENABLE_FACTORY_TEST
 				&& bootmode == IDME_BOOTMODE_NORMAL && is_locked_production_device()) {
 			printf("factory test mode and arb enabled, switch to diag bootmode\n");

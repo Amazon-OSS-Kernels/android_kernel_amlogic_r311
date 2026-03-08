@@ -242,18 +242,18 @@ static void eth_get_idme_mac(struct eth_device *dev)
 
 	if (!idme_get_var_external("eth_mac_addr", buf, sizeof(buf)-1)) {
 		if (strlen((const char *)buf) == 12) {
-			printf("\nget idme mac:	");
+			//printf("\nget idme mac:	");
 			for (i = 0; i < 6; i++) {
 				tmp = buf[i*2 + 2];
 				buf[i*2 + 2] = '\0';
 				dev->enetaddr[i] = simple_strtoul(
 						(char *)&buf[i*2], NULL, 16);
 				buf[i*2 + 2] = tmp;
-				printf("%x", dev->enetaddr[i]);
+				/*printf("%x", dev->enetaddr[i]);
 				if (i != 5)
 					printf(":");
 				else
-					printf("\n");
+					printf("\n");*/
 			}
 			return;
 		}

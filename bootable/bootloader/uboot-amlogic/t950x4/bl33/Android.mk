@@ -1,4 +1,4 @@
-ifneq ($(filter almond ABC ABC, $(TARGET_PRODUCT)),)
+ifneq ($(filter almond ABC ABC ABC, $(TARGET_PRODUCT)),)
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
@@ -11,6 +11,11 @@ AML_BL2_SRC_DIR := $(LOCAL_PATH)/../../../../../$(VENDOR_AML_PATH_VENDOR)/spl
 
 ifeq ($(TARGET_PRODUCT),almond)
 AML_UBOOT_BOARD_NAME := almond
+UFBL_PLAT_PROJ := aml_$(VENDOR_AML_PLATFORM)
+export UFBL_PLAT_PROJ
+
+else ifeq ($(TARGET_PRODUCT),ABC)
+AML_UBOOT_BOARD_NAME := ABC
 UFBL_PLAT_PROJ := aml_$(VENDOR_AML_PLATFORM)
 export UFBL_PLAT_PROJ
 
