@@ -93,7 +93,9 @@
 #if CFG_SUPPORT_802_11V_TIMING_MEASUREMENT
 static UINT_8 ucTimingMeasToken;
 #endif
+#if CFG_SUPPORT_802_11V_BSS_TRANSITION_MGT
 static UINT_8 ucBtmMgtToken = 1;
+#endif
 
 /*******************************************************************************
 *                                 M A C R O S
@@ -121,6 +123,7 @@ static UINT_8 ucBtmMgtToken = 1;
 *      Called by: Handle Rx mgmt request
 */
 /*----------------------------------------------------------------------------*/
+#if CFG_SUPPORT_802_11V
 VOID wnmWNMAction(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 {
 	P_WLAN_ACTION_FRAME prRxFrame;
@@ -419,4 +422,5 @@ VOID wnmRecvBTMRequest(IN P_ADAPTER_T prAdapter, IN P_SW_RFB_T prSwRfb)
 	mboxSendMsg(prAdapter, MBOX_ID_0, (P_MSG_HDR_T)prMsg,
 		    MSG_SEND_METHOD_BUF);
 }
-#endif
+#endif /* #if CFG_SUPPORT_802_11V_BSS_TRANSITION_MGT */
+#endif /* #if CFG_SUPPORT_802_11V */

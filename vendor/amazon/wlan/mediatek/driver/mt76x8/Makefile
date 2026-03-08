@@ -141,6 +141,8 @@ endif
 ccflags-y += -DCFG_SUPPORT_DEBUG_FS=$(CFG_SUPPORT_DEBUG_FS)
 ifneq ($(TARGET_BUILD_VARIANT), user)
 ccflags-y += -DWLAN_INCLUDE_PROC=1
+else
+ccflags-y += -DCFG_SUPPORT_PRIVACY_INFO
 endif
 ccflags-y += -DCFG_SUPPORT_AGPS_ASSIST=$(CFG_SUPPORT_AGPS_ASSIST)
 ccflags-y += -DCFG_SUPPORT_TSF_USING_BOOTTIME=$(CFG_SUPPORT_TSF_USING_BOOTTIME)
@@ -534,11 +536,8 @@ MGMT_OBJS := $(MGMT_DIR)ais_fsm.o \
              $(MGMT_DIR)roaming_fsm.o \
              $(MGMT_DIR)tkip_mic.o \
              $(MGMT_DIR)hs20.o \
-             $(MGMT_DIR)tdls.o
-
-ifeq ($(CFG_SUPPORT_802_11V),y)
-MGMT_OBJS += $(MGMT_DIR)wnm.o
-endif
+             $(MGMT_DIR)tdls.o \
+             $(MGMT_DIR)wnm.o
 
 CHIPS_OBJS := $(CHIPS)mt6632.o \
 			  $(CHIPS)mt7668.o

@@ -179,7 +179,7 @@ typedef enum _ENUM_DBG_ASSERT_PATH_T {
 /* Debug print format string for the MAC Address */
 #define MACSTR		"%pM"
 /* Debug print argument for the MAC Address */
-#ifdef CFG_SUPPORT_EMPTY_MAC
+#if defined CFG_SUPPORT_EMPTY_MAC || defined CFG_SUPPORT_PRIVACY_INFO
 extern UINT_8 empty_mac[];
 #define MAC2STR(a) empty_mac
 #else
