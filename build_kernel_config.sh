@@ -19,5 +19,5 @@ KERNEL_IMAGES="arch/arm64/boot/Image:arch/arm64/boot/Image.gz:arch/arm64/boot/Im
 # NOTE: You must fill in the following with the path to a copy of an
 # aarch64-linux-gnu compiler, i.e gcc-linaro-aarch64-linux-gnu-4.9-2014.09_linux
 ################################################################################
-CROSS_COMPILER_PATH="/oss/compilers/gcc-linaro-aarch64-linux-gnu-4.9-2014.09_linux"
+CROSS_COMPILER_PATH=""
 TOOLCHAIN_PREFIX="aarch64-linux-gnu-"
