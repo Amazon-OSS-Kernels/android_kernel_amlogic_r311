@@ -1082,12 +1082,13 @@ priv_get_int(IN struct net_device *prNetDev,
 	case PRIV_CMD_DUMP_MEM:
 		prNdisReq = (P_NDIS_TRANSPORT_STRUCT) &aucOidBuf[0];
 
-#if 1
-		if (!prGlueInfo->fgMcrAccessAllowed) {
+		if (!prGlueInfo->fgMcrAccessAllowed
+			|| !capable(CAP_NET_ADMIN)) {
+			DBGLOG(REQ, WARN, "Access Denied\n");
 			status = 0;
 			return status;
 		}
-#endif
+
 		kalMemCopy(&prNdisReq->ndisOidContent[0], &pu4IntBuf[1], 8);
 
 		prNdisReq->ndisOidCmd = OID_CUSTOM_MEM_DUMP;

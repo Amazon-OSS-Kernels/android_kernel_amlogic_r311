@@ -622,6 +622,14 @@ static inline void kalCfg80211ScanDone(struct cfg80211_scan_request *request,
 })
 #endif
 
+#define kalMemZAlloc(u4size, eMemType) ({    \
+	void *pvAddr; \
+	pvAddr = kalMemAlloc(u4size, eMemType);   \
+	if (pvAddr) \
+		kalMemSet(pvAddr, 0, u4size);   \
+	pvAddr; \
+})
+
 /*----------------------------------------------------------------------------*/
 /*!
 * \brief Free allocated cache memory

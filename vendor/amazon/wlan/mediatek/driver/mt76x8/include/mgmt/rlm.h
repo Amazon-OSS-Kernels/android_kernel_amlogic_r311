@@ -236,6 +236,7 @@ struct SUB_ELEMENT_LIST {
 typedef struct _SWITCH_CH_AND_BAND_PARAMS_T {
 	BOOLEAN fgBeaconNewChannelIsDFS;
 	BOOLEAN fgActionNewChannelIsDFS;
+	BOOLEAN fgNewChannelIsDisabled;
 	UINT_8 ucCsaNewCh;
 	UINT_8 ucCsaCount;
 	UINT_8 ucVhtS1;
