@@ -26,12 +26,22 @@
  * SUCH DAMAGE.
  */
 
+/*
+ * Portions of this file are copyright (c) 2023 Amazon.com, Inc. or its affiliates.  All rights reserved.
+ *
+ * PORTIONS OF THIS FILE ARE AMAZON PROPRIETARY/CONFIDENTIAL.  USE IS SUBJECT TO LICENSE TERMS.
+ *
+ * Amazon modifications are indicated by [fosmod_* comments].
+ */
+
 #ifndef MALLOC_DEBUG_CONFIG_H
 #define MALLOC_DEBUG_CONFIG_H
 
 #include <stdint.h>
 
 #include <string>
+
+#include <fireos/FosMods.h>     // fosmod_fosmods oneline
 
 constexpr uint64_t FRONT_GUARD = 0x1;
 constexpr uint64_t REAR_GUARD = 0x2;
@@ -43,6 +53,13 @@ constexpr uint64_t FREE_TRACK = 0x40;
 constexpr uint64_t TRACK_ALLOCS = 0x80;
 constexpr uint64_t LEAK_TRACK = 0x100;
 constexpr uint64_t RECORD_ALLOCS = 0x200;
+
+/* fosmod_memleak_debug begin */
+#if defined(FOSMOD_MEMLEAK_DEBUG)
+constexpr uint64_t TRACK_MMAPS = 0x400;
+#endif
+/* fosmod_memleak_debug end */
+
 
 // In order to guarantee posix compliance, set the minimum alignment
 // to 8 bytes for 32 bit systems and 16 bytes for 64 bit systems.

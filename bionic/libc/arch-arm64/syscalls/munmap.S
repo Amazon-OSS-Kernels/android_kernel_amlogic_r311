@@ -2,7 +2,7 @@
 
 #include <private/bionic_asm.h>
 
-ENTRY(munmap)
+ENTRY(__munmap)
     mov     x8, __NR_munmap
     svc     #0
 
@@ -11,4 +11,5 @@ ENTRY(munmap)
     b.hi    __set_errno_internal
 
     ret
-END(munmap)
+END(__munmap)
+.hidden __munmap
