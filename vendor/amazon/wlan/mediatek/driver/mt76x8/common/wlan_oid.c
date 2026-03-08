@@ -5334,6 +5334,13 @@ WLAN_STATUS wlanoidSendCalBackupV2Cmd(IN P_ADAPTER_T prAdapter, IN PVOID pvQuery
 
 	prCmdCalBackupDataV2 =
 		(P_CMD_CAL_BACKUP_STRUCT_V2_T) kalMemAlloc(sizeof(CMD_CAL_BACKUP_STRUCT_V2_T), VIR_MEM_TYPE);
+	ASSERT(prCmdCalBackupDataV2);
+	if (!prCmdCalBackupDataV2) {
+		DBGLOG(RFTEST, ERROR, "Allocate prCmdCalBackupDataV2 ==> FAILED.\n");
+		return WLAN_STATUS_FAILURE;
+	}
+
+	kalMemZero(prCmdCalBackupDataV2, sizeof(CMD_CAL_BACKUP_STRUCT_V2_T));
 
 	prCalBackupDataV2Info = (P_PARAM_CAL_BACKUP_STRUCT_V2_T) pvQueryBuffer;
 
@@ -5605,6 +5612,8 @@ wlanoidQueryCoexIso(IN P_ADAPTER_T prAdapter,
 
 	if (u4QueryBufferLen)
 		ASSERT(pvQueryBuffer);
+
+	kalMemZero(&rCmdCoexCtrl, sizeof(struct CMD_COEX_CTRL));
 
 	*pu4QueryInfoLen = sizeof(struct PARAM_COEX_CTRL);
 
@@ -6153,6 +6162,8 @@ wlanoidQuerySwCtrlRead(IN P_ADAPTER_T prAdapter,
 	if (u4QueryBufferLen)
 		ASSERT(pvQueryBuffer);
 
+	kalMemZero(&rCmdSwCtrl, sizeof(CMD_SW_DBG_CTRL_T));
+
 	*pu4QueryInfoLen = sizeof(PARAM_CUSTOM_SW_CTRL_STRUCT_T);
 
 	if (u4QueryBufferLen < sizeof(PARAM_CUSTOM_SW_CTRL_STRUCT_T))
@@ -6287,6 +6298,8 @@ wlanoidSetSwCtrlWrite(IN P_ADAPTER_T prAdapter,
 
 	ASSERT(pvSetBuffer);
 
+	kalMemZero(&rCmdSwCtrl, sizeof(CMD_SW_DBG_CTRL_T));
+
 	prSwCtrlInfo = (P_PARAM_CUSTOM_SW_CTRL_STRUCT_T) pvSetBuffer;
 
 	u2Id = (UINT_16) (prSwCtrlInfo->u4Id >> 16);
@@ -6353,6 +6366,11 @@ wlanoidSetSwCtrlWrite(IN P_ADAPTER_T prAdapter,
 			prAdapter->rWifiVar.ucUapsd = (BOOLEAN) u4Data;
 		else if (u2SubId == 0x3) {
 			prAdapter->u4UapsdAcBmp = u4Data & BITS(0, 15);
+			if ((u4Data >> 16) > HW_BSSID_NUM)
+			{
+				DBGLOG(INIT, ERROR, "[%s] BSS index (%d) out of bound\n", __func__, (u4Data >> 16));
+				return WLAN_STATUS_INVALID_DATA;
+			}
 			GET_BSS_INFO_BY_INDEX(prAdapter,
 					      u4Data >> 16)->rPmProfSetupInfo.ucBmpDeliveryAC =
 			    (UINT_8) prAdapter->u4UapsdAcBmp;
@@ -7316,6 +7334,8 @@ wlanoidSetMulticastList(IN P_ADAPTER_T prAdapter,
 
 	ASSERT(prAdapter);
 	ASSERT(pu4SetInfoLen);
+
+	kalMemZero(&rCmdMacMcastAddr, sizeof(CMD_MAC_MCAST_ADDR));
 
 	/* The data must be a multiple of the Ethernet address size. */
 	if ((u4SetBufferLen % MAC_ADDR_LEN)) {
@@ -8460,7 +8480,6 @@ wlanoidSetNetworkAddress(IN P_ADAPTER_T prAdapter,
 	UINT_32 u4IpV4AddrListSize;
 	P_BSS_INFO_T prBssInfo = &prAdapter->rWifiVar.arBssInfoPool[KAL_NETWORK_TYPE_AIS_INDEX];
 #endif
-
 	DEBUGFUNC("wlanoidSetNetworkAddress");
 	DBGLOG(INIT, LOUD, "\n");
 
@@ -8502,6 +8521,8 @@ wlanoidSetNetworkAddress(IN P_ADAPTER_T prAdapter,
 
 	if (prCmdNetworkAddressList == NULL)
 		return WLAN_STATUS_FAILURE;
+
+	kalMemZero(prCmdNetworkAddressList, u4CmdSize);
 
 #if CFG_ENABLE_GTK_FRAME_FILTER
 	u4IpV4AddrListSize = OFFSET_OF(IPV4_NETWORK_ADDRESS_LIST, arNetAddr) +
@@ -8600,6 +8621,8 @@ wlanoidRftestSetTestMode(IN P_ADAPTER_T prAdapter,
 	ASSERT(prAdapter);
 	ASSERT(pu4SetInfoLen);
 
+	kalMemZero(&rCmdTestCtrl, sizeof(CMD_TEST_CTRL_T));
+
 	*pu4SetInfoLen = 0;
 
 	if (u4SetBufferLen == 0) {
@@ -8660,6 +8683,8 @@ wlanoidRftestSetTestIcapMode(IN P_ADAPTER_T prAdapter,
 	ASSERT(prAdapter);
 	ASSERT(pu4SetInfoLen);
 
+	kalMemZero(&rCmdTestCtrl, sizeof(CMD_TEST_CTRL_T));
+
 	*pu4SetInfoLen = 0;
 
 	if (u4SetBufferLen == 0) {
@@ -8718,6 +8743,8 @@ wlanoidRftestSetAbortTestMode(IN P_ADAPTER_T prAdapter,
 
 	ASSERT(prAdapter);
 	ASSERT(pu4SetInfoLen);
+
+	kalMemZero(&rCmdTestCtrl, sizeof(CMD_TEST_CTRL_T));
 
 	*pu4SetInfoLen = 0;
 
@@ -8995,6 +9022,7 @@ WLAN_STATUS rftestSetFrequency(IN P_ADAPTER_T prAdapter, IN UINT_32 u4FreqInKHz,
 	CMD_TEST_CTRL_T rCmdTestCtrl;
 
 	ASSERT(prAdapter);
+	kalMemZero(&rCmdTestCtrl, sizeof(CMD_TEST_CTRL_T));
 
 	rCmdTestCtrl.ucAction = 5;	/* Set Channel Frequency */
 	rCmdTestCtrl.u.u4ChannelFreq = u4FreqInKHz;
@@ -9226,7 +9254,8 @@ wlanoidSetWapiAssocInfo(IN P_ADAPTER_T prAdapter,
 	if (!wextSrchDesiredWAPIIE((PUINT_8) pvSetBuffer, u4SetBufferLen, (PUINT_8 *) &prWapiInfo))
 		return WLAN_STATUS_INVALID_LENGTH;
 
-	if (!prWapiInfo || prWapiInfo->ucLength < 18)
+	if (!prWapiInfo || prWapiInfo->ucLength < 18
+	    || prWapiInfo->ucLength > 40)
 		return WLAN_STATUS_INVALID_LENGTH;
 
 	u2IeLength = prWapiInfo->ucLength + 2;
@@ -9768,6 +9797,7 @@ wlanoidSetTxAmpdu(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer, IN UINT_32 u4S
 	ASSERT(prAdapter);
 	ASSERT(pvSetBuffer);
 	ASSERT(pu4SetInfoLen);
+	kalMemZero(&rTxAmpdu, sizeof(CMD_TX_AMPDU_T));
 
 	*pu4SetInfoLen = sizeof(BOOLEAN);
 
@@ -9813,6 +9843,8 @@ wlanoidSetAddbaReject(IN P_ADAPTER_T prAdapter,
 	ASSERT(prAdapter);
 	ASSERT(pvSetBuffer);
 	ASSERT(pu4SetInfoLen);
+
+	kalMemZero(&rAddbaReject, sizeof(CMD_ADDBA_REJECT_T));
 
 	*pu4SetInfoLen = sizeof(BOOLEAN);
 
@@ -11536,6 +11568,9 @@ batchGetCmd(IN P_ADAPTER_T prAdapter,
 	ASSERT(pu4QueryInfoLen);
 	if (u4QueryBufferLen)
 		ASSERT(pvQueryBuffer);
+
+	kalMemZero(&rCmdBatchReq, sizeof(CMD_BATCH_REQ_T));
+
 	prEventBatchResult = (P_EVENT_BATCH_RESULT_T) pvQueryBuffer;
 
 	DBGLOG(SCN, TRACE, "XXX Get Batch Scan Result (%d) XXX\n", prEventBatchResult->ucScanCount);
@@ -11817,6 +11852,7 @@ wlanoidSetMonitor(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer, IN UINT_32 u4S
 
 	ASSERT(prAdapter);
 	ASSERT(pu4SetInfoLen);
+	kalMemZero(&rCmdMonitorSetInfo, sizeof(CMD_MONITOR_SET_INFO_T));
 
 	*pu4SetInfoLen = sizeof(PARAM_CUSTOM_MONITOR_SET_STRUCT_T);
 
@@ -12325,6 +12361,7 @@ wlanoidQuerySetRddReport(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer, IN UINT
 		DBGLOG(INIT, ERROR, "prCmdRddOnOffCtrl is NULL");
 		return WLAN_STATUS_FAILURE;
 	}
+	kalMemZero(prCmdRddOnOffCtrl, sizeof(CMD_RDD_ON_OFF_CTRL_T));
 
 	prCmdRddOnOffCtrl->ucDfsCtrl = RDD_RADAR_EMULATE;
 
@@ -12397,6 +12434,7 @@ wlanoidQuerySetRadarDetectMode(IN P_ADAPTER_T prAdapter, IN PVOID pvSetBuffer, I
 		DBGLOG(INIT, ERROR, "prCmdRddOnOffCtrl is NULL");
 		return WLAN_STATUS_FAILURE;
 	}
+	kalMemZero(prCmdRddOnOffCtrl, sizeof(CMD_RDD_ON_OFF_CTRL_T));
 
 	prCmdRddOnOffCtrl->ucDfsCtrl = RDD_DET_MODE;
 
@@ -12590,6 +12628,7 @@ wlanoidGetTxPwrTbl(IN P_ADAPTER_T prAdapter,
 
 	DEBUGFUNC("wlanoidGetTxPwrTbl");
 	DBGLOG(REQ, LOUD, "\n");
+	kalMemZero(&CmdPwrTbl, sizeof(struct CMD_GET_TXPWR_TBL));
 
 	if (!prAdapter || (!pvQueryBuffer && u4QueryBufferLen) ||
 	    !pu4QueryInfoLen)
@@ -12634,6 +12673,7 @@ wlanoidGetTemperature(P_ADAPTER_T prAdapter,
 		      PUINT_32 pu4QueryInfoLen)
 {
 	struct EVENT_GET_TEMPERATURE temp;
+	kalMemZero(&temp, sizeof(struct EVENT_GET_TEMPERATURE));
 
 	if (!prAdapter || !pvQueryBuffer || !pu4QueryInfoLen)
 		return WLAN_STATUS_INVALID_DATA;

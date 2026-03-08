@@ -1004,6 +1004,13 @@ VOID rlmDomainSendDomainInfoCmd_V2(P_ADAPTER_T prAdapter, BOOLEAN fgIsOid)
 					max_channel_count * sizeof(struct channel);
 
 	prCmd = cnmMemAlloc(prAdapter, RAM_TYPE_BUF, buff_max_size);
+	ASSERT(prCmd);
+	if (!prCmd) {
+		DBGLOG(RLM, ERROR, "Allocate prCmd ==> FAILED.\n");
+		return;
+	}
+
+	kalMemZero(prCmd, buff_max_size);
 	prChs = &(prCmd->active_chs);
 
 
@@ -2589,6 +2596,7 @@ VOID rlmDomainSendPwrLimitCmd_V2(P_ADAPTER_T prAdapter)
 				DBGLOG(RLM, ERROR, "Domain: no buf to send cmd\n");
 				goto error;
 			}
+			kalMemZero(prTempCmd, u4BufSize);
 
 			/*copy partial tx pwr limit*/
 			prTempCmd->ucNum = ucTempChNum;

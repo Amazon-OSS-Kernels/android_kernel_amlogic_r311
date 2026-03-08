@@ -400,8 +400,11 @@ VOID swCtrlCmdCategory0(P_ADAPTER_T prAdapter, UINT_8 ucCate, UINT_8 ucAction, U
 				prAdapter->rQM.au4QmDebugCounters[i] = 0;
 			break;
 		case SWCTRL_QM_DBG_CNT:
+			if (ucOpt0 >= QM_DBG_CNT_NUM) {
+				DBGLOG(INIT, ERROR, "%s-SWCTRL_QM_DBG_CNT: ucOpt0:%d out of bound\n", __func__, ucOpt0);
+				return;
+			}
 			prAdapter->rQM.au4QmDebugCounters[ucOpt0] = g_au4SwCr[1];
-
 			break;
 #endif
 #if CFG_RX_PKTS_DUMP
@@ -648,11 +651,19 @@ VOID swCtrlCmdCategory0(P_ADAPTER_T prAdapter, UINT_8 ucCate, UINT_8 ucAction, U
 			break;
 
 		case SWCTRL_QM_DBG_CNT:
+			if (ucOpt0 >= QM_DBG_CNT_NUM) {
+				DBGLOG(INIT, ERROR, "%s-SWCTRL_QM_DBG_CNT: ucOpt0:%d out of bound\n", __func__, ucOpt0);
+				return;
+			}
 			g_au4SwCr[1] = prAdapter->rQM.au4QmDebugCounters[ucOpt0];
 			break;
 #endif
 		case SWCTRL_DUMP_BSS:
 			{
+				if (ucOpt0 >= (HW_BSSID_NUM + 1)) {
+					DBGLOG(INIT, ERROR, "%s-SWCTRL_DUMP_BSS: ucOpt0:%d out of bound\n", __func__, ucOpt0);
+					return;
+				}
 				dumpBss(prAdapter, GET_BSS_INFO_BY_INDEX(prAdapter, ucOpt0));
 			}
 			break;
@@ -1232,6 +1243,7 @@ VOID swCrDebugCheckTimeout(IN P_ADAPTER_T prAdapter, ULONG ulParamPtr)
 	CMD_SW_DBG_CTRL_T rCmdSwCtrl;
 	WLAN_STATUS rStatus;
 
+	kalMemZero(&rCmdSwCtrl, sizeof(CMD_SW_DBG_CTRL_T));
 	rCmdSwCtrl.u4Id = (0xb000 << 16) + g_ucSwcrDebugCheckType;
 	rCmdSwCtrl.u4Data = 0;
 	rStatus = wlanSendSetQueryCmd(prAdapter,	/* prAdapter */

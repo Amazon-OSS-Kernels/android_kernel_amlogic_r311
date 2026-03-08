@@ -394,10 +394,7 @@ static ssize_t procCfgWrite(struct file *file, const char __user *buffer,
 	pucTmp += i4Pos;
 	u4CopySize -= i4Pos;
 
-	if (u4CopySize >= (count+1))
-		u4CopySize = count;
-	else
-		u4CopySize -= 1;
+	u4CopySize = (count < u4CopySize) ? count : (u4CopySize - 1);
 
 	if ((u4CopySize < 0) || (copy_from_user(pucTmp, buffer, u4CopySize))) {
 		DBGLOG(INIT, ERROR, "error of copy from user\n");
@@ -439,10 +436,7 @@ static ssize_t procDriverCmdWrite(struct file *file, const char __user *buffer,
 		goto freeBuf;
 	}
 
-	if (u4CopySize >= (count+1))
-		u4CopySize = count;
-	else
-		u4CopySize -= 1;
+	u4CopySize = (count < u4CopySize) ? count : (u4CopySize - 1);
 
 	if (copy_from_user(pucProcBuf, buffer, u4CopySize)) {
 		DBGLOG(INIT, ERROR, "error of copy from user\n");
@@ -481,10 +475,7 @@ static ssize_t procDbgLevelWrite(struct file *file, const char __user *buffer,
 	}
 
 	temp = pucProcBuf;
-	if (u4CopySize >= count+1)
-		u4CopySize = count;
-	else
-		u4CopySize -= 1;
+	u4CopySize = (count < u4CopySize) ? count : (u4CopySize - 1);
 
 	if (copy_from_user(pucProcBuf, buffer, u4CopySize)) {
 		DBGLOG(INIT, ERROR, "error of copy from user\n");
@@ -1027,6 +1018,11 @@ static ssize_t procMCRRead(struct file *filp, char __user *buf, size_t count, lo
 
 	rStatus = kalIoctl(prGlueInfo,
 			   wlanoidQueryMcrRead, (PVOID)&rMcrInfo, sizeof(rMcrInfo), TRUE, TRUE, TRUE, &u4BufLen);
+	if (rStatus != WLAN_STATUS_SUCCESS) {
+		DBGLOG(INIT, ERROR, "[%s] kalIoctl failed\n", __func__);
+		i4Ret = -EFAULT;
+		goto freeBuf;
+	}
 
 	u4CopySize = scnprintf(temp, PROC_MAX_BUF_SIZE - kalStrLen(pucProcBuf),
 				 "MCR (0x%08xh): 0x%08x\n", rMcrInfo.u4McrOffset, rMcrInfo.u4McrData);
@@ -1076,8 +1072,10 @@ static ssize_t procMCRWrite(struct file *file, const char __user *buffer,
 	ASSERT(data);
 
 	u4CopySize = (count < sizeof(acBuf)) ? count : (sizeof(acBuf) - 1);
-	if (copy_from_user(acBuf, buffer, u4CopySize))
-		return 0;
+	if (copy_from_user(acBuf, buffer, u4CopySize)) {
+		DBGLOG(INIT, ERROR, "error of copy from user\n");
+		return -EFAULT;
+	}
 	acBuf[u4CopySize] = '\0';
 
 	num = sscanf(acBuf, "0x%x 0x%x", &rMcrInfo.u4McrOffset, &rMcrInfo.u4McrData);
@@ -1303,7 +1301,7 @@ INT_32 procCreateFsEntry(P_GLUE_INFO_T prGlueInfo)
 			return -1;
 		}
 #if CFG_CHIP_RESET_SUPPORT
-	prEntry = proc_create(PROC_RESET_CMD, 0664, gprProcRoot, &reset_ops);
+	prEntry = proc_create(PROC_RESET_CMD, 0660, gprProcRoot, &reset_ops);
 	if (prEntry == NULL) {
 		DBGLOG(INIT, ERROR,
 			"Unable to create /proc entry for driver command\n\r");
@@ -1431,7 +1429,10 @@ static int procRxStatisticsWrite(struct file *file, const char *buffer, unsigned
 	ASSERT(data);
 
 	u4CopySize = (count < (sizeof(acBuf) - 1)) ? count : (sizeof(acBuf) - 1);
-	copy_from_user(acBuf, buffer, u4CopySize);
+	if (copy_from_user(acBuf, buffer, u4CopySize)) {
+		DBGLOG(INIT, ERROR, "error of copy from user\n");
+		return -EFAULT;
+	}
 	acBuf[u4CopySize] = '\0';
 
 	rv = kstrtoint(acBuf, 0, &u4ClearCounter);
@@ -1519,7 +1520,10 @@ static int procTxStatisticsWrite(struct file *file, const char *buffer, unsigned
 	ASSERT(data);
 
 	u4CopySize = (count < (sizeof(acBuf) - 1)) ? count : (sizeof(acBuf) - 1);
-	copy_from_user(acBuf, buffer, u4CopySize);
+	if (copy_from_user(acBuf, buffer, u4CopySize)) {
+		DBGLOG(INIT, ERROR, "error of copy from user\n");
+		return -EFAULT;
+	}
 	acBuf[u4CopySize] = '\0';
 
 	rv = kstrtoint(acBuf, 0, &u4ClearCounter);

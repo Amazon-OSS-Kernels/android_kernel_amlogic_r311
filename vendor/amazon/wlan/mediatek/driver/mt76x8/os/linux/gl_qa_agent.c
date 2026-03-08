@@ -2088,6 +2088,7 @@ static INT_32 HQA_ReadBulkEEPROM(struct net_device *prNetDev,
 	PARAM_CUSTOM_ACCESS_EFUSE_T rAccessEfuseInfo;
 	UINT_32 u4BufLen = 0;
 	UINT_8  u4Loop = 0;
+	uint32_t u4TotalOffset = 0;
 
 	UINT_16 Buffer;
 	P_GLUE_INFO_T prGlueInfo = NULL;
@@ -2149,13 +2150,13 @@ static INT_32 HQA_ReadBulkEEPROM(struct net_device *prNetDev,
 		}
 #endif
 		for (u4Loop = 0; u4Loop < Len; u4Loop += 2) {
-			if (Offset + u4Loop + 2 > sizeof(prGlueInfo->prAdapter->aucEepromVaule))
-			{
+			u4TotalOffset = Offset + u4Loop;
+			if (u4TotalOffset >= EFUSE_BLOCK_SIZE - 1) {
 				DBGLOG(RFTEST, ERROR, "%s : memcpy data overflow, offset=%lu, ignored.\n",
-					__func__, Offset + u4Loop + 2);
+					__func__, Offset + u4TotalOffset + 2);
 				break;
 			}
-			memcpy(&Buffer, prGlueInfo->prAdapter->aucEepromVaule + Offset + u4Loop, 2);
+			memcpy(&Buffer, prGlueInfo->prAdapter->aucEepromVaule + u4TotalOffset, 2);
 			Buffer = ntohs(Buffer);
 			DBGLOG(INIT, INFO, "MT6632 :From Efuse  u4Loop=%d  Buffer=%x\n", u4Loop, Buffer);
 			if (2 + u4Loop + 2 > sizeof(HqaCmdFrame->Data))
@@ -2169,13 +2170,13 @@ static INT_32 HQA_ReadBulkEEPROM(struct net_device *prNetDev,
 
 	} else {  /* Read from EEPROM */
 		for (u4Loop = 0; u4Loop < Len; u4Loop += 2) {
-			if (Offset + u4Loop + 2 > sizeof(uacEEPROMImage))
-			{
+			u4TotalOffset = Offset + u4Loop;
+			if (u4TotalOffset >= MAX_EEPROM_BUFFER_SIZE - 1) {
 				DBGLOG(RFTEST, ERROR, "%s : memcpy data overflow, offset=%lu, ignored.\n",
-					__func__, Offset + u4Loop + 2);
+					__func__, u4TotalOffset + 2);
 				break;
 			}
-			memcpy(&Buffer, uacEEPROMImage + Offset + u4Loop, 2);
+			memcpy(&Buffer, uacEEPROMImage + u4TotalOffset, 2);
 			Buffer = ntohs(Buffer);
 			if (2 + u4Loop + 2 > sizeof(HqaCmdFrame->Data))
 			{
@@ -2185,7 +2186,7 @@ static INT_32 HQA_ReadBulkEEPROM(struct net_device *prNetDev,
 			}
 			memcpy(HqaCmdFrame->Data + 2 + u4Loop, &Buffer, 2);
 			DBGLOG(INIT, INFO, "MT6632 : QA_AGENT HQA_ReadBulkEEPROM u4Loop=%d  u4Value=%x\n",
-				u4Loop, uacEEPROMImage[Offset + u4Loop]);
+				u4Loop, uacEEPROMImage[u4TotalOffset]);
 		}
 	}
 #endif

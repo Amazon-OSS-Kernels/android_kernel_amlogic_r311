@@ -290,6 +290,7 @@ VOID cnmChMngrAbortPrivilege(P_ADAPTER_T prAdapter, P_MSG_HDR_T prMsgHdr)
 		cnmMemFree(prAdapter, prMsgHdr);
 		return;
 	}
+	kalMemZero(prCmdBody, sizeof(CMD_CH_PRIVILEGE_T));
 
 	prCmdBody->ucBssIndex = prMsgChAbort->ucBssIndex;
 	prCmdBody->ucTokenID = prMsgChAbort->ucTokenID;

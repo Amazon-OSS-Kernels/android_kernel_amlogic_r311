@@ -1216,6 +1216,10 @@ kalDevPortRead(IN P_GLUE_INFO_T prGlueInfo,
 	pucDst = pucBuf;
 
 	ASSERT(u4Len <= u4ValidOutBufSize);
+	if (u4Len > u4ValidOutBufSize) {
+		DBGLOG(HAL, ERROR, "kalDevPortRead: invalid len: %d out of bound(%d)\n", u4Len, u4ValidOutBufSize);
+		return FALSE;
+	}
 
 #if (MTK_WCN_HIF_SDIO == 0)
 	prSdioFunc = prHifInfo->func;
