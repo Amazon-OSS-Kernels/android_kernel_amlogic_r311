@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015 - 2020 Amazon.com, Inc. or its affiliates.  All rights reserved.
+ * Copyright (c) 2015 - 2022 Amazon.com, Inc. or its affiliates.  All rights reserved.
  */
 
 #include "amzn_onetime_unlock.h"
@@ -157,7 +157,7 @@ error:
 int amzn_set_onetime_unlock_cert(const char *buf, unsigned int size)
 {
     unsigned char *b64;
-    size_t out_len;
+    size_t out_len = size;
     b64 = (unsigned char *)buf;
 
     if (amzn_onetime_unlock_b64_decode(b64, size, b64, (size_t *)(&out_len))) {
@@ -177,7 +177,7 @@ int amzn_set_onetime_unlock_cert(const char *buf, unsigned int size)
 int amzn_set_onetime_unlock_code(const char *buf, unsigned int size)
 {
     unsigned char *b64;
-    size_t out_len;
+    size_t out_len = size;
     b64 = (unsigned char *)buf;
 
     if (amzn_onetime_unlock_b64_decode(b64, size, b64, (size_t *)(&out_len))) {
