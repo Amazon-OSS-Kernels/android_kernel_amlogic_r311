@@ -69,6 +69,8 @@ static int lowmem_minfree[6] = {
 static int lowmem_minfree_size = 4;
 
 static unsigned long lowmem_deathpending_timeout;
+static pid_t lowmem_deathpending_tgid;
+static unsigned long lowmem_kill_timeout;
 
 /* ACOS_MOD_BEGIN {fwk_crash_log_collection} */
 /* Declarations */
@@ -197,6 +199,14 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 						global_page_state(NR_UNEVICTABLE) -
 						total_swapcache_pages();
 
+	/* Avoid to have too many parallel executions from direct reclaim when
+       memory pressure is really critical. The cost of going through task
+       list to find one to kill is too high when allow parallel execution */
+	if (time_before_eq(jiffies, lowmem_kill_timeout) && (!current_is_kswapd())) {
+		lowmem_print(5, "skip kill for direct reclaim within kill timeout\n");
+		return 0;
+	}
+
 	/* ACOS_MOD_BEGIN {fwk_crash_log_collection} */
 	if (mutex_trylock(&lowmem_mutex) == 0) {
 		lowmem_print(5, "already in scan, return 0\n");
@@ -244,7 +254,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		if (!p)
 			continue;
 
-		if (test_tsk_thread_flag(p, TIF_MEMDIE) &&
+		if ((test_tsk_thread_flag(p, TIF_MEMDIE) || (lowmem_deathpending_tgid == task_tgid_nr(p))) &&
 		    time_before_eq(jiffies, lowmem_deathpending_timeout)) {
 			task_unlock(p);
 			rcu_read_unlock();
@@ -317,6 +327,7 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 	/* ACOS_MOD_END {fwk_crash_log_collection} */
 
 	if (selected) {
+		lowmem_deathpending_tgid = task_tgid_nr(selected);
 		lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
 				"   to free %ldkB on behalf of '%s' (%d) because\n" \
 				"   cache %ldkB is below limit %ldkB for oom_score_adj %hd\n" \
@@ -339,6 +350,8 @@ static unsigned long lowmem_scan(struct shrinker *s, struct shrink_control *sc)
 		}
 		/* ACOS_MOD_END {fwk_crash_log_collection} */
 		lowmem_deathpending_timeout = jiffies + HZ;
+		/* for skipping scan from direct reclaim in next 100ms*/
+		lowmem_kill_timeout = jiffies + HZ/10;
 		send_sig(SIGKILL, selected, 0);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
 		rem += selected_tasksize;
