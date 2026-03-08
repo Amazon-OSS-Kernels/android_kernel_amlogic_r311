@@ -1095,7 +1095,7 @@ static void kbd_bh(unsigned long dummy)
 {
 	unsigned char leds;
 	unsigned long flags;
-	
+
 	spin_lock_irqsave(&led_lock, flags);
 	leds = getleds();
 	spin_unlock_irqrestore(&led_lock, flags);
@@ -1407,6 +1407,12 @@ static bool kbd_match(struct input_handler *handler, struct input_dev *dev)
 static int kbd_connect(struct input_handler *handler, struct input_dev *dev,
 			const struct input_device_id *id)
 {
+/* vt keyboard is not used in fireTV product
+ * kbd_connect will call uhid_open during firetv remote probe
+ * this uhi_open will mislead BT statck to think the event hub
+ * is ready
+ */
+#ifndef CONFIG_HID_FTV_BLEREMOTE
 	struct input_handle *handle;
 	int error;
 
@@ -1433,6 +1439,9 @@ static int kbd_connect(struct input_handler *handler, struct input_dev *dev,
  err_free_handle:
 	kfree(handle);
 	return error;
+#else
+	return -1;
+#endif
 }
 
 static void kbd_disconnect(struct input_handle *handle)
@@ -1655,7 +1664,7 @@ int vt_do_diacrit(unsigned int cmd, void __user *up, int perm)
 				kfree(buf);
 				return -EFAULT;
 			}
-		} 
+		}
 		spin_lock_irqsave(&kbd_event_lock, flags);
 		if (ct)
 			memcpy(accent_table, buf,

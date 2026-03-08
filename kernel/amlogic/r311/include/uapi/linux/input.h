@@ -483,6 +483,9 @@ struct input_keymap_entry {
 #define KEY_POWER_CEC		252
 #define KEY_CUSTOM_4		253	/* APP_4 Vue Music key */
 #define KEY_CUSTOM_5		254
+#define KEY_CUSTOM_6            0x27e   /*abs123 Presetting 1 */
+#define KEY_CUSTOM_7            0x27f   /*abs123 Presetting 2 */
+#define KEY_CUSTOM_8            0x280   /*abs123 Audio Pair/Headset */
 
 #define KEY_VNUMPAD		0x2ec
 #define KEY_SETTINGS		750
