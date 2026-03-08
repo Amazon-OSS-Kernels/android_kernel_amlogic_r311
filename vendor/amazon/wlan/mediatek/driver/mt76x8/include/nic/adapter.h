@@ -226,6 +226,31 @@ typedef struct _CONNECTION_SETTINGS_T {
 
 	/* for RSN info store, when upper layer set rsn info */
 	RSN_INFO_T rRsnInfo;
+
+#if CFG_SUPPORT_CFG80211_AUTH
+	struct cfg80211_bss *bss;
+
+	BOOLEAN fgIsConnInitialized;
+
+	BOOLEAN fgIsSendAssoc;
+
+	BOOLEAN ucAuthDataLen;
+	/* Temp assign a fixed large number
+	 * Additional elements for Authentication frame,
+	 * starts with the Authentication transaction sequence number field
+	 */
+	BOOLEAN aucAuthData[AUTH_DATA_MAX_LEN];
+	UINT_8 ucChannelNum;
+#endif
+
+#if CFG_SUPPORT_OWE
+	/* for OWE info store, when upper layer set rsn info */
+	struct OWE_INFO_T rOweInfo;
+#endif
+
+#if CFG_SUPPORT_H2E
+	struct RSNXE rRsnXE;
+#endif
 } CONNECTION_SETTINGS_T, *P_CONNECTION_SETTINGS_T;
 
 struct _BSS_INFO_T {
@@ -866,14 +891,19 @@ typedef struct _WIFI_VAR_T {
 #endif
 
 #ifdef SUPPORT_PERIODIC_PS
-        UINT_8 ucPspCAMInt;
-        UINT_8 ucAwakePspCAMInt;
+	UINT_8 ucPspCAMInt;
+	UINT_8 ucAwakePspCAMInt;
 #define  PSP_CAM_INT_DEFAULT        20
 #define  AWAKE_PSP_CAM_INT_DEFAULT  20
-        UINT_8 ucPspPSInt;
-        UINT_8 ucAwakePspPSInt;
+	UINT_8 ucPspPSInt;
+	UINT_8 ucAwakePspPSInt;
 #define  PSP_PS_INT_DEFAULT         10
 #define  AWAKE_PSP_PS_INT_DEFAULT   10
+#endif
+
+#if CFG_SUPPORT_CFG80211_AUTH
+	UINT_8 ucWaitConnect;
+#define WAIT_CONNECT_DEFAULT        20
 #endif
 
 #if CFG_SUPPORT_REPLAY_DETECTION
@@ -945,6 +975,9 @@ typedef struct _WIFI_VAR_T {
 	UINT_32 u4ReorderTimoutPerTid[TX_DESC_TID_NUM];
 #endif
 
+#if CFG_KEY_ERROR_STATISTIC_RECOVERY
+	INT_32 u4BmcKeyErrorTh;
+#endif
 } WIFI_VAR_T, *P_WIFI_VAR_T;	/* end of _WIFI_VAR_T */
 
 /* cnm_timer module */
@@ -1148,6 +1181,11 @@ struct _ADAPTER_T {
 #if CFG_SUPPORT_MULTITHREAD
 	QUE_T rTxCmdQueue;
 	QUE_T rTxCmdDoneQueue;
+#if CFG_SUPPORT_CFG80211_AUTH
+#if CFG_WDEV_LOCK_THREAD_SUPPORT
+	QUE_T rWDevLockQueue;
+#endif
+#endif
 #if CFG_FIX_2_TX_PORT
 	QUE_T rTxP0Queue;
 	QUE_T rTxP1Queue;

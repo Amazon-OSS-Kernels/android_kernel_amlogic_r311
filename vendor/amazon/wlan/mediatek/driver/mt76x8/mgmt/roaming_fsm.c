@@ -411,6 +411,8 @@ VOID roamingFsmRunEventStart(IN P_ADAPTER_T prAdapter)
 	P_BSS_INFO_T prAisBssInfo;
 	CMD_ROAMING_TRANSIT_T rTransit;
 
+	kalMemZero(&rTransit, sizeof(CMD_ROAMING_TRANSIT_T));
+
 	prRoamingFsmInfo = (P_ROAMING_INFO_T) &(prAdapter->rWifiVar.rRoamingInfo);
 
 	/* Check Roaming Conditions */
@@ -499,6 +501,8 @@ VOID roamingFsmRunEventRoam(IN P_ADAPTER_T prAdapter)
 	ENUM_ROAMING_STATE_T eNextState;
 	CMD_ROAMING_TRANSIT_T rTransit;
 
+	kalMemZero(&rTransit, sizeof(CMD_ROAMING_TRANSIT_T));
+
 	prRoamingFsmInfo = (P_ROAMING_INFO_T) &(prAdapter->rWifiVar.rRoamingInfo);
 
 	/* Check Roaming Conditions */
@@ -539,6 +543,7 @@ VOID roamingFsmRunEventFail(IN P_ADAPTER_T prAdapter, IN UINT_32 u4Param)
 	ENUM_ROAMING_STATE_T eNextState;
 	CMD_ROAMING_TRANSIT_T rTransit;
 
+	kalMemZero(&rTransit, sizeof(CMD_ROAMING_TRANSIT_T));
 	prRoamingFsmInfo = (P_ROAMING_INFO_T) &(prAdapter->rWifiVar.rRoamingInfo);
 
 	/* Check Roaming Conditions */
@@ -580,6 +585,7 @@ VOID roamingFsmRunEventAbort(IN P_ADAPTER_T prAdapter)
 	ENUM_ROAMING_STATE_T eNextState;
 	CMD_ROAMING_TRANSIT_T rTransit;
 
+	kalMemZero(&rTransit, sizeof(CMD_ROAMING_TRANSIT_T));
 	prRoamingFsmInfo = (P_ROAMING_INFO_T) &(prAdapter->rWifiVar.rRoamingInfo);
 
 	/* Check Roaming Conditions */
