@@ -11958,6 +11958,10 @@ wlanoidAdvCtrl(IN P_ADAPTER_T prAdapter,
 		len = sizeof(struct CMD_ADMIN_CTRL_CONFIG);
 		break;
 #endif
+	case CMD_GET_MAGIC_PKT_INFO_TYPE:
+		*pu4QueryInfoLen = sizeof(CMD_GET_MAGIC_PKT_INFO_T);
+		len = sizeof(CMD_GET_MAGIC_PKT_INFO_T);
+		break;
 	default:
 		return WLAN_STATUS_INVALID_LENGTH;
 	}
@@ -12915,3 +12919,32 @@ WLAN_STATUS wlanoidPktProcessIT(IN P_ADAPTER_T prAdapter, IN PVOID pvBuffer,
 	return WLAN_STATUS_SUCCESS;
 }
 #endif
+
+WLAN_STATUS
+wlanSuspendLinkDown(IN P_GLUE_INFO_T prGlueInfo)
+{
+	UINT_32 u4BufLen;
+	WLAN_STATUS rStatus = WLAN_STATUS_SUCCESS;
+	P_AIS_FSM_INFO_T prAisFsmInfo;
+
+	prAisFsmInfo = &(prGlueInfo->prAdapter->rWifiVar.rAisFsmInfo);
+
+	aisFsmStateAbort_SCAN(prGlueInfo->prAdapter);
+
+	/* 1) wifi cfg "Wow" must be true, 2) wow is disable 3) WIfI connected => execute link down flow */
+	if (prGlueInfo->prAdapter->rWifiVar.ucWow && !prGlueInfo->prAdapter->rWowCtrl.fgWowEnable) {
+		if (kalGetMediaStateIndicated(prGlueInfo) == PARAM_MEDIA_STATE_CONNECTED ||
+			prAisFsmInfo->eCurrentState == AIS_STATE_DISCONNECTING) {
+
+			/* Only flush all pending AIS Reqs for suspend linkdown */
+			aisFsmFlushRequest(prGlueInfo->prAdapter);
+
+			DBGLOG(REQ, STATE, "Suspend link down\n");
+			rStatus = kalIoctl(prGlueInfo, wlanoidLinkDown, NULL, 0, TRUE, FALSE, FALSE, &u4BufLen);
+			if(rStatus != WLAN_STATUS_SUCCESS)
+				DBGLOG(REQ, WARN, "Suspend link down failed\n");
+		}
+	}
+
+	return rStatus;
+}
