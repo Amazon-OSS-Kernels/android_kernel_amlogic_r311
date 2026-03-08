@@ -370,9 +370,9 @@ static __KAL_INLINE__ VOID assocBuildReAssocReqFrameCommonIEs(IN P_ADAPTER_T prA
 
 #if CFG_RATE_CONTROL
 		u2SupportedRateSet &= prAdapter->rWifiVar.u4RxNonHTRateMask;
-		rateGetDataRatesFromRateSet(u2SupportedRateSet, 0, aucAllSupportedRates, &ucAllSupportedRatesLen);
+		rateGetDataRatesFromRateSet(u2SupportedRateSet, prStaRec->u2BSSBasicRateSet, aucAllSupportedRates, &ucAllSupportedRatesLen);
 #else
-		rateGetDataRatesFromRateSet(u2SupportedRateSet, 0, aucAllSupportedRates, &ucAllSupportedRatesLen);
+		rateGetDataRatesFromRateSet(u2SupportedRateSet, prStaRec->u2BSSBasicRateSet, aucAllSupportedRates, &ucAllSupportedRatesLen);
 #endif
 
 		ucSupRatesLen = ((ucAllSupportedRatesLen > ELEM_MAX_LEN_SUP_RATES) ?
