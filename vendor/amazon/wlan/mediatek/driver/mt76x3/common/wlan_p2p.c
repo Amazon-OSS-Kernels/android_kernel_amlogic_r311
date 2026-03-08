@@ -963,6 +963,7 @@ wlanoidSetP2PMulticastList(IN struct ADAPTER *prAdapter,
 		return WLAN_STATUS_ADAPTER_NOT_READY;
 	}
 
+	memset(&rCmdMacMcastAddr, 0, sizeof(struct CMD_MAC_MCAST_ADDR));
 	rCmdMacMcastAddr.u4NumOfGroupAddr = u4SetBufferLen / MAC_ADDR_LEN;
 	/* TODO: */
 	rCmdMacMcastAddr.ucBssIndex = prAdapter->ucP2PDevBssIdx;

@@ -362,7 +362,10 @@ void rlmProcessPublicAction(struct ADAPTER *prAdapter,
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prSwRfb->ucStaRecIdx);
 
 	if (!(prSwRfb->prStaRec)) {
-		DBGLOG(P2P, INFO, "prSwRfb->prStaRec is null.\n");
+		/* Unicast */
+		if (!(prSwRfb->fgIsBC || prSwRfb->fgIsMC)) {
+			DBGLOG(P2P, ERROR, "prSwRfb->prStaRec is null.\n");
+		}
 		return;
 	}
 

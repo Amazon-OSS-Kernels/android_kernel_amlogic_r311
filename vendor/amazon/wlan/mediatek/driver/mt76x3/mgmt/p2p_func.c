@@ -1538,6 +1538,8 @@ p2pFuncSwitchOPMode(IN struct ADAPTER *prAdapter,
 
 			if (1) {
 				struct P2P_DISCONNECT_INFO rP2PDisInfo;
+				memset(&rP2PDisInfo, 0,
+					sizeof(struct P2P_DISCONNECT_INFO));
 
 				rP2PDisInfo.ucRole = 2;
 				wlanSendSetQueryCmd(prAdapter,
@@ -1837,11 +1839,7 @@ void p2pFuncDfsSwitchCh(IN struct ADAPTER *prAdapter,
 		IN struct P2P_CHNL_REQ_INFO rP2pChnlReqInfo)
 {
 
-	struct GLUE_INFO *prGlueInfo;
-	struct P2P_ROLE_FSM_INFO *prP2pRoleFsmInfo =
-		(struct P2P_ROLE_FSM_INFO *) NULL;
 	struct CMD_RDD_ON_OFF_CTRL *prCmdRddOnOffCtrl;
-	struct GL_P2P_INFO *prP2PInfo = NULL;
 
 	DEBUGFUNC("p2pFuncDfsSwitchCh()");
 
@@ -1945,33 +1943,7 @@ void p2pFuncDfsSwitchCh(IN struct ADAPTER *prAdapter,
 
 	cnmMemFree(prAdapter, prCmdRddOnOffCtrl);
 
-	prP2pRoleFsmInfo =
-		P2P_ROLE_INDEX_2_ROLE_FSM_INFO(prAdapter,
-			prBssInfo->u4PrivateData);
-
-	prGlueInfo = prAdapter->prGlueInfo;
-	prP2PInfo = (struct GL_P2P_INFO *)prGlueInfo->
-		prP2PInfo[prP2pRoleFsmInfo->ucRoleIndex];
-
-	if (prP2PInfo->chandef) {
-		if (prP2PInfo->prDevHandler) {
-			DBGLOG(P2P, INFO, "p2pFuncDfsSwitchCh: Update to OS\n");
-			cfg80211_ch_switch_notify(
-				prP2PInfo->prDevHandler,
-				prP2PInfo->chandef
-#if KERNEL_VERSION(5, 19, 2) <= CFG80211_VERSION_CODE
-				, 0
-#endif
-#if KERNEL_VERSION(6, 3, 0) <= CFG80211_VERSION_CODE
-				, 0
-#endif
-				);
-			DBGLOG(P2P, INFO,
-				"p2pFuncDfsSwitchCh: Update to OS Done\n");
-		} else
-			DBGLOG(P2P, ERROR, "NULL prDevHandler\n");
-	} else
-		DBGLOG(P2P, ERROR, "NULL chandef\n");
+	kalP2pIndicateChnlSwitch(prAdapter, prBssInfo);
 } /* p2pFuncDfsSwitchCh */
 
 u_int8_t p2pFuncCheckWeatherRadarBand(
@@ -3698,6 +3670,8 @@ p2pFuncParseBeaconContent(IN struct ADAPTER *prAdapter,
 		(struct P2P_SPECIFIC_BSS_INFO *) NULL;
 	uint8_t i = 0;
 	struct RSN_INFO rRsnIe;
+
+	kalMemZero(&rRsnIe, sizeof(struct RSN_INFO));
 
 	do {
 		ASSERT_BREAK((prAdapter != NULL) && (prP2pBssInfo != NULL));

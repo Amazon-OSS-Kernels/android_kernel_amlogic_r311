@@ -146,17 +146,6 @@ struct bt_cfg_struct {
 	struct fw_cfg_struct vendor_cmd[VENDOR_CMD_COUNT];
 };
 
-enum {
-	LOAD_PATCH_URB,
-	RX_INTR_URB,
-	RX_BULK_URB,
-	RX_ISOC_URB,
-	TX_ACL_URB,
-	TX_SCO_URB,
-
-	URB_NUM
-};
-
 struct btmtk_usb_data {
 	struct usb_device	*udev;	/* store the usb device informaiton */
 	struct usb_interface	*intf;	/* current interface */
@@ -171,7 +160,6 @@ struct btmtk_usb_data {
 	struct usb_anchor	bulk_out_anchor;/* bulk out */
 	struct usb_anchor	isoc_in_anchor;	/* isoc in */
 	struct usb_anchor	isoc_out_anchor;/* isoc out */
-	struct urb 		*urb[URB_NUM];
 	int			meta_tx;
 	spinlock_t		txlock;
 

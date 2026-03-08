@@ -568,8 +568,12 @@ static ssize_t procDbgLevelWrite(struct file *file, const char __user *buffer,
 	/*add chip reset cmd for manual test*/
 #if CFG_CHIP_RESET_SUPPORT
 	if (temp[0] == 'R') {
-
-		DBGLOG(INIT, ERROR, "WIFI trigger reset!!\n");
+		DBGLOG(INIT, STATE, "WIFI trigger reset!!\n");
+		if(g_prGlueInfo_proc == NULL) {
+			DBGLOG(INIT, STATE, "prGlueInfo is NULL, skip reset\n");
+			i4Ret = -EFAULT;
+			goto freeBuf;
+		}
 		GL_RESET_TRIGGER(g_prGlueInfo_proc->prAdapter,
 					RST_FLAG_CHIP_RESET, RST_CMD_TRIGGER);
 		temp[0] = 'X';
@@ -2002,7 +2006,7 @@ static ssize_t procMCRRead(struct file *filp, char __user *buf,
 {
 	uint8_t *pucProcBuf = kalMemZAlloc(PROC_MAX_BUF_SIZE, VIR_MEM_TYPE);
 	struct GLUE_INFO *prGlueInfo;
-	struct PARAM_CUSTOM_MCR_RW_STRUCT rMcrInfo;
+	struct PARAM_CUSTOM_MCR_RW_STRUCT rMcrInfo = {0};
 	uint32_t u4BufLen;
 	uint32_t u4CopySize = 0;
 	uint8_t *temp = NULL;

@@ -229,6 +229,7 @@ void scnEventReturnChannel(IN struct ADAPTER *prAdapter,
 	struct CMD_SCAN_CANCEL rCmdScanCancel;
 
 	/* send cancel message to firmware domain */
+	memset(&rCmdScanCancel, 0, sizeof(struct CMD_SCAN_CANCEL));
 	rCmdScanCancel.ucSeqNum = ucScnSeqNum;
 	rCmdScanCancel.ucIsExtChannel = (uint8_t) FALSE;
 

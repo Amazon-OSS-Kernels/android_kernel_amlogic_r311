@@ -1816,6 +1816,8 @@ uint32_t nicPmIndicateBssCreated(IN struct ADAPTER
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
 
+	memset(&rCmdIndicatePmBssCreated, 0,
+		sizeof(struct CMD_INDICATE_PM_BSS_CREATED));
 	rCmdIndicatePmBssCreated.ucBssIndex = ucBssIndex;
 	rCmdIndicatePmBssCreated.ucDtimPeriod =
 		prBssInfo->ucDTIMPeriod;
@@ -1858,6 +1860,8 @@ uint32_t nicPmIndicateBssConnected(IN struct ADAPTER
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
 
+	memset(&rCmdIndicatePmBssConnected, 0,
+		sizeof(struct CMD_INDICATE_PM_BSS_CONNECTED));
 	rCmdIndicatePmBssConnected.ucBssIndex = ucBssIndex;
 	rCmdIndicatePmBssConnected.ucDtimPeriod =
 		prBssInfo->ucDTIMPeriod;
@@ -1933,6 +1937,8 @@ uint32_t nicPmIndicateBssAbort(IN struct ADAPTER *prAdapter,
 	ASSERT(prAdapter);
 	ASSERT(ucBssIndex <= prAdapter->ucHwBssIdNum);
 
+	memset(&rCmdIndicatePmBssAbort, 0,
+		sizeof(struct CMD_INDICATE_PM_BSS_ABORT));
 	rCmdIndicatePmBssAbort.ucBssIndex = ucBssIndex;
 
 	return wlanSendSetQueryCmd(prAdapter,
@@ -2092,6 +2098,7 @@ nicConfigProcSetCamCfgWrite(IN struct ADAPTER *prAdapter,
 	ucBssIndex = prAdapter->prAisBssInfo->ucBssIndex;
 	if (ucBssIndex >= BSS_DEFAULT_NUM)
 		return WLAN_STATUS_FAILURE;
+	memset(&rPowerSaveMode, 0, sizeof(struct CMD_PS_PROFILE));
 	rPowerSaveMode.ucBssIndex = ucBssIndex;
 
 	if (enabled) {
@@ -2191,6 +2198,7 @@ uint32_t nicEnterCtiaMode(IN struct ADAPTER *prAdapter,
 	ASSERT(prAdapter);
 
 	rWlanStatus = WLAN_STATUS_SUCCESS;
+	memset(&rCmdSwCtrl, 0, sizeof(struct CMD_SW_DBG_CTRL));
 
 	if (fgEnterCtia) {
 		/* 1. Disable On-Lin Scan */
@@ -2297,6 +2305,7 @@ uint32_t nicEnterCtiaModeOfRoaming(IN struct ADAPTER
 	       fgEnterCtia);
 
 	rWlanStatus = WLAN_STATUS_SUCCESS;
+	memset(&rCmdSwCtrl, 0, sizeof(struct CMD_SW_DBG_CTRL));
 
 	if (fgEnterCtia) {
 		/* Disable Roaming */
@@ -2400,6 +2409,7 @@ uint32_t nicEnterCtiaModeOfAutoTxPower(IN struct ADAPTER
 	       fgEnterCtia);
 
 	rWlanStatus = WLAN_STATUS_SUCCESS;
+	memset(&rCmdSwCtrl, 0, sizeof(struct CMD_SW_DBG_CTRL));
 
 	if (fgEnterCtia) {
 		/* Disalbe auto tx power */
@@ -2445,6 +2455,7 @@ uint32_t nicEnterCtiaModeOfFIFOFullNoAck(IN struct ADAPTER
 	       fgEnterCtia);
 
 	rWlanStatus = WLAN_STATUS_SUCCESS;
+	memset(&rCmdSwCtrl, 0, sizeof(struct CMD_SW_DBG_CTRL));
 
 	if (fgEnterCtia) {
 		/* Disable FIFO FULL no ack */
@@ -2490,6 +2501,7 @@ uint32_t nicEnterTPTestMode(IN struct ADAPTER *prAdapter,
 	ASSERT(prAdapter);
 
 	rWlanStatus = WLAN_STATUS_SUCCESS;
+	memset(&rCmdSwCtrl, 0, sizeof(struct CMD_SW_DBG_CTRL));
 
 	if (ucFuncMask) {
 		/* 1. Disable On-Lin Scan */
@@ -2733,6 +2745,7 @@ uint32_t nicQmUpdateWmmParms(IN struct ADAPTER *prAdapter,
 	       sizeof(struct WIFI_CMD));
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex);
+	memset(&rCmdUpdateWmmParms, 0, sizeof(struct CMD_UPDATE_WMM_PARMS));
 	rCmdUpdateWmmParms.ucBssIndex = (uint8_t) ucBssIndex;
 	kalMemCopy(&rCmdUpdateWmmParms.arACQueParms[0],
 		   &prBssInfo->arACQueParms[0],

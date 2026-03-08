@@ -3003,6 +3003,7 @@ static void rlmRecAssocRespIeInfoForClient(struct ADAPTER *prAdapter,
 	ASSERT(prStaRec);
 	if (!prStaRec)
 		return;
+	memset(&rSsid, 0, sizeof(struct PARAM_SSID));
 	COPY_SSID(rSsid.aucSsid, rSsid.u4SsidLen, prBssInfo->aucSSID,
 		  prBssInfo->ucSSIDLen);
 	prBssDesc = scanSearchBssDescByBssidAndSsid(

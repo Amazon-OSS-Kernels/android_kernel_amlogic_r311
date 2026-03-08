@@ -478,6 +478,8 @@ void scnFsmMsgAbort(IN struct ADAPTER *prAdapter, IN struct MSG_HDR *prMsgHdr)
 	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
 	prScanParam = &prScanInfo->rScanParam;
 
+	memset(&rCmdScanCancel, 0, sizeof(struct CMD_SCAN_CANCEL));
+
 	if (prScanInfo->eCurrentState != SCAN_STATE_IDLE) {
 		if (prScanCancel->ucSeqNum == prScanParam->ucSeqNum &&
 			prScanCancel->ucBssIndex == prScanParam->ucBssIndex) {

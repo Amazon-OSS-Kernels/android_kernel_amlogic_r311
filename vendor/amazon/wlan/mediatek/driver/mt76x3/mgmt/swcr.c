@@ -1035,6 +1035,8 @@ void testPsCmdCategory0(struct ADAPTER *prAdapter,
 	DBGLOG(SW4, LOUD, "Read %u Index %u\n", ucRead, ucIndex);
 
 	prStaRec = cnmGetStaRecByIndex(prAdapter, 0);
+	if (prStaRec == NULL)
+		return;
 
 	if (ucIndex >= TEST_PS_CATA0_INDEX_NUM)
 		return;
@@ -1462,6 +1464,8 @@ void swCrDebugCheckTimeout(IN struct ADAPTER *prAdapter,
 {
 	struct CMD_SW_DBG_CTRL rCmdSwCtrl;
 	uint32_t rStatus;
+
+	memset(&rCmdSwCtrl, 0, sizeof(struct CMD_SW_DBG_CTRL));
 
 	rCmdSwCtrl.u4Id = (0xb000 << 16) + g_ucSwcrDebugCheckType;
 	rCmdSwCtrl.u4Data = 0;

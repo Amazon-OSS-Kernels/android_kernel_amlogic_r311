@@ -1253,7 +1253,7 @@ kalIndicateStatusAndComplete(IN struct GLUE_INFO
 			     IN uint32_t u4BufLen, IN uint8_t ucBssIndex)
 {
 
-	uint32_t bufLen;
+	uint32_t bufLen = 0;
 	struct PARAM_STATUS_INDICATION *pStatus;
 	struct PARAM_AUTH_EVENT *pAuth;
 	struct PARAM_PMKID_CANDIDATE_LIST *pPmkid;
@@ -1284,6 +1284,10 @@ kalIndicateStatusAndComplete(IN struct GLUE_INFO
 	pPmkid = (struct PARAM_PMKID_CANDIDATE_LIST *)(pStatus + 1);
 
 	prDevHandler = kalGetNetDev(prGlueInfo, ucBssIndex);
+	if (!prDevHandler) {
+		DBGLOG(INIT, ERROR, "kalGetNetDev fail %d\n", ucBssIndex);
+		return;
+	}
 
 	switch (eStatus) {
 	case WLAN_STATUS_ROAM_OUT_FIND_BEST:
@@ -6409,7 +6413,7 @@ static ssize_t kalMetPortWriteProcfs(struct file *file,
 {
 	char acBuf[128 + 1];	/* + 1 for "\0" */
 	uint32_t u4CopySize;
-	int u16MetUdpPort;
+	int u16MetUdpPort = 0;
 
 	IN struct GLUE_INFO *prGlueInfo;
 
@@ -7724,6 +7728,10 @@ void kalFreeTxMsduWorker(struct work_struct *work)
 
 	while (QUEUE_IS_NOT_EMPTY(prTmpQue)) {
 		QUEUE_REMOVE_HEAD(prTmpQue, prMsduInfo, struct MSDU_INFO *);
+		if (!prMsduInfo) {
+			DBGLOG(REQ, WARN, "prMsduInfo is NULL\n");
+			break;
+		}
 
 		wlanTxProfilingTagMsdu(prAdapter, prMsduInfo,
 				       TX_PROF_TAG_DRV_FREE_MSDU);
@@ -8488,7 +8496,7 @@ void kalIndicateChannelSwitch(IN struct GLUE_INFO *prGlueInfo,
 				IN enum ENUM_CHNL_EXT eSco,
 				IN uint8_t ucChannelNum)
 {
-	struct cfg80211_chan_def chandef;
+	struct cfg80211_chan_def chandef = {0};
 	struct ieee80211_channel *prChannel = NULL;
 	enum nl80211_channel_type rChannelType;
 

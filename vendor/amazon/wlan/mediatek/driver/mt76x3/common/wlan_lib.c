@@ -131,6 +131,8 @@ static const u_int16_t FELossOffset[MAX_ANTENNA_NUM][FELOSS_CH_GROUP_NUM] = {
 	(((_sValue) & BIT((n)-1)) ? ((_sValue) | BITS(n, 31)) : \
 	 ((_sValue) & ~BITS(n, 31)))
 
+#define COUNTRY_CODE_LENGTH 2
+
 /* TODO: Check */
 /* OID set handlers without the need to access HW register */
 PFN_OID_HANDLER_FUNC apfnOidSetHandlerWOHwAccess[] = {
@@ -3625,7 +3627,7 @@ u_int8_t wlanProcessSecurityFrame(IN struct ADAPTER
 	struct STA_RECORD *prStaRec;
 	uint8_t ucBssIndex;
 	uint32_t u4PacketLen;
-	uint8_t aucEthDestAddr[PARAM_MAC_ADDR_LEN];
+	uint8_t aucEthDestAddr[PARAM_MAC_ADDR_LEN] = {0};
 	struct MSDU_INFO *prMsduInfo;
 	uint8_t ucStaRecIndex;
 
@@ -5551,6 +5553,8 @@ wlanQueryStaStatistics(IN struct ADAPTER *prAdapter,
 
 	if (prAdapter->fgIsEnableLpdvt)
 		return WLAN_STATUS_NOT_SUPPORTED;
+	memset(&rQueryCmdStaStatistics, 0,
+		sizeof(struct CMD_GET_STA_STATISTICS));
 
 	do {
 		ASSERT(pvQueryBuffer);
@@ -7135,14 +7139,28 @@ void wlanCfgSetDebugLevel(IN struct ADAPTER *prAdapter)
 
 void wlanCfgSetCountryCode(IN struct ADAPTER *prAdapter)
 {
-	int8_t aucValue[WLAN_CFG_VALUE_LEN_MAX];
+	uint8_t aucValue[WLAN_CFG_VALUE_LEN_MAX] = {0};
+	uint8_t ucCountry[COUNTRY_CODE_LENGTH] = {0};
+	uint8_t ucOffset = 0;
 
 	/* Apply COUNTRY Config */
 	if (wlanCfgGet(prAdapter, "Country", aucValue, "",
 		       0) == WLAN_STATUS_SUCCESS) {
+
+		for (ucOffset = 0;ucOffset < COUNTRY_CODE_LENGTH; ucOffset++) {
+			/* not alpha and not 0 */
+			if (!(((aucValue[ucOffset] >= 'a') && (aucValue[ucOffset] <= 'z')) ||
+				((aucValue[ucOffset] >= 'A') && (aucValue[ucOffset] <= 'Z')) ||
+				(aucValue[ucOffset] == '0'))) {
+				DBGLOG(INIT, TRACE, "invalid country code\n");
+				return;
+			}
+		}
+
+		kalMemCopy(ucCountry, aucValue, COUNTRY_CODE_LENGTH);
 		prAdapter->rWifiVar.rConnSettings.u2CountryCode =
-			(((uint16_t) aucValue[0]) << 8) |
-			((uint16_t) aucValue[1]);
+			(((uint16_t) ucCountry[0]) << 8) |
+			((uint16_t) ucCountry[1]);
 
 		DBGLOG(INIT, INFO, "u2CountryCode=0x%04x\n",
 		       prAdapter->rWifiVar.rConnSettings.u2CountryCode);

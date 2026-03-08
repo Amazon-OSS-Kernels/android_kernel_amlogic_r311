@@ -281,10 +281,16 @@ u_int8_t glResetTrigger(struct ADAPTER *prAdapter,
 #if CFG_FTV_60720_PATCH
 	struct GLUE_INFO *prGlueInfo = wifi_rst.prGlueInfo;
 #endif
+	extern atomic_t g_wlanRemoving;
 
 	dump_stack();
 	if (kalIsResetting())
 		return fgResult;
+
+	if(atomic_read(&g_wlanRemoving)) {
+		DBGLOG(INIT, ERROR, "wlanRemove in proccess, skip reset\n");
+		return FALSE;
+	}
 
 	fgIsResetting = TRUE;
 

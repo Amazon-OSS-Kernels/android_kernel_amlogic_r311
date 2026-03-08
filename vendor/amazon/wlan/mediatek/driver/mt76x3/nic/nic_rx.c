@@ -3696,6 +3696,17 @@ void nicRxProcessMgmtPacket(IN struct ADAPTER *prAdapter,
 		return;
 	}
 
+	if (prSwRfb->u2HeaderLen < sizeof(struct WLAN_MAC_HEADER) ||
+		prSwRfb->u2PacketLen < prSwRfb->u2HeaderLen ||
+		prSwRfb->u2PacketLen > RX_GET_PACKET_MAX_SIZE(prAdapter)) {
+		DBGLOG(RX, WARN,
+			"Mgmt packet length check fail! length[H,P]:%u,%u\n",
+			prSwRfb->u2HeaderLen, prSwRfb->u2PacketLen);
+		RX_INC_CNT(&prAdapter->rRxCtrl, RX_DROP_TOTAL_COUNT);
+		nicRxReturnRFB(prAdapter, prSwRfb);
+		return;
+	}
+
 	ucSubtype = (*(uint8_t *) (prSwRfb->pvHeader) &
 		     MASK_FC_SUBTYPE) >> OFFSET_OF_FC_SUBTYPE;
 

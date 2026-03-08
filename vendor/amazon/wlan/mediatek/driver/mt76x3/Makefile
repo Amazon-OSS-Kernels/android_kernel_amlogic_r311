@@ -118,6 +118,10 @@ ifeq ($(CFG_STR_DHCP_RENEW_OFFLOAD), y)
 ccflags-y += -DCFG_STR_DHCP_RENEW_OFFLOAD=1
 endif
 
+ifneq ($(CFG_SUPPORT_WAPI),)
+ccflags-y += -DCFG_SUPPORT_WAPI=$(CFG_SUPPORT_WAPI)
+endif
+
 # ---------------------------------------------------
 # Compile Options
 # ---------------------------------------------------

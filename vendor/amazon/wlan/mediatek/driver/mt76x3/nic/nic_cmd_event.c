@@ -2779,6 +2779,7 @@ void nicCmdEventQueryMemDump(IN struct ADAPTER *prAdapter,
 	static uint8_t aucPath[256];
 	/*	static UINT_8 aucPath_done[300]; */
 	static uint32_t u4CurTimeTick;
+	int32_t i4Ret = 0;
 
 	ASSERT(prAdapter);
 	ASSERT(prCmdInfo);
@@ -2823,12 +2824,20 @@ void nicCmdEventQueryMemDump(IN struct ADAPTER *prAdapter,
 			/* if blbist mkdir undre /data/blbist,
 			 * the dump files wouls put on it
 			 */
-			snprintf(aucPath, sizeof(aucPath), "/dump_%05hu.hex",
+			i4Ret = snprintf(aucPath, sizeof(aucPath), "/dump_%05hu.hex",
 				prAdapter->rIcapInfo.u2DumpIndex);
+                	if (i4Ret < 0) {
+				DBGLOG(INIT, WARN, "snprintf failed:%d\n", i4Ret);
+				return;
+			}
 			if (kalCheckPath(aucPath) == -1) {
 				kalMemSet(aucPath, 0x00, 256);
-				sprintf(aucPath, "/data/dump_%05hu.hex",
+				i4Ret = snprintf(aucPath, sizeof(aucPath), "/data/dump_%05hu.hex",
 					prAdapter->rIcapInfo.u2DumpIndex);
+                        	if (i4Ret < 0) {
+					DBGLOG(INIT, WARN, "snprintf failed:%d\n", i4Ret);
+					return;
+				}
 			} else
 				kalTrunkPath(aucPath);
 

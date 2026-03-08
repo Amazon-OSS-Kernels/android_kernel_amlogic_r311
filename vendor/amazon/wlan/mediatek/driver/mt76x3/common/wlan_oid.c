@@ -7218,6 +7218,7 @@ wlanoidQuerySwCtrlRead(IN struct ADAPTER *prAdapter,
 
 	case 0x9000:
 	default: {
+		memset(&rCmdSwCtrl, 0, sizeof(struct CMD_SW_DBG_CTRL));
 		rCmdSwCtrl.u4Id = prSwCtrlInfo->u4Id;
 		rCmdSwCtrl.u4Data = 0;
 		rWlanStatus = wlanSendSetQueryCmd(prAdapter,
@@ -7457,6 +7458,7 @@ wlanoidSetSwCtrlWrite(IN struct ADAPTER *prAdapter,
 			struct CMD_TX_AMPDU rTxAmpdu;
 			uint32_t rStatus;
 
+			memset(&rTxAmpdu, 0, sizeof(struct CMD_TX_AMPDU));
 			rTxAmpdu.fgEnable = !!u4Data;
 
 			rStatus = wlanSendSetQueryCmd(
@@ -7644,6 +7646,7 @@ wlanoidSetSwCtrlWrite(IN struct ADAPTER *prAdapter,
 
 	case 0x9000:
 	default: {
+		memset(&rCmdSwCtrl, 0, sizeof(struct CMD_SW_DBG_CTRL));
 		rCmdSwCtrl.u4Id = prSwCtrlInfo->u4Id;
 		rCmdSwCtrl.u4Data = prSwCtrlInfo->u4Data;
 		rWlanStatus = wlanSendSetQueryCmd(prAdapter,
@@ -10023,6 +10026,7 @@ wlanoidRftestSetTestMode(IN struct ADAPTER *prAdapter,
 		if ((prAdapter->fgTestMode == FALSE)
 		    || (prAdapter->fgIcapMode == TRUE)) {
 			/* switch to RF Test mode */
+			memset(&rCmdTestCtrl, 0, sizeof(struct CMD_TEST_CTRL));
 			rCmdTestCtrl.ucAction = 0;	/* Switch mode */
 			rCmdTestCtrl.u.u4OpMode = 1;	/* RF test mode */
 
@@ -10083,6 +10087,7 @@ wlanoidRftestSetTestIcapMode(IN struct ADAPTER *prAdapter,
 	if (u4SetBufferLen == 0) {
 		if (prAdapter->fgIcapMode == FALSE) {
 			/* switch to RF Test mode */
+			memset(&rCmdTestCtrl, 0, sizeof(struct CMD_TEST_CTRL));
 			rCmdTestCtrl.ucAction = 0;	/* Switch mode */
 			rCmdTestCtrl.u.u4OpMode = 2;	/* RF test mode */
 
@@ -10139,6 +10144,7 @@ wlanoidRftestSetAbortTestMode(IN struct ADAPTER *prAdapter,
 	ASSERT(pu4SetInfoLen);
 
 	*pu4SetInfoLen = 0;
+	memset(&rCmdTestCtrl, 0, sizeof(struct CMD_TEST_CTRL));
 
 	if (u4SetBufferLen == 0) {
 		if (prAdapter->fgTestMode == TRUE) {
@@ -10594,6 +10600,7 @@ uint32_t rftestSetFrequency(IN struct ADAPTER *prAdapter,
 
 	ASSERT(prAdapter);
 
+	memset(&rCmdTestCtrl, 0, sizeof(struct CMD_TEST_CTRL));
 	rCmdTestCtrl.ucAction = 5;	/* Set Channel Frequency */
 	rCmdTestCtrl.u.u4ChannelFreq = u4FreqInKHz;
 
@@ -13711,6 +13718,7 @@ wlanoidSetMonitor(IN struct ADAPTER *prAdapter,
 				    PARAM_CUSTOM_MONITOR_SET_STRUCT))
 		return WLAN_STATUS_INVALID_LENGTH;
 
+	memset(&rCmdMonitorSetInfo, 0, sizeof(struct CMD_MONITOR_SET_INFO));
 	ASSERT(pvSetBuffer);
 
 	prMonitorSetInfo = (struct PARAM_CUSTOM_MONITOR_SET_STRUCT
@@ -14483,6 +14491,7 @@ wlanoidGetTxPwrTbl(IN struct ADAPTER *prAdapter,
 	struct CMD_GET_TXPWR_TBL CmdPwrTbl;
 	struct PARAM_CMD_GET_TXPWR_TBL *prPwrTbl = NULL;
 
+	memset(&CmdPwrTbl, 0, sizeof(struct CMD_GET_TXPWR_TBL));
 	DEBUGFUNC("wlanoidGetTxPwrTbl");
 	DBGLOG(REQ, LOUD, "\n");
 
@@ -15639,6 +15648,7 @@ wlanoidDisableTdlsPs(IN struct ADAPTER *prAdapter,
 	if (!prAdapter || !pvSetBuffer)
 		return WLAN_STATUS_INVALID_DATA;
 
+	memset(&rTdlsPs, 0, sizeof(struct CMD_TDLS_PS_T));
 	rTdlsPs.ucIsEnablePs = *(uint8_t *)pvSetBuffer - '0';
 	DBGLOG(OID, INFO, "enable tdls ps %d\n",
 	       rTdlsPs.ucIsEnablePs);

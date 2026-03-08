@@ -98,6 +98,7 @@
 /* #define MAX_IOREQ_NUM   10 */
 struct semaphore g_halt_sem;
 int g_u4HaltFlag;
+atomic_t g_wlanRemoving;
 
 #ifdef CFG_SUPPORT_EMPTY_MAC
 uint8_t empty_mac[6] = {0};
@@ -4236,6 +4237,11 @@ static void wlanRemove(void)
 	static u_int8_t waitForResetCompInit = 0;
 
 	DBGLOG(INIT, STATE, "Remove wlan!\n");
+	if (atomic_read(&g_wlanRemoving)) {
+		DBGLOG(INIT, ERROR, "wlanRemove in process\n");
+		return;
+	}
+	atomic_set(&g_wlanRemoving, 1);
 
 	prWaitForResetComp = &rWaitForResetComp;
 
@@ -4262,7 +4268,7 @@ static void wlanRemove(void)
 #if CFG_FTV_BUZZARD_135_PATCH
 		fgIsResetting = FALSE;
 #endif
-		return;
+		goto WLAN_REMOVE_RETURN;
 	}
 #if (CFG_ENABLE_WIFI_DIRECT && CFG_MTK_ANDROID_WMT)
 	register_set_p2p_mode_handler(NULL);
@@ -4276,7 +4282,7 @@ static void wlanRemove(void)
 	ASSERT(prDev);
 	if (prDev == NULL) {
 		DBGLOG(INIT, ERROR, "prDev is NULL\n");
-		return;
+		goto WLAN_REMOVE_RETURN;
 	}
 
 	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prDev));
@@ -4284,7 +4290,7 @@ static void wlanRemove(void)
 	if (prGlueInfo == NULL) {
 		DBGLOG(INIT, STATE, "prGlueInfo is NULL\n");
 		free_netdev(prDev);
-		return;
+		goto WLAN_REMOVE_RETURN;
 	}
 
 	prAdapter = prGlueInfo->prAdapter;
@@ -4500,7 +4506,9 @@ static void wlanRemove(void)
 	wcn_export_platform_bridge_unregister();
 #endif
 
+WLAN_REMOVE_RETURN:
 	DBGLOG(INIT, STATE, "end\n");
+	atomic_set(&g_wlanRemoving, 0);
 
 }				/* end of wlanRemove() */
 
@@ -4520,6 +4528,7 @@ static int initWlan(void)
 	struct GLUE_INFO *prGlueInfo = NULL;
 
 	DBGLOG(INIT, INFO, "initWlan\n");
+	atomic_set(&g_wlanRemoving, 0);
 
 #ifdef CFG_DRIVER_INF_NAME_CHANGE
 

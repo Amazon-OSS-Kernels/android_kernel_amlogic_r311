@@ -3214,6 +3214,8 @@ enum ENUM_AIS_STATE aisFsmJoinCompleteAction(IN struct ADAPTER *prAdapter,
 						    prAisFsmInfo->eCurrentState;
 						break;
 					}
+					memset(&rSsid, 0,
+						sizeof(struct PARAM_SSID));
 					COPY_SSID(rSsid.aucSsid,
 						  rSsid.u4SsidLen,
 						  prAisBssInfo->aucSSID,
@@ -3935,6 +3937,7 @@ void aisUpdateBssInfoForJOIN(IN struct ADAPTER *prAdapter,
 	prAisBssInfo->fgIsQBSS = prStaRec->fgIsQoS;
 
 	/* 3 <4> Update BSS_INFO_T from BSS_DESC_T */
+	memset(&rSsid, 0, sizeof(struct PARAM_SSID));
 	prBssDesc = prAisFsmInfo->prTargetBssDesc;
 	if (prBssDesc)
 		COPY_SSID(rSsid.aucSsid, rSsid.u4SsidLen,
@@ -5530,6 +5533,7 @@ void aisFsmRoamingDisconnectPrevAP(IN struct ADAPTER *prAdapter,
 		struct PARAM_SSID rSsid;
 		struct BSS_DESC *prBssDesc = NULL;
 
+		memset(&rSsid, 0, sizeof(struct PARAM_SSID));
 		COPY_SSID(rSsid.aucSsid, rSsid.u4SsidLen, prAisBssInfo->aucSSID,
 			  prAisBssInfo->ucSSIDLen);
 		prBssDesc =

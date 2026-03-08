@@ -2376,6 +2376,7 @@ void p2pRoleFsmRunEventJoinComplete(IN struct ADAPTER *prAdapter,
 			struct P2P_SSID_STRUCT rSsid;
 
 			prBssDesc = prJoinInfo->prTargetBssDesc;
+			memset(&rSsid, 0, sizeof(struct P2P_SSID_STRUCT));
 
 			COPY_SSID(rSsid.aucSsid,
 				rSsid.ucSsidLen,

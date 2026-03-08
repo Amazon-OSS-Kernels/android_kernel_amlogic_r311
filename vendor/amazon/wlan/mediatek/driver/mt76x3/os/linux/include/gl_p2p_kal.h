@@ -373,4 +373,9 @@ void kalP2pUnlinkBss(IN struct GLUE_INFO *prGlueInfo, IN uint8_t aucBSSID[]);
 void kalP2pIndicateQueuedMgmtFrame(IN struct GLUE_INFO *prGlueInfo,
 		IN struct P2P_QUEUED_ACTION_FRAME *prFrame);
 
+#if (CFG_SUPPORT_DFS_MASTER == 1)
+void kalP2pIndicateChnlSwitch(IN struct ADAPTER *prAdapter,
+		IN struct BSS_INFO *prBssInfo);
+#endif
+
 #endif /* _GL_P2P_KAL_H */

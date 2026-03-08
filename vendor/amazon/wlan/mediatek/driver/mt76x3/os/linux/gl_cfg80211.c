@@ -526,8 +526,8 @@ int mtk_cfg80211_get_station(struct wiphy *wiphy,
 	struct GLUE_INFO *prGlueInfo = NULL;
 	uint32_t rStatus;
 	uint8_t arBssid[PARAM_MAC_ADDR_LEN];
-	uint32_t u4BufLen, u4Rate;
-	int32_t i4Rssi;
+	uint32_t u4BufLen, u4Rate = 0;
+	int32_t i4Rssi = 0;
 	struct PARAM_GET_STA_STATISTICS rQueryStaStatistics;
 	uint32_t u4TotalError;
 	struct net_device_stats *prDevStats;
@@ -3783,12 +3783,12 @@ static int mtk_wlan_cfg_testmode_cmd(struct wiphy *wiphy,
 	case TESTMODE_CMD_ID_SW_CMD:	/* SW cmd */
 		i4Status = mtk_cfg80211_testmode_sw_cmd(wiphy, data, len);
 		break;
-	case TESTMODE_CMD_ID_WAPI:	/* WAPI */
 #if CFG_SUPPORT_WAPI
+	case TESTMODE_CMD_ID_WAPI:	/* WAPI */
 		i4Status = mtk_cfg80211_testmode_set_key_ext(wiphy, data,
 				len);
-#endif
 		break;
+#endif /* CFG_SUPPORT_WAPI */
 	case 0x10:
 		i4Status = mtk_cfg80211_testmode_get_sta_statistics(wiphy,
 				data, len, prGlueInfo);
@@ -5779,6 +5779,8 @@ mtk_apply_custom_regulatory(IN struct wiphy *pWiphy,
 	wiphy_apply_custom_regulatory(pWiphy, pRegdom);
 }
 
+extern atomic_t g_wlanRemoving;
+
 void
 mtk_reg_notify(IN struct wiphy *pWiphy,
 	       IN struct regulatory_request *pRequest)
@@ -5962,6 +5964,12 @@ DOMAIN_SEND_CMD:
 	if (!prGlueInfo) {
 		DBGLOG(RLM, ERROR, "prGlueInfo is NULL!\n");
 		return; /*interface is not up yet.*/
+	}
+
+	if(atomic_read(&g_wlanRemoving)) {
+		DBGLOG(RLM, ERROR,
+                       "wlanRemove in proccess, skip mtk_reg_notify()!\n");
+		return;
 	}
 
 	prAdapter = prGlueInfo->prAdapter;

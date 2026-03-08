@@ -901,7 +901,7 @@ int mtk_p2p_cfg80211_add_key(struct wiphy *wiphy,
 		}
 
 		ucLoopCnt++;
-		kalMsleep(1);
+		kalUsleep_range(1000, 1100);
 	}
 	return i4Rslt;
 }
@@ -1532,7 +1532,7 @@ int mtk_p2p_cfg80211_start_ap(struct wiphy *wiphy,
 	uint8_t *pucBuffer = (uint8_t *) NULL;
 	uint8_t ucRoleIdx = 0;
 	struct cfg80211_chan_def *chandef;
-	struct RF_CHANNEL_INFO rRfChnlInfo;
+	struct RF_CHANNEL_INFO rRfChnlInfo = {0};
 	uint8_t ucLoopCnt = 0;
 
 	/* RF_CHANNEL_INFO_T rRfChnlInfo; */
@@ -1799,7 +1799,7 @@ static int mtk_p2p_cfg80211_start_radar_detection_impl(struct wiphy *wiphy,
 	struct MSG_P2P_DFS_CAC *prP2pDfsCacMsg =
 		(struct MSG_P2P_DFS_CAC *) NULL;
 	uint8_t ucRoleIdx = 0;
-	struct RF_CHANNEL_INFO rRfChnlInfo;
+	struct RF_CHANNEL_INFO rRfChnlInfo = {0};
 
 	do {
 		if ((wiphy == NULL) || (chandef == NULL))
@@ -1931,9 +1931,9 @@ int mtk_p2p_cfg80211_channel_switch(struct wiphy *wiphy,
 		(struct MSG_P2P_SET_NEW_CHANNEL *) NULL;
 	uint8_t *pucBuffer = (uint8_t *) NULL;
 	uint8_t ucRoleIdx = 0;
-	struct RF_CHANNEL_INFO rRfChnlInfo;
-	struct BSS_INFO *prBssInfo;
-	uint8_t ucBssIndex;
+	struct RF_CHANNEL_INFO rRfChnlInfo = {0};
+	struct BSS_INFO *prBssInfo = NULL;
+	uint8_t ucBssIdx = 0;
 	uint32_t u4Len = 0;
 	uint8_t ucLoopCnt = 0;
 
@@ -1954,11 +1954,40 @@ int mtk_p2p_cfg80211_channel_switch(struct wiphy *wiphy,
 			break;
 		}
 
-		prAdapter->fgIsChSwitchDone = FALSE;
-
-		if (mtk_Netdev_To_RoleIdx(prGlueInfo, dev, &ucRoleIdx) < 0)
+		if (mtk_Netdev_To_RoleIdx(prGlueInfo, dev, &ucRoleIdx) < 0) {
+			DBGLOG(P2P, ERROR, "get role index fail.\n");
 			break;
+		} else {
+			if (ucRoleIdx >= KAL_P2P_NUM) {
+				DBGLOG(P2P, ERROR,
+				"ucRoleIdx >= KAL_P2P_NUM\n");
+				break;
+			}
+			/* Role Interface. */
+			if (p2pFuncRoleToBssIdx(prGlueInfo->prAdapter,
+				ucRoleIdx, &ucBssIdx) != WLAN_STATUS_SUCCESS) {
+				DBGLOG(P2P, ERROR,
+					"get bss index fail by role(%d).\n",
+					ucRoleIdx);
+				break;
+			}
+		}
 
+		if (ucBssIdx >= BSS_DEFAULT_NUM) {
+			DBGLOG(P2P, ERROR,
+			"get Wrong bss index (%d).\n",
+			ucBssIdx);
+			break;
+		} else {
+			prBssInfo = GET_BSS_INFO_BY_INDEX(
+				prAdapter, ucBssIdx);
+			if (prBssInfo == NULL) {
+				DBGLOG(P2P, ERROR,
+				"NULL prBssInfo for bss index (%d).\n",
+				ucBssIdx);
+				break;
+			}
+		}
 		/*DFS todo 20161220_DFS*/
 		netif_carrier_on(dev);
 		netif_tx_start_all_queues(dev);
@@ -1994,9 +2023,8 @@ int mtk_p2p_cfg80211_channel_switch(struct wiphy *wiphy,
 				ucRoleIdx, &rRfChnlInfo);
 		}
 
-		DBGLOG(P2P, INFO,
-			"mtk_p2p_cfg80211_channel_switch.(role %d)\n",
-			ucRoleIdx);
+		DBGLOG(P2P, INFO, "ucRoleIdx: %d, ucBssIdx: %d\n",
+				ucRoleIdx, ucBssIdx);
 
 		if (prGlueInfo->prP2PInfo[ucRoleIdx]->chandef->chan->
 			dfs_state == NL80211_DFS_AVAILABLE
@@ -2055,23 +2083,14 @@ int mtk_p2p_cfg80211_channel_switch(struct wiphy *wiphy,
 		}
 
 		prP2pSetNewChannelMsg->ucRoleIdx = ucRoleIdx;
-
-		for (ucBssIndex = 0;
-			ucBssIndex < BSS_DEFAULT_NUM; ucBssIndex++) {
-			prBssInfo = GET_BSS_INFO_BY_INDEX(
-				prAdapter, ucBssIndex);
-
-			if (prBssInfo && prBssInfo->fgIsDfsActive) {
-				prP2pSetNewChannelMsg->ucBssIndex = ucBssIndex;
-				break;
-			}
-		}
+		prP2pSetNewChannelMsg->ucBssIndex = ucBssIdx;
 
 		mboxSendMsg(prAdapter,
 			MBOX_ID_0,
 			(struct MSG_HDR *) prP2pSetNewChannelMsg,
 			MSG_SEND_METHOD_BUF);
-
+		/* setfg after set new ch msg is sent*/
+		prAdapter->fgIsChSwitchDone = FALSE;
 		/* Update beacon */
 		if ((params->beacon_csa.head_len != 0)
 			|| (params->beacon_csa.tail_len != 0)) {
@@ -3372,7 +3391,7 @@ int mtk_p2p_cfg80211_set_channel(IN struct wiphy *wiphy,
 {
 	int32_t i4Rslt = -EINVAL;
 	struct GLUE_INFO *prGlueInfo = (struct GLUE_INFO *) NULL;
-	struct RF_CHANNEL_INFO rRfChnlInfo;
+	struct RF_CHANNEL_INFO rRfChnlInfo = {0};
 	uint8_t ucRoleIdx = 0;
 	struct net_device *dev = NULL;
 

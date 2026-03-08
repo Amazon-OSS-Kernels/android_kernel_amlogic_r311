@@ -661,6 +661,7 @@ static void wmmQueryTsmResult(struct ADAPTER *prAdapter, unsigned long ulParam)
 	DBGLOG(WMM, INFO, "Query TSM statistics, tid = %d\n", prTsmReq->ucTID);
 	DBGLOG(WMM, INFO, "%p , aci %d, duration %d\n", prTsmReq,
 	       prTsmReq->ucACI, prTsmReq->u2Duration);
+	memset(&rGetTsmStatistics, 0, sizeof(struct CMD_GET_TSM_STATISTICS));
 	rGetTsmStatistics.ucBssIdx = prAdapter->prAisBssInfo->ucBssIndex;
 	rGetTsmStatistics.ucAcIndex = prTsmReq->ucACI;
 	rGetTsmStatistics.ucTid = prTsmReq->ucTID;
@@ -722,6 +723,8 @@ static void wmmRemoveTSM(struct ADAPTER *prAdapter,
 		prStaRec = prAdapter->prAisBssInfo->prStaRecOfAP;
 		nicTxChangeDataPortByAc(prStaRec, prActiveTsm->prTsmReq->ucACI,
 					FALSE);
+		memset(&rTsmStatistics, 0,
+			sizeof(struct CMD_SET_TSM_STATISTICS_REQUEST));
 		rTsmStatistics.ucBssIdx = prAdapter->prAisBssInfo->ucBssIndex;
 		rTsmStatistics.ucEnabled = FALSE;
 		rTsmStatistics.ucAcIndex = prActiveTsm->prTsmReq->ucACI;
@@ -939,6 +942,14 @@ u_int8_t wmmParseQosAction(IN struct ADAPTER *prAdapter,
 			       prWlanActionFrame->ucAction);
 			break;
 		}
+
+		/* underflow check */
+		if (prSwRfb->u2PacketLen <
+			(prSwRfb->u2HeaderLen +
+			(uint16_t)(OFFSET_OF(struct ACTION_ADDTS_RSP_FRAME,
+					     aucInfoElem)) -
+			WLAN_MAC_HEADER_LEN))
+			break;
 
 		/*for each IE*/
 		u2IEsBufLen =

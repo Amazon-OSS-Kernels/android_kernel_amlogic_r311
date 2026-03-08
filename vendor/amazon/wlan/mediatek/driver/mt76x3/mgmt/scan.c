@@ -2655,9 +2655,11 @@ uint32_t scanAddScanResult(IN struct ADAPTER *prAdapter,
 
 	prWlanBeaconFrame = (struct WLAN_BEACON_FRAME *) prSwRfb->pvHeader;
 	COPY_MAC_ADDR(rMacAddr, prWlanBeaconFrame->aucBSSID);
+	memset(&rSsid, 0, sizeof(struct PARAM_SSID));
 	COPY_SSID(rSsid.aucSsid, rSsid.u4SsidLen,
 		prBssDesc->aucSSID, prBssDesc->ucSSIDLen);
 
+	memset(&rConfiguration, 0, sizeof(struct PARAM_802_11_CONFIG));
 	rConfiguration.u4Length = sizeof(struct PARAM_802_11_CONFIG);
 	rConfiguration.u4BeaconPeriod
 		= (uint32_t) prWlanBeaconFrame->u2BeaconInterval;
@@ -2799,11 +2801,14 @@ uint32_t scanProcessBeaconAndProbeResp(IN struct ADAPTER *prAdapter,
 
 	prScanInfo = &(prAdapter->rWifiVar.rScanInfo);
 
-	/* 4 <0> Ignore invalid Beacon Frame */
-	if ((prSwRfb->u2PacketLen - prSwRfb->u2HeaderLen) <
+	/* 4 <0> Ignore invalid Beacon or Probe Response Frame */
+	if (prSwRfb->u2PacketLen < prSwRfb->u2HeaderLen ||
+		(prSwRfb->u2PacketLen - prSwRfb->u2HeaderLen) <
 		(TIMESTAMP_FIELD_LEN + BEACON_INTERVAL_FIELD_LEN
-		+ CAP_INFO_FIELD_LEN)) {
-		log_dbg(SCN, ERROR, "Ignore invalid Beacon Frame\n");
+		+ CAP_INFO_FIELD_LEN) ||
+		prSwRfb->u2HeaderLen != sizeof(struct WLAN_MAC_HEADER)) {
+		log_dbg(SCN, ERROR,
+			"Ignore invalid Beacon or Probe Response\n");
 		return rStatus;
 	}
 

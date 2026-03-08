@@ -885,6 +885,9 @@ struct ACTION_FRAME_SIZE_MAP {
 	{kalMemZero(&prRxCtrl->au8Statistics[0], \
 	sizeof(prRxCtrl->au8Statistics)); }
 
+#define RX_GET_PACKET_MAX_SIZE(prAdapter) \
+	(CFG_RX_MAX_MPDU_SIZE - prAdapter->chip_info->rxd_size)
+
 #define RX_STATUS_TEST_MORE_FLAG(flag)	\
 	((u_int8_t)((flag & RX_STATUS_FLAG_MORE_PACKET) ? TRUE : FALSE))
 
