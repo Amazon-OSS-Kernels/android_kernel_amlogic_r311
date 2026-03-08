@@ -1,0 +1,32 @@
+if TARGET_MESON_T5D
+
+config SYS_CPU
+	string
+	default "armv8"
+
+config SYS_BOARD
+	string
+	default "almond"
+
+config SYS_VENDOR
+	string
+	default "amlogic"
+
+config SYS_SOC
+	string
+	default "t5d"
+
+config SYS_CONFIG_NAME
+	default "almond"
+
+config BL30_SELECT
+	string "T5D BL30 board config"
+	default "t5d_am301_v1"
+
+config MTK_BT_USB
+    bool "enable mtk bt usb function"
+    default n
+    help
+        select this item will enable mtk bt usb device
+
+endif
