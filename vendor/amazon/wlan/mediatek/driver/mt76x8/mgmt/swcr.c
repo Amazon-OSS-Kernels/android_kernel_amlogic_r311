@@ -610,7 +610,7 @@ VOID swCtrlCmdCategory0(P_ADAPTER_T prAdapter, UINT_8 ucCate, UINT_8 ucAction, U
 					break;
 
 				case 2:
-					if (ucOpt1 >= NUM_OF_PER_STA_TX_QUEUES) {
+                                        if (ucOpt1 >= NUM_OF_PER_TYPE_TX_QUEUES) {
 						DBGLOG(SW4, WARN, "ucOpt1 %u invalid\n",
 							 ucOpt1);
 						break;

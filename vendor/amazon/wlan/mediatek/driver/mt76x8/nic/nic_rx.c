@@ -1608,15 +1608,15 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 
 	} else if (HAL_RX_STATUS_IS_CIPHER_MISMATCH(prRxStatus)) {
 		fgDrop = TRUE;
-		DBGLOG(RSN, EVENT, "HAL_RX_STATUS_IS_CIPHER_MISMATCH\n");
+		DBGLOG_RATELIMIT(RSN, EVENT, "HAL_RX_STATUS_IS_CIPHER_MISMATCH\n");
 	}else {
 		fgDrop = TRUE;
 
 		if (HAL_RX_STATUS_IS_DE_AMSDU_FAIL(prRxStatus))
-			DBGLOG(RSN, EVENT, "de-amsdu fail\n");
+			DBGLOG_RATELIMIT(RSN, EVENT, "de-amsdu fail\n");
 
 		if (HAL_RX_STATUS_IS_ICV_ERROR(prRxStatus))
-			DBGLOG(RSN, EVENT, "icv error\n");
+			DBGLOG_RATELIMIT(RSN, EVENT, "icv error\n");
 
 		if (!HAL_RX_STATUS_IS_ICV_ERROR(prRxStatus)
 		    && HAL_RX_STATUS_IS_TKIP_MIC_ERROR(prRxStatus)) {
@@ -1626,7 +1626,7 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 							 prAdapter->prAisBssInfo->ucBssIndex,
 							 prAdapter->rWlanInfo.rCurrBssId.arMacAddress);
 			if (prStaRec) {
-				DBGLOG(RSN, EVENT, "MIC_ERR_PKT\n");
+				DBGLOG_RATELIMIT(RSN, EVENT, "MIC_ERR_PKT\n");
 				rsnTkipHandleMICFailure(prAdapter, prStaRec, 0);
 			}
 		}
@@ -1655,7 +1655,7 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 		}
 #else
 		else if (HAL_RX_STATUS_IS_LLC_MIS(prRxStatus)) {
-			DBGLOG(RSN, EVENT, ("LLC_MIS_ERR\n"));
+			DBGLOG_RATELIMIT(RSN, EVENT, ("LLC_MIS_ERR\n"));
 			fgDrop = FALSE;	/* Drop after send de-auth  */
 		}
 #endif
@@ -1669,7 +1669,7 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 		pu2EtherType =
 			(PUINT_16)((PUINT_8)prSwRfb->pvHeader + 2*MAC_ADDR_LEN);
 
-		DBGLOG(RSN, EVENT,
+		DBGLOG_RATELIMIT(RSN, EVENT,
 			"HAL_RX_STATUS_IS_CIPHER_MISMATCH, htr:%d, HdrLen:%d\n",
 			HAL_RX_STATUS_IS_HEADER_TRAN(prRxStatus),
 			HAL_RX_STATUS_GET_HEADER_LEN(prRxStatus)
@@ -1686,7 +1686,7 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 				"Don't drop eapol or wpi packet\n");
 		} else {
 			fgDrop = TRUE;
-			DBGLOG(RSN, EVENT,
+			DBGLOG_RATELIMIT(RSN, EVENT,
 				"Drop plain text during security connection\n");
 		}
 	}
@@ -1718,7 +1718,7 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 			if (HAL_RX_STATUS_IS_ICV_ERROR(prRxStatus)) {
 				RX_INC_CNT(&prAdapter->rRxCtrl, RX_BMC_KEY_ERROR_COUNT);
 
-				DBGLOG(RSN, EVENT, "BMC Data Packet from AIS Wi-Fi interface with ICV error\n");
+				DBGLOG_RATELIMIT(RSN, EVENT, "BMC Data Packet from AIS Wi-Fi interface with ICV error\n");
 
 				if (RX_GET_CNT(&prAdapter->rRxCtrl, RX_BMC_KEY_ERROR_COUNT) ==
 						prAdapter->rWifiVar.u4BmcKeyErrorTh)
@@ -1726,7 +1726,7 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 			} else if (HAL_RX_STATUS_IS_CIPHER_MISMATCH(prRxStatus)) {
 				RX_INC_CNT(&prAdapter->rRxCtrl, RX_BMC_NO_KEY_COUNT);
 
-				DBGLOG(RSN, EVENT, "BMC Data Packet from AIS Wi-Fi interface with Cipher Mismatch\n");
+				DBGLOG_RATELIMIT(RSN, EVENT, "BMC Data Packet from AIS Wi-Fi interface with Cipher Mismatch\n");
 
 				if (RX_GET_CNT(&prAdapter->rRxCtrl, RX_BMC_NO_KEY_COUNT) ==
 						prAdapter->rWifiVar.u4BmcKeyErrorTh)
@@ -1794,7 +1794,7 @@ VOID nicRxProcessDataPacket(IN P_ADAPTER_T prAdapter, IN OUT P_SW_RFB_T prSwRfb)
 							HAL_RX_VECTOR_GET_RX_VECTOR(prRetSwRfb->prRxStatusGroup3, 4);
 					}
 					else {
-						DBGLOG(RX, ERROR, "invalid ucStaRecIdx %d\n", prRetSwRfb->ucStaRecIdx);
+						DBGLOG_RATELIMIT(RX, ERROR, "invalid ucStaRecIdx %d\n", prRetSwRfb->ucStaRecIdx);
 					}
 				}
 #endif
