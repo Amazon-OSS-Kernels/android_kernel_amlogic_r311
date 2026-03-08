@@ -1,0 +1,32 @@
+#
+# HDMI Rx Device Driver Configuration
+#
+
+
+config TVIN_HDMI
+    tristate "Amlogic HDMI RX device driver"
+    default n
+    help
+      HDMI RX device driver.
+      HDMI RX device driver.
+      HDMI RX device driver.
+      HDMI RX device driver.
+
+config TVIN_HDMI_CEC
+    tristate "Amlogic HDMI RX CEC device driver"
+    depends on TVIN_HDMI
+    default n
+    help
+      HDMI RX CEC device driver.
+
+config AM_HDMI_SCAN_MODE_NODE
+    tristate "Amlogic HDMI increase the scan_mode node"
+    default n
+    help
+      HDMI increase the scan_mode node.
+
+config AM_HDMI_AUDIO_FIFO
+    tristate "Amlogic HDMIRX optimize for audio fifo"
+    default n
+    help
+      HDMIRX optimize for audio fifo.
