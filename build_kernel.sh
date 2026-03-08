@@ -3,7 +3,7 @@
 #
 #  build_kernel.sh
 #
-#  Copyright (c) 2022 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+#  Copyright (c) 2017-2022 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #
 ################################################################################
 
@@ -64,7 +64,6 @@ function validate_input_params {
              "that you have extracted the build script properly and try again."
         usage
     fi
-
 }
 
 function validate_cross_compiler {
@@ -120,16 +119,6 @@ function extract_tarball {
 }
 
 function exec_build_kernel {
-    if [ ! -e "${PLATFORM_EXTRACT_DIR}/device/amazon/common/verity/verity_key.prod.x509.pem" ]
-    then
-        echo "${PLATFORM_EXTRACT_DIR}/device/amazon/common/verity/verity_key.prod.x509.pem not found"
-        exit 10
-    fi
-    mkdir -p "${WORKSPACE_OUT_DIR}/certs"
-    cat "${PLATFORM_EXTRACT_DIR}/device/amazon/common/verity/verity_key.prod.x509.pem" >> "${WORKSPACE_OUT_DIR}/certs/amazon_verity.x509.pem"
-    cat "${PLATFORM_EXTRACT_DIR}/device/amazon/common/verity/verity_key.dev.x509.pem" >> "${WORKSPACE_OUT_DIR}/certs/amazon_verity.x509.pem"
-    echo "${WORKSPACE_OUT_DIR}/certs/amazon_verity.x509.pem"
-
     CCOMPILE="${CROSS_COMPILER_PATH}/bin/${TOOLCHAIN_PREFIX}"
 
     if [[ -n "${KERNEL_SUBPATH}" ]]
@@ -174,14 +163,14 @@ function exec_build_kernel {
     echo "Make headers install: make ${MAKE_ARGS} headers_install"
     make ${MAKE_ARGS} headers_install
 
-    # Step 6: dtbs
+    # Step 5: dtbs
     if [[ -n "${MAKE_DTBS}" ]]
     then
         echo "Make dtbs: make ${MAKE_ARGS} dtbs"
         make ${MAKE_ARGS} dtbs
     fi
 
-    # Step 7: full make
+    # Step 6: full make
     echo "Running full make"
     if [[ -n "${ZIMAGE_TARGET}" ]]
     then
