@@ -1336,7 +1336,7 @@ static void pch_vbus_gpio_work_rise(struct work_struct *irq_work)
 	vbus = pch_vbus_gpio_get_value(dev);
 
 	if (vbus == 1) {
-		dev_dbg(&dev->pdev->dev, "VBUS ABC123");
+		dev_dbg(&dev->pdev->dev, "VBUS rose");
 		pch_udc_reconnect(dev);
 		return;
 	}

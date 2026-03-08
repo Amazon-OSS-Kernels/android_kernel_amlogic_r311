@@ -936,7 +936,7 @@ void dgap_carrier(struct channel_t *ch)
 		 * for carrier in the open routine.
 		 */
 
-		DPR_CARR(("carrier: virt DCD ABC123\n"));
+		DPR_CARR(("carrier: virt DCD rose\n"));
 
 		if (waitqueue_active(&(ch->ch_flags_wait)))
 			wake_up_interruptible(&ch->ch_flags_wait);
@@ -952,7 +952,7 @@ void dgap_carrier(struct channel_t *ch)
 		 * for carrier in the open routine.
 		 */
 
-		DPR_CARR(("carrier: physical DCD ABC123\n"));
+		DPR_CARR(("carrier: physical DCD rose\n"));
 
 		if (waitqueue_active(&(ch->ch_flags_wait)))
 			wake_up_interruptible(&ch->ch_flags_wait);
