@@ -1,0 +1,14 @@
+# Amlogic clock driver
+
+
+config AMLOGIC_CLK
+    bool "Amlogic clock driver  support"
+    select COMMON_CLK
+    help
+      This is the Amlogic Clock  driver
+
+config AM_NEW_PLL_EN
+    bool "Amlogic new pll enable"
+    default n
+    help
+        Amlogic new pll enable
