@@ -1876,7 +1876,7 @@ u_int8_t rlmDomainTxPwrLimitLoadChannelSetting(
 
 	if (cChIdx == -1) {
 		*pu4Pos = u4TmpPos;
-		DBGLOG(RLM, ERROR, "Invalid ch %u %c%c%c\n", ucChannel,
+		DBGLOG(RLM, INFO, "Invalid ch %u %c%c%c\n", ucChannel,
 			pucBuf[u4TmpPos + 2],
 			pucBuf[u4TmpPos + 3], pucBuf[u4TmpPos + 4]);
 
@@ -2526,6 +2526,11 @@ void rlmDomainBuildCmdByDefaultTable(struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT 
 	uint8_t i, k;
 	struct COUNTRY_POWER_LIMIT_TABLE_DEFAULT *prPwrLimitSubBand;
 	struct CMD_CHANNEL_POWER_LIMIT *prCmdPwrLimit;
+#if KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE
+	uint8_t j;
+	int8_t cLmtBand = 0;
+	int8_t *picPwrLmt;
+#endif
 
 	prCmdPwrLimit = &prCmd->rChannelPowerLimit[0];
 	prPwrLimitSubBand = &g_rRlmPowerLimitDefault[u2DefaultTableIndex];
@@ -2536,10 +2541,23 @@ void rlmDomainBuildCmdByDefaultTable(struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT 
 		if (prPwrLimitSubBand->aucPwrLimitSubBand[i] < MAX_TX_POWER) {
 			for (k = g_rRlmSubBand[i].ucStartCh; k <= g_rRlmSubBand[i].ucEndCh;
 			     k += g_rRlmSubBand[i].ucInterval) {
+#if KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE
+				/* cLmtBand need reset by each channel */
+			   cLmtBand =
+				   prPwrLimitSubBand->
+				   aucPwrLimitSubBand[i];
+			   if ((prPwrLimitSubBand->ucPwrUnit & BIT(i)) == 0) {
+				   prCmdPwrLimit->ucCentralCh = k;
+				   picPwrLmt =
+					   &prCmdPwrLimit->cPwrLimitCCK;
+				   for (j = 0; j < PWR_LIMIT_NUM; j++)
+					   *(picPwrLmt + j) = cLmtBand;
+#else
 				if ((prPwrLimitSubBand->ucPwrUnit & BIT(i)) == 0) {
 					prCmdPwrLimit->ucCentralCh = k;
 					kalMemSet(&prCmdPwrLimit->cPwrLimitCCK,
 						  prPwrLimitSubBand->aucPwrLimitSubBand[i], PWR_LIMIT_NUM);
+#endif
 				} else {
 					/* ex:    40MHz power limit(mW\MHz) = 20MHz power limit(mW\MHz) * 2
 					 * ---> 40MHz power limit(dBm) = 20MHz power limit(dBm) + 6;
@@ -2590,7 +2608,26 @@ void rlmDomainBuildCmdByDefaultTable(struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT 
 		}
 	}
 }
+#if KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE
+static void PwrLmtTblArbitrator(int8_t *target,
+	int8_t *compare,
+	uint32_t size)
+{
+	uint8_t i = 0;
 
+	/* Choose min value from target & compare */
+	for (i = 0; i < size; i++) {
+		if (target[i] > compare[i])
+			target[i] = compare[i];
+
+		/* Sanity check power boundary */
+		if (target[i] > MAX_TX_POWER)
+			target[i] = MAX_TX_POWER;
+		else if (target[i] < MIN_TX_POWER)
+			target[i] = MIN_TX_POWER;
+	}
+}
+#endif
 /*----------------------------------------------------------------------------*/
 /*!
 * @brief Fill power limit CMD by Power Limit Configurartion Table(Bandedge and Customization)
@@ -2602,6 +2639,7 @@ void rlmDomainBuildCmdByDefaultTable(struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT 
 	/*----------------------------------------------------------------------------*/
 void rlmDomainBuildCmdByConfigTable(struct ADAPTER *prAdapter, struct CMD_SET_COUNTRY_CHANNEL_POWER_LIMIT *prCmd)
 {
+#define PwrLmtConf g_rRlmPowerLimitConfiguration
 	uint8_t i, k;
 	uint16_t u2CountryCodeTable = COUNTRY_CODE_NULL;
 	struct CMD_CHANNEL_POWER_LIMIT *prCmdPwrLimit;
@@ -2635,10 +2673,17 @@ void rlmDomainBuildCmdByConfigTable(struct ADAPTER *prAdapter, struct CMD_SET_CO
 						 *  ch 1 = 22 dBm
 						 *  Cmd final setting -->  ch1 = 22dBm, ch2~14 = 20dBm
 						 */
+#if KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE
+						PwrLmtTblArbitrator(
+						&prCmdPwrLimit->cPwrLimitCCK,
+						&PwrLmtConf[i].
+							aucPwrLimit[0],
+						PWR_LIMIT_NUM);
+#else
 						kalMemCopy(&prCmdPwrLimit->cPwrLimitCCK,
 							   &g_rRlmPowerLimitConfiguration[i].aucPwrLimit,
 							   PWR_LIMIT_NUM);
-
+#endif
 						DBGLOG(RLM, LOUD,
 						       "Domain: CC=%c%c,ReplaceCh=%d,Limit=%d,%d,%d,%d,%d,%d,%d,%d,%d,Fg=%d\n",
 						       ((prCmd->u2CountryCode & 0xff00) >> 8),
@@ -2664,8 +2709,18 @@ void rlmDomainBuildCmdByConfigTable(struct ADAPTER *prAdapter, struct CMD_SET_CO
 					 *  Cmd final setting -->  ch1~14 = 20dBm, ch36 = 22dBm
 					 */
 					prCmdPwrLimit->ucCentralCh = g_rRlmPowerLimitConfiguration[i].ucCentralCh;
+
+#if KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE
+					PwrLmtTblArbitrator(
+					&prCmdPwrLimit->cPwrLimitCCK,
+					&PwrLmtConf[i].
+						aucPwrLimit[0],
+					PWR_LIMIT_NUM);
+#else
+
 					kalMemCopy(&prCmdPwrLimit->cPwrLimitCCK,
 						   &g_rRlmPowerLimitConfiguration[i].aucPwrLimit, PWR_LIMIT_NUM);
+#endif
 					prCmd->ucNum++; /*Add this channel setting in rChannelPowerLimit[k]*/
 
 					DBGLOG(RLM, LOUD,
@@ -2689,8 +2744,16 @@ void rlmDomainBuildCmdByConfigTable(struct ADAPTER *prAdapter, struct CMD_SET_CO
 				 *  Cmd final setting -->  ch36 = 22dBm
 				 */
 				prCmdPwrLimit->ucCentralCh = g_rRlmPowerLimitConfiguration[i].ucCentralCh;
+#if KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE
+				PwrLmtTblArbitrator(
+					&prCmdPwrLimit->cPwrLimitCCK,
+					&PwrLmtConf[i].
+						aucPwrLimit[0],
+					PWR_LIMIT_NUM);
+#else
 				kalMemCopy(&prCmdPwrLimit->cPwrLimitCCK, &g_rRlmPowerLimitConfiguration[i].aucPwrLimit,
 					   PWR_LIMIT_NUM);
+#endif
 				prCmd->ucNum++; /*Add this channel setting in rChannelPowerLimit[k]*/
 
 				DBGLOG(RLM, LOUD, "Domain: Default table power limit value are max on all subbands.\n");
@@ -3844,7 +3907,7 @@ uint8_t rlmDomainGetChannelBw(uint8_t channelNum)
 					/* Check if 2 boundary. */
 					ch_idx_offset = 1;
 					pAdj20Chnl = (rlmDomainGetActiveChannels() + ch_idx + ch_idx_offset);
-					/* FALLTHRU */
+					kal_fallthrough;
 				case 2:
 					/* Check if 3 20MHz only. */
 					ch_idx_offset++;
@@ -3853,11 +3916,11 @@ uint8_t rlmDomainGetChannelBw(uint8_t channelNum)
 					/* Check if 3 boundary. */
 					ch_idx_offset = -1;
 					pAdj20Chnl = (rlmDomainGetActiveChannels() + ch_idx + ch_idx_offset);
-					/* FALLTHRU */
+					kal_fallthrough;
 				case 3:
 					ch_idx_offset--;
 					/* Check if 2 only 20MHz */
-					/* FALLTHRU */
+					kal_fallthrough;
 				default:
 					break;
 				}

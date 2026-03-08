@@ -857,9 +857,9 @@ uint32_t wlanAdapterStart(IN struct ADAPTER *prAdapter,
 			nicTxRelease(prAdapter, FALSE);
 			/* System Service Uninitialization */
 			nicUninitSystemService(prAdapter);
-		/* fallthrough */
+			kal_fallthrough;
 		case INIT_ADAPTER_FAIL:
-		/* fallthrough */
+			kal_fallthrough;
 		case DRIVER_OWN_FAIL:
 			nicReleaseAdapterMemory(prAdapter);
 			break;
@@ -7255,13 +7255,16 @@ uint32_t wlanCfgGet(IN struct ADAPTER *prAdapter,
 	prWlanCfgEntry = wlanCfgGetEntry(prAdapter, pucKey, FALSE);
 
 	if (prWlanCfgEntry) {
-		kalMemCopy(pucValue, prWlanCfgEntry->aucValue,
+		kalStrnCpy(pucValue, prWlanCfgEntry->aucValue,
 			   WLAN_CFG_VALUE_LEN_MAX - 1);
+		pucValue[WLAN_CFG_VALUE_LEN_MAX - 1] = '\0';
 		return WLAN_STATUS_SUCCESS;
 	}
-	if (pucValueDef)
-		kalMemCopy(pucValue, pucValueDef,
+	if (pucValueDef) {
+		kalStrnCpy(pucValue, pucValueDef,
 			   WLAN_CFG_VALUE_LEN_MAX - 1);
+		pucValue[WLAN_CFG_VALUE_LEN_MAX - 1] = '\0';
+	}
 	return WLAN_STATUS_FAILURE;
 
 
@@ -7614,7 +7617,7 @@ textresume:
 					x++;
 					continue;
 				}
-				/* FALLTHRU */
+				kal_fallthrough;
 			case '\n':
 				/* \ <lf> -> line continuation */
 				x++;
@@ -10568,8 +10571,11 @@ void wlanSuspendPmHandle(struct GLUE_INFO *prGlueInfo)
 	struct RX_BA_ENTRY *prRxBaEntry;
 
 #if CFG_SUPPORT_ADVANCE_CONTROL
-	if (prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap)
+	if (prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap) {
+		prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap |=
+			BLOCK_KEEP_FULL_PWR;
 		wlanKeepFullPwr(prGlueInfo->prAdapter, FALSE);
+	}
 #endif
 	/* if cfg EAPOL offload is 0, we set rekey offload when enter wow */
 	if (!prGlueInfo->prAdapter->rWifiVar.ucEapolOffload) {
@@ -10768,8 +10774,11 @@ void wlanResumePmHandle(struct GLUE_INFO *prGlueInfo)
 	}
 #endif
 #if CFG_SUPPORT_ADVANCE_CONTROL
-	if (prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap)
+	if (prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap) {
+		prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap &=
+			~BLOCK_KEEP_FULL_PWR;
 		wlanKeepFullPwr(prGlueInfo->prAdapter, TRUE);
+	}
 #endif
 
 }

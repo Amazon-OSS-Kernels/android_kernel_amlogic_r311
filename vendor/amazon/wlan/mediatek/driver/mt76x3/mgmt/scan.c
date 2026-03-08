@@ -924,14 +924,12 @@ scanSearchExistingBssDescWithSsid(IN struct ADAPTER *prAdapter,
 	switch (eBSSType) {
 	case BSS_TYPE_P2P_DEVICE:
 		fgCheckSsid = FALSE;
-		/* fall through */
-		/* FALLTHRU */
+		kal_fallthrough;
 	case BSS_TYPE_INFRASTRUCTURE:
 #if CFG_SUPPORT_ROAMING_SKIP_ONE_AP
 		scanSearchBssDescOfRoamSsid(prAdapter);
-		/* fall through */
 #endif
-		/* FALLTHRU */
+		kal_fallthrough;
 	case BSS_TYPE_BOW_DEVICE:
 		prBssDesc = scanSearchBssDescByBssidAndSsid(prAdapter,
 			aucBSSID, fgCheckSsid, prSsid);

@@ -189,6 +189,7 @@ rateGetRateSetFromIEs(IN struct IE_SUPPORTED_RATE *prIeSupportedRate,
 	uint16_t u2BSSBasicRateSet = 0;
 	u_int8_t fgIsUnknownBSSBasicRate = FALSE;
 	uint8_t ucRate;
+	uint8_t ucTempLength;
 	uint32_t i, j;
 
 	ASSERT(pu2OperationalRateSet);
@@ -204,9 +205,11 @@ rateGetRateSetFromIEs(IN struct IE_SUPPORTED_RATE *prIeSupportedRate,
 		/* ASSERT(prIeSupportedRate->ucLength
 		 *  <= ELEM_MAX_LEN_SUP_RATES);
 		 */
-		ASSERT(prIeSupportedRate->ucLength <= RATE_NUM_SW);
+		ucTempLength =
+			(prIeSupportedRate->ucLength > ELEM_MAX_LEN_SUP_RATES) ?
+			ELEM_MAX_LEN_SUP_RATES : prIeSupportedRate->ucLength;
 
-		for (i = 0; i < prIeSupportedRate->ucLength; i++) {
+		for (i = 0; i < ucTempLength; i++) {
 			ucRate =
 			    prIeSupportedRate->aucSupportedRates[i] & RATE_MASK;
 
@@ -237,8 +240,12 @@ rateGetRateSetFromIEs(IN struct IE_SUPPORTED_RATE *prIeSupportedRate,
 		/* ASSERT(prIeExtSupportedRate->ucLength
 		 *  <= ELEM_MAX_LEN_EXTENDED_SUP_RATES);
 		 */
+		ucTempLength = (prIeExtSupportedRate->ucLength >
+				ELEM_MAX_LEN_EXTENDED_SUP_RATES) ?
+				ELEM_MAX_LEN_EXTENDED_SUP_RATES :
+				prIeExtSupportedRate->ucLength;
 
-		for (i = 0; i < prIeExtSupportedRate->ucLength; i++) {
+		for (i = 0; i < ucTempLength; i++) {
 			ucRate =
 			    prIeExtSupportedRate->aucExtSupportedRates[i] &
 			    RATE_MASK;

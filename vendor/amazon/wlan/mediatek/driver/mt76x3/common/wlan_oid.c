@@ -73,7 +73,12 @@
 #include "mgmt/rsn.h"
 #include "gl_wext.h"
 #include "debug.h"
+#if KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE
+#include <linux/stddef.h>
+#else
 #include <stddef.h>
+#endif
+
 
 /******************************************************************************
  *                              C O N S T A N T S
@@ -8934,11 +8939,11 @@ wlanoidSetAcpiDevicePowerState(IN struct ADAPTER *
 	case ParamDeviceStateD1:
 		DBGLOG(REQ, INFO, "Set Power State: D1\n");
 	/* no break here */
-		/* FALLTHRU */
+		kal_fallthrough;
 	case ParamDeviceStateD2:
 		DBGLOG(REQ, INFO, "Set Power State: D2\n");
 	/* no break here */
-		/* FALLTHRU */
+		kal_fallthrough;
 	case ParamDeviceStateD3:
 		DBGLOG(REQ, INFO, "Set Power State: D3\n");
 		fgRetValue = nicpmSetAcpiPowerD3(prAdapter);
@@ -13827,6 +13832,10 @@ wlanAdvCtrl(IN struct ADAPTER *prAdapter,
 		len = sizeof(struct CMD_ADMIN_CTRL_CONFIG);
 		break;
 #endif
+	case CMD_GET_MAGIC_PKT_INFO_TYPE:
+		*pu4QueryInfoLen = sizeof(struct CMD_GET_MAGIC_PKT_INFO_T);
+		len = sizeof(struct CMD_GET_MAGIC_PKT_INFO_T);
+		break;
 	default:
 		return WLAN_STATUS_INVALID_LENGTH;
 	}

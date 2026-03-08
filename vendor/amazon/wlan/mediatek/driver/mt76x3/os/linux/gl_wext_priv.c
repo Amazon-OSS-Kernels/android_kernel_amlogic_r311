@@ -2852,6 +2852,7 @@ reqExtSetAcpiDevicePowerState(IN struct GLUE_INFO
 #define CMD_GET_WTBL_INFO	"GET_WTBL"
 #define CMD_GET_MIB_INFO	"GET_MIB"
 #define CMD_GET_STA_INFO	"GET_STA"
+#define CMD_GET_MAGIC_PKT_INFO	"GET_MAGIC_PKT_INFO"
 #define CMD_SET_FW_LOG		"SET_FWLOG"
 #define CMD_GET_QUE_INFO	"GET_QUE"
 #define CMD_GET_MEM_INFO	"GET_MEM"
@@ -3395,14 +3396,9 @@ int priv_driver_get_dbg_level(IN struct net_device *prNetDev,
 static int priv_cmd_not_support(IN struct net_device *prNetDev,
 	IN char *pcCommand, IN int i4TotalLen)
 {
-	int32_t i4BytesWritten = 0;
-
 	DBGLOG(REQ, WARN, "not support priv command: %s\n", pcCommand);
 
-	i4BytesWritten = scnprintf(pcCommand, i4TotalLen,
-					 "not support priv command\n");
-
-	return i4BytesWritten;
+	return -EOPNOTSUPP;
 }
 
 #if CFG_SUPPORT_QA_TOOL
@@ -5143,6 +5139,64 @@ static int priv_driver_set_fw_log(IN struct net_device *prNetDev,
 	return i4BytesWritten;
 }
 #endif
+
+static int priv_driver_get_magic_pkt_info(IN struct net_device *prNetDev, IN char *pcCommand, IN int i4TotalLen)
+{
+	struct GLUE_INFO *prGlueInfo = NULL;
+	uint32_t rStatus = WLAN_STATUS_SUCCESS;
+	uint32_t u4BufLen = 0;
+	int32_t i4BytesWritten = 0;
+	int32_t i4Argc = 0;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX];
+	struct CMD_GET_MAGIC_PKT_INFO_T *cmd = NULL;
+	bool fgWaitResp = TRUE;
+	bool fgRead = TRUE;
+
+	ASSERT(prNetDev);
+
+	DBGLOG(REQ, INFO, "command is %s\n", pcCommand);
+	wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv);
+	DBGLOG(REQ, INFO, "argc is %i\n", i4Argc);
+
+	prGlueInfo = *((struct GLUE_INFO **) netdev_priv(prNetDev));
+
+	if (!prGlueInfo)
+		goto get_info_invalid;
+
+	cmd = (struct CMD_GET_MAGIC_PKT_INFO_T *)kalMemAlloc(
+			sizeof(struct CMD_GET_MAGIC_PKT_INFO_T), VIR_MEM_TYPE);
+
+	if (!cmd)
+		goto get_info_invalid;
+
+	if (i4Argc > 1)
+		goto get_info_invalid;
+
+	memset(cmd, 0, sizeof(struct CMD_GET_MAGIC_PKT_INFO_T));
+	cmd->u2Type = CMD_GET_MAGIC_PKT_INFO_TYPE;
+	cmd->u2Len = sizeof(struct CMD_GET_MAGIC_PKT_INFO_T);
+
+	rStatus = kalIoctl(prGlueInfo, wlanoidAdvCtrl, cmd, sizeof(struct CMD_GET_MAGIC_PKT_INFO_T),
+		fgWaitResp, fgRead, TRUE, &u4BufLen);
+
+	if ((rStatus != WLAN_STATUS_SUCCESS) && (rStatus != WLAN_STATUS_PENDING)) {
+		i4BytesWritten += snprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
+				"\ncommand failed %x", rStatus);
+	} else {
+		i4BytesWritten += snprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
+			"\nMagicPacket_Rx count = %d", cmd->u4MagicPktCntTotal);
+		i4BytesWritten += snprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
+			"\nPullLowGpio_Wakeup count = %d", cmd->u4GpioPullLowCntTotal);
+		i4BytesWritten += snprintf(pcCommand + i4BytesWritten, i4TotalLen - i4BytesWritten,
+			"\nPullHighGpio_Wakeup count = %d", cmd->u4GpioPullHighCntTotal);
+	}
+
+get_info_invalid:
+	if (cmd)
+		kalMemFree(cmd, VIR_MEM_TYPE, sizeof(struct CMD_GET_MAGIC_PKT_INFO_T));
+	return i4BytesWritten;
+}
+
 
 static int priv_driver_get_mcr(IN struct net_device *prNetDev,
 			       IN char *pcCommand, IN int i4TotalLen)
@@ -9857,6 +9911,10 @@ int priv_driver_set_chip_config(IN struct net_device *prNetDev,
 	uint32_t u4PrefixLen = 0;
 	/* INT_32 i4Argc = 0; */
 	/* PCHAR  apcArgv[WLAN_CFG_ARGV_MAX] = {0}; */
+	int32_t i4Argc = 0;
+	int8_t *apcArgv[WLAN_CFG_ARGV_MAX] = { 0 };
+	char *pcTmpCommand;
+	uint32_t u4StrLen;
 
 	struct PARAM_CUSTOM_CHIP_CONFIG_STRUCT rChipConfigInfo = {0};
 
@@ -9870,6 +9928,34 @@ int priv_driver_set_chip_config(IN struct net_device *prNetDev,
 	/* wlanCfgParseArgument(pcCommand, &i4Argc, apcArgv); */
 	/* DBGLOG(REQ, LOUD,("argc is %i\n",i4Argc)); */
 	/*  */
+
+	u4StrLen = kalStrLen(pcCommand);
+	pcTmpCommand = (char *) kalMemAlloc(u4StrLen + 1, VIR_MEM_TYPE);
+
+	if (!pcTmpCommand) {
+		DBGLOG(REQ, ERROR, "TmpCmd : Memory alloc failed\n");
+		return -1;
+	}
+
+	kalStrnCpy(pcTmpCommand, pcCommand, u4StrLen);
+	pcTmpCommand[u4StrLen] = '\0';
+
+	wlanCfgParseArgument(pcTmpCommand, &i4Argc, apcArgv);
+
+	/* KeepFullPower Enable cmd is blocked when entering suspend mode */
+	if ((i4Argc == 3) && (apcArgv[0] != NULL) &&
+		(apcArgv[1] != NULL) && (apcArgv[2] != NULL)) {
+		if ((kalStrnCmp("KeepFullPwr", apcArgv[1], 11) == 0) &&
+				(kalStrnCmp("1", apcArgv[2], 1) == 0) &&
+				(prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap & BLOCK_KEEP_FULL_PWR)) {
+			DBGLOG(REQ, STATE, "KeepFullPower Enable Command is blocked\n");
+			kalMemFree(pcTmpCommand, VIR_MEM_TYPE, u4StrLen + 1);
+			return 0;
+		}
+	}
+
+	kalMemFree(pcTmpCommand, VIR_MEM_TYPE, u4StrLen + 1);
+
 	u4CmdLen = kalStrnLen(pcCommand, i4TotalLen);
 	u4PrefixLen = kalStrLen(CMD_SET_CHIP) + 1 /*space */;
 
@@ -14113,6 +14199,11 @@ static int priv_driver_get_traffic_report(IN struct net_device
 	cmd->ucBand = ucBand;
 
 	if (strnicmp(apcArgv[1], "ENABLE", strlen("ENABLE")) == 0) {
+		/* TrafficReport Enable cmd is blocked when entering suspend mode */
+		if (prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap & BLOCK_KEEP_FULL_PWR) {
+			DBGLOG(REQ, STATE, "TrafficReport Enable Command is blocked\n");
+			goto get_report_invalid;
+		}
 		prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap
 				|= KEEP_FULL_PWR_TRAFFIC_REPORT_BIT;
 		cmd->ucAction = CMD_GET_REPORT_ENABLE;
@@ -14729,6 +14820,11 @@ static int priv_driver_noise_histogram(IN struct net_device *prNetDev,
 	cmd->u2Len = sizeof(*cmd);
 
 	if (strnicmp(apcArgv[1], "ENABLE", strlen("ENABLE")) == 0) {
+		/* NoiseHistogram Enable cmd is blocked when entering suspend mode */
+		if (prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap & BLOCK_KEEP_FULL_PWR) {
+			DBGLOG(REQ, STATE, "NoiseHistogram Enable Command is blocked\n");
+			goto noise_histogram_invalid;
+		}
 		prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap |=
 			KEEP_FULL_PWR_NOISE_HISTOGRAM_BIT;
 		cmd->ucAction = CMD_NOISE_HISTOGRAM_ENABLE;
@@ -17713,6 +17809,10 @@ int32_t priv_driver_cmds(IN struct net_device *prNetDev, IN int8_t *pcCommand,
 			i4BytesWritten = priv_driver_set_fw_log(prNetDev,
 							pcCommand, i4TotalLen);
 #endif
+		else if (strnicmp(pcCommand, CMD_GET_MAGIC_PKT_INFO,
+			strlen(CMD_GET_MAGIC_PKT_INFO)) == 0)
+			i4BytesWritten = priv_driver_get_magic_pkt_info(prNetDev,
+							pcCommand, i4TotalLen);
 		else if (strnicmp(pcCommand, CMD_SET_CFG,
 			 strlen(CMD_SET_CFG)) == 0) {
 			i4BytesWritten = priv_driver_set_cfg(prNetDev,

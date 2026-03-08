@@ -272,11 +272,11 @@ void p2pFuncRequestScan(IN struct ADAPTER *prAdapter,
 				prScanReqV2->ucChannelListNum =
 					prScanReqInfo->ucNumChannelList;
 			}
-			/* fallthrough */
+			kal_fallthrough;
 		case SCAN_CHANNEL_FULL:
-			/* fallthrough */
+			kal_fallthrough;
 		case SCAN_CHANNEL_2G4:
-			/* fallthrough */
+			kal_fallthrough;
 		case SCAN_CHANNEL_P2P_SOCIAL:
 			{
 				/* UINT_8 aucP2pSsid[] = P2P_WILDCARD_SSID; */
@@ -1488,7 +1488,7 @@ p2pFuncSwitchOPMode(IN struct ADAPTER *prAdapter,
 			case OP_MODE_INFRASTRUCTURE:
 				DBGLOG(P2P, TRACE,
 					"p2pFuncSwitchOPMode: Switch to Client.\n");
-				/* fall through */
+				kal_fallthrough;
 			case OP_MODE_ACCESS_POINT:
 				/* Change interface address. */
 				if (eOpMode == OP_MODE_ACCESS_POINT) {
@@ -1958,7 +1958,14 @@ void p2pFuncDfsSwitchCh(IN struct ADAPTER *prAdapter,
 			DBGLOG(P2P, INFO, "p2pFuncDfsSwitchCh: Update to OS\n");
 			cfg80211_ch_switch_notify(
 				prP2PInfo->prDevHandler,
-				prP2PInfo->chandef);
+				prP2PInfo->chandef
+#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
+				, 0
+#endif
+#if KERNEL_VERSION(6, 1, 25) <= CFG80211_VERSION_CODE
+				, 0
+#endif
+				);
 			DBGLOG(P2P, INFO,
 				"p2pFuncDfsSwitchCh: Update to OS Done\n");
 		} else

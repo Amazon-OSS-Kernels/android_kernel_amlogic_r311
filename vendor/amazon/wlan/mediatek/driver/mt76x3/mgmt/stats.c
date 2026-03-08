@@ -169,7 +169,11 @@ void StatsEnvRxTime2Host(IN struct ADAPTER *prAdapter, struct sk_buff *prSkb)
 #else
 	do_gettimeofday(&tval);
 #endif
+#if KERNEL_VERSION(5, 7, 0) <= LINUX_VERSION_CODE
+	rtc_time64_to_tm(tval.tv_sec, &tm);
+#else
 	rtc_time_to_tm(tval.tv_sec, &tm);
+#endif
 
 	switch (ucIpProto) {
 	case IP_PRO_TCP:
@@ -178,7 +182,7 @@ void StatsEnvRxTime2Host(IN struct ADAPTER *prAdapter, struct sk_buff *prSkb)
 		u2UdpDstPort = (pucEth[22] << 8) | pucEth[23];
 		if (g_u2RxUdpPort && (u2UdpSrcPort != g_u2RxUdpPort))
 			break;
-		/* FALLTHRU */
+		kal_fallthrough;
 	case IP_PRO_ICMP:
 		u4TotalRx++;
 		if (g_u4RxDelayThreshold && (u4Delay <= g_u4RxDelayThreshold)) {
@@ -256,7 +260,7 @@ void StatsEnvTxTime2Hif(IN struct ADAPTER *prAdapter,
 		u2UdpSrcPort = (pucEthBody[20] << 8) | pucEthBody[21];
 		if (g_u2TxUdpPort && (u2UdpDstPort != g_u2TxUdpPort))
 			break;
-		/* FALLTHRU */
+		kal_fallthrough;
 	case IP_PRO_ICMP:
 		u4TotalTx++;
 		if (g_u4TxDelayThreshold

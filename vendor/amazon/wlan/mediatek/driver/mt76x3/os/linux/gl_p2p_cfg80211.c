@@ -514,7 +514,7 @@ struct wireless_dev *mtk_p2p_cfg80211_add_iface(struct wiphy *wiphy,
 					prGlueInfo->prAdapter
 						->prP2pInfo->u4DeviceNum << 2;
 		}
-		kalMemCopy(prNewNetDevice->dev_addr, rMacAddr, ETH_ALEN);
+		kal_eth_hw_addr_set(prNewNetDevice, rMacAddr);
 		kalMemCopy(prNewNetDevice->perm_addr, rMacAddr, ETH_ALEN);
 
 		DBGLOG(P2P, TRACE,
@@ -3323,8 +3323,7 @@ mtk_p2p_cfg80211_change_iface(IN struct wiphy *wiphy,
 		case NL80211_IFTYPE_P2P_CLIENT:
 			DBGLOG(P2P, TRACE, "NL80211_IFTYPE_P2P_CLIENT.\n");
 			prSwitchModeMsg->eIftype = IFTYPE_P2P_CLIENT;
-			/* This case need to fall through */
-			/* FALLTHRU */
+			kal_fallthrough;
 		case NL80211_IFTYPE_STATION:
 			if (type == NL80211_IFTYPE_STATION) {
 				DBGLOG(P2P, TRACE, "NL80211_IFTYPE_STATION.\n");
@@ -3337,8 +3336,7 @@ mtk_p2p_cfg80211_change_iface(IN struct wiphy *wiphy,
 			DBGLOG(P2P, TRACE, "NL80211_IFTYPE_AP.\n");
 			kalP2PSetRole(prGlueInfo, 2, ucRoleIdx);
 			prSwitchModeMsg->eIftype = IFTYPE_AP;
-			/* This case need to fall through */
-			/* FALLTHRU */
+			kal_fallthrough;
 		case NL80211_IFTYPE_P2P_GO:
 			if (type == NL80211_IFTYPE_P2P_GO) {
 				DBGLOG(P2P, TRACE,

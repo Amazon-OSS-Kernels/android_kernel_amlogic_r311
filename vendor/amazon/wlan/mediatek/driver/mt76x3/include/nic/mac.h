@@ -499,6 +499,21 @@
 #define MAC_FRAME_ACTION                        (MAC_FRAME_TYPE_MGT | 0x00D0)
 #define MAC_FRAME_ACTION_NO_ACK                 (MAC_FRAME_TYPE_MGT | 0x00E0)
 
+#define MASK_MAC_FRAME_ASSOC_REQ                BIT(MAC_FRAME_ASSOC_REQ >> 4)
+#define MASK_MAC_FRAME_ASSOC_RSP                BIT(MAC_FRAME_ASSOC_RSP >> 4)
+#define MASK_MAC_FRAME_REASSOC_REQ              BIT(MAC_FRAME_REASSOC_REQ >> 4)
+#define MASK_MAC_FRAME_REASSOC_RSP              BIT(MAC_FRAME_REASSOC_RSP >> 4)
+#define MASK_MAC_FRAME_PROBE_REQ                BIT(MAC_FRAME_PROBE_REQ >> 4)
+#define MASK_MAC_FRAME_PROBE_RSP                BIT(MAC_FRAME_PROBE_RSP >> 4)
+#define MASK_MAC_FRAME_BEACON                   BIT(MAC_FRAME_BEACON >> 4)
+#define MASK_MAC_FRAME_ATIM                     BIT(MAC_FRAME_ATIM >> 4)
+#define MASK_MAC_FRAME_DISASSOC                 BIT(MAC_FRAME_DISASSOC >> 4)
+#define MASK_MAC_FRAME_AUTH                     BIT(MAC_FRAME_AUTH >> 4)
+#define MASK_MAC_FRAME_DEAUTH                   BIT(MAC_FRAME_DEAUTH >> 4)
+#define MASK_MAC_FRAME_ACTION                   BIT(MAC_FRAME_ACTION >> 4)
+#define MASK_MAC_FRAME_ACTION_NO_ACK \
+	BIT(MAC_FRAME_ACTION_NO_ACK >> 4)
+
 #define MAC_FRAME_CONTRL_WRAPPER                (MAC_FRAME_TYPE_CTRL | 0x0070)
 #define MAC_FRAME_BLOCK_ACK_REQ                 (MAC_FRAME_TYPE_CTRL | 0x0080)
 #define MAC_FRAME_BLOCK_ACK                     (MAC_FRAME_TYPE_CTRL | 0x0090)

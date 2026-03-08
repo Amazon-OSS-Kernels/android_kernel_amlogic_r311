@@ -1975,6 +1975,15 @@ struct CMD_FW_LOG_2_HOST_CTRL {
 	uint8_t ucReserve[2];
 };
 
+struct CMD_GET_MAGIC_PKT_INFO_T {
+	uint16_t u2Type;
+	uint16_t u2Len;
+	uint32_t u4ConfigMask;
+	uint32_t u4MagicPktCntTotal;
+	uint32_t u4GpioPullLowCntTotal;
+	uint32_t u4GpioPullHighCntTotal;
+};
+
 struct CMD_CHIP_CONFIG {
 	uint16_t u2Id;
 	uint8_t ucType;
@@ -3276,6 +3285,8 @@ struct CMD_SET_DEVICE_MODE {
 #if CFG_SUPPORT_EXT_PTA_DEBUG_COMMAND
 #define CMD_EXT_PTA_CONFIG_TYPE (0x7)
 #endif
+/* 0x8 is reserved for GARP count */
+#define CMD_GET_MAGIC_PKT_INFO_TYPE (0x9)
 
 /* for PtaConfig field */
 #define CMD_PTA_CONFIG_PTA_EN (1<<0)

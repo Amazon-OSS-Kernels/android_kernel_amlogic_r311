@@ -340,7 +340,8 @@ extern void wifi_fwlog_event_func_register(wifi_fwlog_event_func_cb pfFwlog);
 #define WLAN_AKM_SUITE_SAE		0x000FAC08
 #endif
 #endif
-#if CFG_SUPPORT_OWE
+#if CFG_SUPPORT_OWE && \
+	KERNEL_VERSION(5, 7, 0) > CFG80211_VERSION_CODE
 #define WLAN_AKM_SUITE_OWE		0x000FAC12
 #endif
 

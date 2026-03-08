@@ -459,6 +459,25 @@ struct KAL_THREAD_SCHEDSTATS {
 #define SUSPEND_FLAG_FOR_WAKEUP_REASON	(0)
 #define SUSPEND_FLAG_CLEAR_WHEN_RESUME	(1)
 
+#if KERNEL_VERSION(5, 6, 0) <= LINUX_VERSION_CODE
+#define DEFINE_PROC_OPS_STRUCT(_n_)  const struct proc_ops _n_
+#define DEFINE_PROC_OPS_OWNER(_n_)
+#define DEFINE_PROC_OPS_WRITE(_n_)   .proc_write = _n_,
+#define DEFINE_PROC_OPS_READ(_n_)    .proc_read  = _n_,
+#define DEFINE_PROC_OPS_POLL(_n_)    .proc_poll  = _n_,
+#define DEFINE_PROC_OPS_OPEN(_n_)    .proc_open  = _n_,
+#define DEFINE_PROC_OPS_LSEEK(_n_)   .proc_lseek  = _n_,
+#define DEFINE_PROC_OPS_RELEASE(_n_) .proc_release  = _n_,
+#else
+#define DEFINE_PROC_OPS_STRUCT(_n_)  const struct file_operations _n_
+#define DEFINE_PROC_OPS_OWNER(_n_)   .owner = _n_,
+#define DEFINE_PROC_OPS_WRITE(_n_)   .write = _n_,
+#define DEFINE_PROC_OPS_READ(_n_)    .read = _n_,
+#define DEFINE_PROC_OPS_POLL(_n_)    .poll  = _n_,
+#define DEFINE_PROC_OPS_OPEN(_n_)    .open  = _n_,
+#define DEFINE_PROC_OPS_LSEEK(_n_)   .llseek  = _n_,
+#define DEFINE_PROC_OPS_RELEASE(_n_) .release  = _n_,
+#endif
 
 /*----------------------------------------------------------------------------*/
 /* Macros of getting current thread id                                        */
@@ -1670,8 +1689,34 @@ unsigned long kal_kallsyms_lookup_name(const char *name);
 
 void kal_kallsyms_put(const char *name);
 
+void kal_sched_set(struct task_struct *p, int policy,
+		const struct sched_param *param,
+		int nice);
+
 #ifdef CONFIG_PM_SLEEP
 int32_t kalPmResumeState(void);
 int32_t kalPmResumeHandler(struct notifier_block *notifier, unsigned long pm_event, void *unused);
 #endif
+
+#ifndef __has_attribute
+#define __has_attribute(x) 0
+#endif
+
+/* clone 'fallthrough' in include/linux/compiler_attributes.h */
+#if __has_attribute(__fallthrough__)
+#define kal_fallthrough __attribute__((__fallthrough__))
+#else
+#define kal_fallthrough do {} while (0)  /* fallthrough */
+#endif
+
+static inline void kal_eth_hw_addr_set(struct net_device *dev,
+				       const uint8_t *addr)
+{
+#if KERNEL_VERSION(5, 17, 0) <= LINUX_VERSION_CODE
+	eth_hw_addr_set(dev, addr);
+#else
+	kalMemCopy(dev->dev_addr, addr, ETH_ALEN);
+#endif
+}
+
 #endif				/* _GL_KAL_H */

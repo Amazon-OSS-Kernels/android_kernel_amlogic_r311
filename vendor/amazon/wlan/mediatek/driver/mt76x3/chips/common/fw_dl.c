@@ -612,8 +612,10 @@ uint32_t wlanPatchSendSemaControl(IN struct ADAPTER
 	/* 3. Setup DOWNLOAD_BUF */
 	prPatchSemaControl = (struct INIT_CMD_PATCH_SEMA_CONTROL *)
 			     prInitHifTxHeader->rInitWifiCmd.aucBuffer;
+	#if KERNEL_VERSION(6, 1, 0) > CFG80211_VERSION_CODE
 	kalMemZero(prPatchSemaControl,
 		   sizeof(struct INIT_CMD_PATCH_SEMA_CONTROL));
+	#endif
 	prPatchSemaControl->ucGetSemaphore = PATCH_GET_SEMA_CONTROL;
 
 	/* 4. Send FW_Download command */

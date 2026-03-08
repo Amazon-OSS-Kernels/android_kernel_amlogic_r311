@@ -2399,7 +2399,12 @@ uint32_t saaFsmRunEventRxDisassoc(IN struct ADAPTER *prAdapter,
 					DBGLOG(SAA, INFO,
 						"notification of RX disassociation %d\n",
 						prSwRfb->u2PacketLen);
-					if (wdev->current_bss) {
+#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
+					if (wdev->connected)
+#else
+					if (wdev->current_bss)
+#endif
+					{
 #if CFG_WDEV_LOCK_THREAD_SUPPORT
 						if (in_interrupt()) {
 							pFrameBuf = kalMemAlloc(prSwRfb->u2PacketLen, PHY_MEM_TYPE);
@@ -2462,7 +2467,12 @@ uint32_t saaFsmRunEventRxDisassoc(IN struct ADAPTER *prAdapter,
 			wdev = prAdapter->prGlueInfo->prP2PInfo[ucRoleIdx]
 						->aprRoleHandler->ieee80211_ptr;
 
-			if (wdev->current_bss) {
+#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
+			if (wdev->connected)
+#else
+			if (wdev->current_bss)
+#endif
+			{
 #if CFG_WDEV_LOCK_THREAD_SUPPORT
 				if (in_interrupt()) {
 					pFrameBuf = kalMemAlloc(prSwRfb->u2PacketLen, PHY_MEM_TYPE);

@@ -141,7 +141,9 @@ struct WLANDEV_INFO {
 
 MODULE_AUTHOR(NIC_AUTHOR);
 MODULE_DESCRIPTION(NIC_DESC);
+#if KERNEL_VERSION(5, 12, 0) > LINUX_VERSION_CODE
 MODULE_SUPPORTED_DEVICE(NIC_NAME);
+#endif
 
 /* MODULE_LICENSE("MTK Propietary"); */
 MODULE_LICENSE("Dual BSD/GPL");
@@ -496,7 +498,12 @@ static struct cfg80211_ops mtk_cfg_ops = {
 	.cancel_remain_on_channel = mtk_cfg_cancel_remain_on_channel,
 	.mgmt_tx = mtk_cfg_mgmt_tx,
 	/* .mgmt_tx_cancel_wait        = mtk_cfg80211_mgmt_tx_cancel_wait, */
+#if KERNEL_VERSION(5, 8, 0) <= CFG80211_VERSION_CODE
+	.update_mgmt_frame_registrations = mtk_cfg_mgmt_frame_update,
+#else
 	.mgmt_frame_register = mtk_cfg_mgmt_frame_register,
+#endif
+
 
 #ifdef CONFIG_NL80211_TESTMODE
 	.testmode_cmd = mtk_cfg_testmode_cmd,
@@ -1353,6 +1360,10 @@ void wlanSchedWDevLockWorkQueue(struct work_struct *work)
 	struct PARAM_WDEV_LOCK_THREAD* prParamWDevLock = NULL;
 	struct QUE rTempQue;
 	struct QUE* prTempQue = &rTempQue;
+#if (KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE)
+	struct cfg80211_assoc_failure assoc_failure_data = {0};
+	struct cfg80211_rx_assoc_resp rx_assoc_resp_data = {0};
+#endif
 
 	GLUE_SPIN_LOCK_DECLARATION();
 
@@ -1387,6 +1398,10 @@ void wlanSchedWDevLockWorkQueue(struct work_struct *work)
 			}
 
 			kalAcquireWDevMutex(prParamWDevLock->pDev);
+#if (KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE)
+			assoc_failure_data.ap_mld_addr = NULL;
+			assoc_failure_data.bss[0] = prParamWDevLock->pBss;
+#endif
 			switch(prParamWDevLock->fn) {
 				case CFG80211_RX_ASSOC_RESP:
 					DBGLOG(SAA, EVENT, "cfg80211_rx_assoc_resp(0x%p, 0x%p, 0x%p, %d, %d)\n",
@@ -1395,7 +1410,19 @@ void wlanSchedWDevLockWorkQueue(struct work_struct *work)
 											prParamWDevLock->pFrameBuf,
 											prParamWDevLock->frameLen,
 											prParamWDevLock->uapsd_queues);
-#if (KERNEL_VERSION(5, 1, 0) <= CFG80211_VERSION_CODE)
+#if (KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE)
+					rx_assoc_resp_data.buf = (const u8 *)prParamWDevLock->pFrameBuf;
+					rx_assoc_resp_data.len = prParamWDevLock->frameLen;
+					rx_assoc_resp_data.uapsd_queues = 0;
+					rx_assoc_resp_data.links[0].bss = prParamWDevLock->pBss;
+#if KERNEL_VERSION(6, 2, 0) <= CFG80211_VERSION_CODE
+					rx_assoc_resp_data.links[0].status = WLAN_STATUS_SUCCESS;
+#endif
+					rx_assoc_resp_data.req_ies = NULL;
+					rx_assoc_resp_data.req_ies_len = 0;
+					cfg80211_rx_assoc_resp(prParamWDevLock->pDev,
+						&rx_assoc_resp_data);
+#elif (KERNEL_VERSION(5, 1, 0) <= CFG80211_VERSION_CODE)
 					cfg80211_rx_assoc_resp(prParamWDevLock->pDev,
 											prParamWDevLock->pBss,
 											prParamWDevLock->pFrameBuf,
@@ -1437,19 +1464,31 @@ void wlanSchedWDevLockWorkQueue(struct work_struct *work)
 											prParamWDevLock->frameLen);
 					cfg80211_tx_mlme_mgmt(prParamWDevLock->pDev,
 											prParamWDevLock->pFrameBuf,
-											prParamWDevLock->frameLen);
+											prParamWDevLock->frameLen
+#if (KERNEL_VERSION(5, 11, 0) <= CFG80211_VERSION_CODE)
+											,FALSE
+#endif
+											);
 					break;
 				case CFG80211_ABANDON_ASSOC:
-#if (KERNEL_VERSION(4, 4, 41) <= CFG80211_VERSION_CODE)
+#if (KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE)
+					assoc_failure_data.timeout = false;
+					cfg80211_assoc_failure(prParamWDevLock->pDev,
+						&assoc_failure_data);
+#elif (KERNEL_VERSION(4, 4, 41) <= CFG80211_VERSION_CODE)
 					cfg80211_abandon_assoc(prParamWDevLock->pDev,
 								prParamWDevLock->pBss);
-					break;
 #endif
 					/* 20210505 frog: for kernel below 4.4.41, fall through here.
 					 * ABANDON_ASSOC to be the same handle as ASSOC_TIMEOUT
 					 */
+					break;
 				case CFG80211_ASSOC_TIMEOUT:
-#if (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
+#if (KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE)
+					assoc_failure_data.timeout = true;
+					cfg80211_assoc_failure(prParamWDevLock->pDev,
+						&assoc_failure_data);
+#elif (KERNEL_VERSION(3, 11, 0) <= CFG80211_VERSION_CODE)
 					cfg80211_assoc_timeout(prParamWDevLock->pDev,
 								prParamWDevLock->pBss);
 #else
@@ -1727,13 +1766,16 @@ static int wlanSetMacAddress(struct net_device *ndev, void *addr)
 	 **********************************************************************
 	 */
 	wdev = ndev->ieee80211_ptr;
+#if (KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE)
+	/* master has been removed */
+#else
 	if (wdev->ssid_len > 0 || (wdev->current_bss)) {
 		DBGLOG(INIT, ERROR,
 		       "Reject macaddr change due to ssid_len(%d) & bss(%d)\n",
 		       wdev->ssid_len, (wdev->current_bss == NULL) ? 0 : 1);
 		return WLAN_STATUS_NOT_ACCEPTED;
 	}
-
+#endif
 	/**********************************************************************
 	 * 1. Change OwnMacAddr which will be updated to FW through           *
 	 *    rlmActivateNetwork later.                                       *
@@ -1746,7 +1788,7 @@ static int wlanSetMacAddress(struct net_device *ndev, void *addr)
 	prAdapter = prGlueInfo->prAdapter;
 
 	COPY_MAC_ADDR(prAdapter->prAisBssInfo->aucOwnMacAddr, sa->sa_data);
-	COPY_MAC_ADDR(prGlueInfo->prDevHandler->dev_addr, sa->sa_data);
+	kal_eth_hw_addr_set(prGlueInfo->prDevHandler, sa->sa_data);
 	DBGLOG(INIT, INFO, "Set connect random macaddr to " MACSTR ".\n",
 	       MAC2STR(prAdapter->prAisBssInfo->aucOwnMacAddr));
 
@@ -2028,8 +2070,13 @@ static int32_t wlanNetRegister(struct wireless_dev *prWdev)
 		prWdev->netdev->features |= NETIF_F_GRO;
 		prWdev->netdev->hw_features |= NETIF_F_GRO;
 #endif /* CFG_GRO_SUPPORT */
+#if KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE
+		netif_napi_add(prWdev->netdev, &prGlueInfo->rNapi,
+			kalRxNapiPoll);
+#else
 		netif_napi_add(prWdev->netdev, &prGlueInfo->rNapi,
 			kalRxNapiPoll, NAPI_POLL_WEIGHT);
+#endif
 		skb_queue_head_init(&prGlueInfo->rRxNapiSkbQ);
 		if (prGlueInfo->prAdapter->rWifiVar.ucRxNapiEnable)
 			kalRxNapiSetEnable(prGlueInfo, TRUE);
@@ -3776,16 +3823,19 @@ static int32_t wlanProbe(void *pvData, void *pvDriverData)
 				.sched_priority = prGlueInfo->prAdapter
 				->rWifiVar.ucThreadPriority
 			};
-			sched_setscheduler(prGlueInfo->main_thread,
+			kal_sched_set(prGlueInfo->main_thread,
 					   prGlueInfo->prAdapter->rWifiVar
-					   .ucThreadScheduling, &param);
+					   .ucThreadScheduling, &param,
+					   prGlueInfo->prAdapter->rWifiVar.cThreadNice);
 #if CFG_SUPPORT_MULTITHREAD
-			sched_setscheduler(prGlueInfo->hif_thread,
+			kal_sched_set(prGlueInfo->hif_thread,
 						prGlueInfo->prAdapter->rWifiVar
-						.ucThreadScheduling, &param);
-			sched_setscheduler(prGlueInfo->rx_thread,
+						.ucThreadScheduling, &param,
+						prGlueInfo->prAdapter->rWifiVar.cThreadNice);
+			kal_sched_set(prGlueInfo->rx_thread,
 						prGlueInfo->prAdapter->rWifiVar
-						.ucThreadScheduling, &param);
+						.ucThreadScheduling, &param,
+						prGlueInfo->prAdapter->rWifiVar.cThreadNice);
 #endif
 			DBGLOG(INIT, INFO,
 			       "Set pri = %d, sched = %d\n",
@@ -3834,8 +3884,9 @@ static int32_t wlanProbe(void *pvData, void *pvDriverData)
 				i4Status = -ENXIO;
 				break;
 			} else {
-				kalMemCopy(prGlueInfo->prDevHandler->dev_addr,
-					   &MacAddr.sa_data, ETH_ALEN);
+				kal_eth_hw_addr_set(
+					prGlueInfo->prDevHandler,
+					MacAddr.sa_data);
 				kalMemCopy(prGlueInfo->prDevHandler->perm_addr,
 					   prGlueInfo->prDevHandler->dev_addr,
 					   ETH_ALEN);
@@ -4090,16 +4141,16 @@ static int32_t wlanProbe(void *pvData, void *pvDriverData)
 #if (CFG_MET_PACKET_TRACE_SUPPORT == 1)
 		case FAIL_MET_INIT_PROCFS:
 			kalMetRemoveProcfs();
-			/* FALLTHRU */
+			kal_fallthrough;
 #endif
 		case PROC_P2P_NET_REGISTER_FAIL:
 #if WLAN_INCLUDE_PROC
 			procRemoveProcfs();
 #endif
-			/* FALLTHRU */
+			kal_fallthrough;
 		case PROC_INIT_FAIL:
 			wlanNetUnregister(prWdev);
-			/* FALLTHRU */
+			kal_fallthrough;
 		case NET_REGISTER_FAIL:
 			set_bit(GLUE_FLAG_HALT_BIT, &prGlueInfo->ulFlag);
 			/* wake up main thread */
@@ -4108,12 +4159,12 @@ static int32_t wlanProbe(void *pvData, void *pvDriverData)
 			wait_for_completion_interruptible(
 							&prGlueInfo->rHaltComp);
 			wlanAdapterStop(prAdapter);
-		/* fallthrough */
+			kal_fallthrough;
 		case ADAPTER_START_FAIL:
 			glBusFreeIrq(prWdev->netdev,
 				*((struct GLUE_INFO **)
 						netdev_priv(prWdev->netdev)));
-		/* fallthrough */
+			kal_fallthrough;
 		case BUS_SET_IRQ_FAIL:
 #if CFG_FTV_BUZZARD_135_PATCH
 			if (g_u4ProbeChipResetTimes < PROBE_CHIP_RESET_LIMIT) {
