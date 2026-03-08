@@ -53,7 +53,7 @@ this can be set to is 256.
 
 Wiki Link:
 
-https://wiki.labcollab.net/confluence/display/Doppler/Mmap+Leak+Detection
+https://www.amazon.com
 
 Steps:
 
@@ -92,14 +92,14 @@ Run,
 python ~/debug/native_dump_viewer.py --symbols <path>  ./mmapleak\:0
 
 native_dump_viewer.py script is in google search OR
-https://wiki.labcollab.net/confluence/display/Doppler/Mmap+Leak+Detection
+https://www.amazon.com
 
 
 For example,
 
-python ~/debug/mmap_dump_viewer.py --symbols /bld1/fos6/out/target/product/biscuit_puffin/symbols ./mmapleak\:0
+python ~/debug/mmap_dump_viewer.py --symbols /bld1/fos6/out/target/product/abh123_puffin/symbols ./mmapleak\:0
 
-Resolving symbols using directory /bld1/fos6/out/target/product/biscuit_puffin/symbols...
+Resolving symbols using directory /bld1/fos6/out/target/product/abh123_puffin/symbols...
 
     BYTES %TOTAL %PARENT    COUNT    ADDR LIBRARY FUNCTION LOCATION
         0   0.00%   0.00%        0 APP
