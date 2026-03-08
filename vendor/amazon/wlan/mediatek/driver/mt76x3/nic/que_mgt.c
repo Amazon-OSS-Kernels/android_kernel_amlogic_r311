@@ -6184,14 +6184,18 @@ void mqmGenerateWmmInfoIE(IN struct ADAPTER *prAdapter,
 
 	DEBUGFUNC("mqmGenerateWmmInfoIE");
 
-	ASSERT(prMsduInfo);
+	if (prMsduInfo == NULL) {
+		DBGLOG(QM, ERROR, "prMsduInfo is NULL\n");
+		return;
+	}
 
 	prStaRec = cnmGetStaRecByIndex(prAdapter,
 		prMsduInfo->ucStaRecIndex);
-	ASSERT(prStaRec);
 
-	if (prStaRec == NULL)
+	if (prStaRec == NULL) {
+		DBGLOG(QM, ERROR, "prStaRec is NULL\n");
 		return;
+	}
 
 	prBssInfo = GET_BSS_INFO_BY_INDEX(prAdapter,
 		prStaRec->ucBssIndex);

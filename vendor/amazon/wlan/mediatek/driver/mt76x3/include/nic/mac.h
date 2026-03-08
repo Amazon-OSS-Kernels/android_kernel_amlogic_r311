@@ -1348,6 +1348,9 @@
 #define VHT_OP_MODE_RX_NSS                          BITS(4, 6)
 #define VHT_OP_MODE_RX_NSS_TYPE                     BIT(7)
 
+#define VHT_OP_MODE_NSS_1    0x00
+#define VHT_OP_MODE_NSS_2    0x01
+
 #define VHT_OP_MODE_CHANNEL_WIDTH_OFFSET                   0
 #define VHT_OP_MODE_RX_NSS_OFFSET                   4
 #define VHT_OP_MODE_RX_NSS_TYPE_OFFSET              7
@@ -2248,7 +2251,8 @@ struct ACTION_NEIGHBOR_REPORT_FRAME {
 struct SUB_ELEMENT {
 	uint8_t ucSubID;
 	uint8_t ucLength;
-	uint8_t aucOptInfo[1];
+	/* variable length */
+	uint8_t aucOptInfo[];
 } __KAL_ATTRIB_PACKED__;
 
 struct SM_BASIC_REQ {

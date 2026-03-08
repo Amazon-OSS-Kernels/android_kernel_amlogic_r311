@@ -10639,11 +10639,9 @@ void wlanSuspendPmHandle(struct GLUE_INFO *prGlueInfo)
 	struct RX_BA_ENTRY *prRxBaEntry;
 
 #if CFG_SUPPORT_ADVANCE_CONTROL
-	if (prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap) {
-		prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap |=
-			BLOCK_KEEP_FULL_PWR;
-		wlanKeepFullPwr(prGlueInfo->prAdapter, FALSE);
-	}
+	prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap |=
+		BLOCK_KEEP_FULL_PWR;
+	wlanKeepFullPwr(prGlueInfo->prAdapter, FALSE);
 #endif
 	/* if cfg EAPOL offload is 0, we set rekey offload when enter wow */
 	if (!prGlueInfo->prAdapter->rWifiVar.ucEapolOffload) {
@@ -10842,11 +10840,8 @@ void wlanResumePmHandle(struct GLUE_INFO *prGlueInfo)
 	}
 #endif
 #if CFG_SUPPORT_ADVANCE_CONTROL
-	if (prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap) {
-		prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap &=
-			~BLOCK_KEEP_FULL_PWR;
-		wlanKeepFullPwr(prGlueInfo->prAdapter, TRUE);
-	}
+	prGlueInfo->prAdapter->u4IsKeepFullPwrBitmap &=
+		~BLOCK_KEEP_FULL_PWR;
 #endif
 
 }

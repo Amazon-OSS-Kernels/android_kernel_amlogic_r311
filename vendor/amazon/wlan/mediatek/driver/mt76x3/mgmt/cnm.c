@@ -369,58 +369,58 @@ cnmDbdcFsmExitFunc_WAIT_HW_ENABLE(
 static struct DBDC_FSM_T arDdbcFsmActionTable[] = {
 	/* ENUM_DBDC_FSM_STATE_DISABLE_IDLE */
 	{
-		cnmDbdcFsmEntryFunc_DISABLE_IDLE,
-		cnmDbdcFsmEventHandler_DISABLE_IDLE,
-		NULL
+		.pfEntryFunc = cnmDbdcFsmEntryFunc_DISABLE_IDLE,
+		.pfEventHandlerFunc = cnmDbdcFsmEventHandler_DISABLE_IDLE,
+		.pfExitFunc = NULL
 	},
 
 	/* ENUM_DBDC_FSM_STATE_WAIT_PROTOCOL_ENABLE */
 	{
-		cnmDbdcFsmEntryFunc_WAIT_PROTOCOL_ENABLE,
-		cnmDbdcFsmEventHandler_WAIT_PROTOCOL_ENABLE,
-		NULL
+		.pfEntryFunc = cnmDbdcFsmEntryFunc_WAIT_PROTOCOL_ENABLE,
+		.pfEventHandlerFunc = cnmDbdcFsmEventHandler_WAIT_PROTOCOL_ENABLE,
+		.pfExitFunc = NULL
 	},
 
 	/* ENUM_DBDC_FSM_STATE_WAIT_HW_ENABLE */
 	{
-		cnmDbdcFsmEntryFunc_WAIT_HW_ENABLE,
-		cnmDbdcFsmEventHandler_WAIT_HW_ENABLE,
-		cnmDbdcFsmExitFunc_WAIT_HW_ENABLE
+		.pfEntryFunc = cnmDbdcFsmEntryFunc_WAIT_HW_ENABLE,
+		.pfEventHandlerFunc = cnmDbdcFsmEventHandler_WAIT_HW_ENABLE,
+		.pfExitFunc = cnmDbdcFsmExitFunc_WAIT_HW_ENABLE
 	},
 
 	/* ENUM_DBDC_FSM_STATE_ENABLE_GUARD */
 	{
-		cnmDbdcFsmEntryFunc_ENABLE_GUARD,
-		cnmDbdcFsmEventHandler_ENABLE_GUARD,
-		NULL
+		.pfEntryFunc = cnmDbdcFsmEntryFunc_ENABLE_GUARD,
+		.pfEventHandlerFunc = cnmDbdcFsmEventHandler_ENABLE_GUARD,
+		.pfExitFunc = NULL
 	},
 
 	/* ENUM_DBDC_FSM_STATE_ENABLE_IDLE */
 	{
-		NULL,
-		cnmDbdcFsmEventHandler_ENABLE_IDLE,
-		NULL
+		.pfEntryFunc = NULL,
+		.pfEventHandlerFunc = cnmDbdcFsmEventHandler_ENABLE_IDLE,
+		.pfExitFunc = NULL
 	},
 
 	/* ENUM_DBDC_FSM_STATE_WAIT_HW_DISABLE */
 	{
-		cnmDbdcFsmEntryFunc_WAIT_HW_DISABLE,
-		cnmDbdcFsmEventHandler_WAIT_HW_DISABLE,
-		NULL
+		.pfEntryFunc = cnmDbdcFsmEntryFunc_WAIT_HW_DISABLE,
+		.pfEventHandlerFunc = cnmDbdcFsmEventHandler_WAIT_HW_DISABLE,
+		.pfExitFunc = NULL
 	},
 
 	/* ENUM_DBDC_FSM_STATE_DISABLE_GUARD */
 	{
-		cnmDbdcFsmEntryFunc_DISABLE_GUARD,
-		cnmDbdcFsmEventHandler_DISABLE_GUARD,
-		NULL
+		.pfEntryFunc = cnmDbdcFsmEntryFunc_DISABLE_GUARD,
+		.pfEventHandlerFunc = cnmDbdcFsmEventHandler_DISABLE_GUARD,
+		.pfExitFunc = NULL
 	},
 
 	/* ENUM_DBDC_FSM_STATE_WAIT_PROTOCOL_DISABLE */
 	{
-		NULL,
-		cnmDbdcFsmEventHandler_WAIT_PROTOCOL_DISABLE,
-		NULL
+		.pfEntryFunc = NULL,
+		.pfEventHandlerFunc = cnmDbdcFsmEventHandler_WAIT_PROTOCOL_DISABLE,
+		.pfExitFunc = NULL
 	},
 };
 

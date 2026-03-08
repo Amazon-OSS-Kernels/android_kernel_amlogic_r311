@@ -326,8 +326,6 @@ u_int8_t rsnParseRsnIE(IN struct ADAPTER *prAdapter,
 	/* Save the RSN information for the BSS. */
 	prRsnInfo->ucElemId = ELEM_ID_RSN;
 
-	prRsnInfo->ucRsneLen = prInfoElem->ucLength;
-
 	prRsnInfo->u2Version = u2Version;
 
 	prRsnInfo->u4GroupKeyCipherSuite = u4GroupSuite;
@@ -1633,6 +1631,7 @@ void rsnGenerateRSNIE(IN struct ADAPTER *prAdapter,
 	uint8_t *pucBuffer;
 	uint8_t ucBssIndex;
 	struct BSS_INFO *prBssInfo;
+	struct AIS_SPECIFIC_BSS_INFO *prAisSpecBssInfo;
 #if !CFG_SUPPORT_CFG80211_AUTH
 	uint32_t u4Entry;
 	struct STA_RECORD *prStaRec;
@@ -1660,6 +1659,7 @@ void rsnGenerateRSNIE(IN struct ADAPTER *prAdapter,
 
 	/* Todo:: network id */
 	ucBssIndex = prMsduInfo->ucBssIndex;
+	prAisSpecBssInfo = &prAdapter->rWifiVar.rAisSpecificBssInfo;
 	/* for Fast Bss Transition,  we reuse the RSN Element composed in
 	 * userspace
 	 */
@@ -1704,25 +1704,8 @@ void rsnGenerateRSNIE(IN struct ADAPTER *prAdapter,
 		))) {
 		/* Construct a RSN IE for association request frame. */
 		RSN_IE(pucBuffer)->ucElemId = ELEM_ID_RSN;
-#if CFG_SUPPORT_CFG80211_AUTH
-		RSN_IE(pucBuffer)->ucLength =
-			prAdapter->prGlueInfo->rWpaInfo.ucRsneLen;
-		if (RSN_IE(pucBuffer)->ucLength < 2) {
-			if ((prBssInfo->eCurrentOPMode ==
-				OP_MODE_ACCESS_POINT) ||
-				(prBssInfo->eNetworkType == NETWORK_TYPE_P2P)) {
-				RSN_IE(pucBuffer)->ucLength =
-							ELEM_ID_RSN_LEN_FIXED;
-			} else {
-				DBGLOG(RSN, WARN,
-					"Desired RSN IE from upper is too short (length=%d)\n",
-					RSN_IE(pucBuffer)->ucLength);
-				return;
-			}
-		}
-#else
 		RSN_IE(pucBuffer)->ucLength = ELEM_ID_RSN_LEN_FIXED;
-#endif
+
 		/* Version */
 		WLAN_SET_FIELD_16(&RSN_IE(pucBuffer)->u2Version, 1);
 		WLAN_SET_FIELD_32(&RSN_IE(pucBuffer)->u4GroupKeyCipherSuite,
@@ -1785,13 +1768,13 @@ void rsnGenerateRSNIE(IN struct ADAPTER *prAdapter,
 		/*Fill PMKID and Group Management Cipher for AIS */
 		if (GET_BSS_INFO_BY_INDEX(prAdapter, ucBssIndex)->eNetworkType
 			== NETWORK_TYPE_AIS) {
-			/* Fill PMKID Count field */
-			WLAN_SET_FIELD_16(cp,
-				prConnSettings->rRsnInfo.u2PmkidCnt);
-			cp += 2;
-
-			/* Fill PMKID List field */
 			if (prConnSettings->rRsnInfo.u2PmkidCnt > 0) {
+				/* Fill PMKID Count field */
+				WLAN_SET_FIELD_16(cp,
+					prConnSettings->rRsnInfo.u2PmkidCnt);
+				cp += 2;
+				RSN_IE(pucBuffer)->ucLength += 2;
+				/* Fill PMKID List field */
 				kalMemCopy(cp,
 					&prConnSettings->rRsnInfo.aucPmkidList,
 					(prConnSettings
@@ -1802,15 +1785,33 @@ void rsnGenerateRSNIE(IN struct ADAPTER *prAdapter,
 				DBGLOG_MEM8(RSN, INFO, cp,
 					(prConnSettings
 					->rRsnInfo.u2PmkidCnt * RSN_PMKID_LEN));
+				cp +=
+					(prConnSettings->rRsnInfo.u2PmkidCnt * RSN_PMKID_LEN);
+				RSN_IE(pucBuffer)->ucLength +=
+					(prConnSettings->rRsnInfo.u2PmkidCnt * RSN_PMKID_LEN);
+			}
+#if CFG_SUPPORT_802_11W
+			else {
+				/* Follow supplicant flow to
+				 * fill PMKID Count field = 0 only when
+				 * Group Management Cipher field
+				 * need to be filled
+				 */
+				if (prAisSpecBssInfo->fgMgmtProtection) {
+					WLAN_SET_FIELD_16(cp, 0);
+					cp += 2;
+					RSN_IE(pucBuffer)->ucLength += 2;
+				}
 			}
 
-			cp += (prConnSettings
-				->rRsnInfo.u2PmkidCnt * RSN_PMKID_LEN);
-#if CFG_SUPPORT_802_11W
 			/* Fill Group Management Cipher field */
-			u4GroupMgmt =
-			prAdapter->prGlueInfo->rWpaInfo.u4CipherGroupMgmt;
-			WLAN_SET_FIELD_32(cp, u4GroupMgmt);
+			if (prAisSpecBssInfo->fgMgmtProtection) {
+				u4GroupMgmt =
+					prAdapter->prGlueInfo->rWpaInfo.u4CipherGroupMgmt;
+				WLAN_SET_FIELD_32(cp, u4GroupMgmt);
+				cp += 4;
+				RSN_IE(pucBuffer)->ucLength += 4;
+			}
 #endif
 		}
 #else

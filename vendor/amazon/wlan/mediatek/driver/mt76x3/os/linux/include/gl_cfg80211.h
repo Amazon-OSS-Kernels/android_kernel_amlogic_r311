@@ -517,7 +517,7 @@ int mtk_cfg_change_iface(struct wiphy *wiphy,
 #endif
 int mtk_cfg_add_key(struct wiphy *wiphy,
 		    struct net_device *ndev,
-#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
+#if KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE
 		    int link_id,
 #endif
 		    u8 key_index, bool pairwise, const u8 *mac_addr,
@@ -525,7 +525,7 @@ int mtk_cfg_add_key(struct wiphy *wiphy,
 
 int mtk_cfg_get_key(struct wiphy *wiphy,
 		    struct net_device *ndev,
-#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
+#if KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE
 		    int link_id,
 #endif
 		    u8 key_index, bool pairwise,
@@ -534,20 +534,20 @@ int mtk_cfg_get_key(struct wiphy *wiphy,
 
 int mtk_cfg_del_key(struct wiphy *wiphy,
 		    struct net_device *ndev,
-#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
+#if KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE
 		    int link_id,
 #endif
 		    u8 key_index, bool pairwise, const u8 *mac_addr);
 int mtk_cfg_set_default_key(struct wiphy *wiphy,
 			    struct net_device *ndev,
-#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
+#if KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE
 			    int link_id,
 #endif
 			    u8 key_index, bool unicast, bool multicast);
 
 int mtk_cfg_set_default_mgmt_key(struct wiphy *wiphy,
 		struct net_device *ndev,
-#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
+#if KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE
 		int link_id,
 #endif
 		u8 key_index);
@@ -751,7 +751,7 @@ int mtk_cfg_change_beacon(struct wiphy *wiphy,
 			  struct cfg80211_beacon_data *info);
 int mtk_cfg_stop_ap(struct wiphy *wiphy,
 		    struct net_device *dev
-#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
+#if KERNEL_VERSION(6, 0, 0) <= CFG80211_VERSION_CODE
 		    , unsigned int link_id
 #endif
 );
@@ -759,7 +759,7 @@ int mtk_cfg_set_wiphy_params(struct wiphy *wiphy,
 			     u32 changed);
 int mtk_cfg_set_bitrate_mask(struct wiphy *wiphy,
 			     struct net_device *dev,
-#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
+#if KERNEL_VERSION(6, 0, 0) <= CFG80211_VERSION_CODE
 			     unsigned int link_id,
 #endif
 			     const u8 *peer,

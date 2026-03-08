@@ -1959,10 +1959,10 @@ void p2pFuncDfsSwitchCh(IN struct ADAPTER *prAdapter,
 			cfg80211_ch_switch_notify(
 				prP2PInfo->prDevHandler,
 				prP2PInfo->chandef
-#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
+#if KERNEL_VERSION(5, 19, 2) <= CFG80211_VERSION_CODE
 				, 0
 #endif
-#if KERNEL_VERSION(6, 1, 25) <= CFG80211_VERSION_CODE
+#if KERNEL_VERSION(6, 3, 0) <= CFG80211_VERSION_CODE
 				, 0
 #endif
 				);

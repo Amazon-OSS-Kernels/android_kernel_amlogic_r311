@@ -1056,7 +1056,6 @@ enum ENUM_ANTENNA_NUM {
 /* Structure of RSN Information */
 struct RSN_INFO {
 	uint8_t ucElemId;
-	uint8_t ucRsneLen;
 	uint16_t u2Version;
 	uint32_t u4GroupKeyCipherSuite;
 	uint32_t u4PairwiseKeyCipherSuiteCount;

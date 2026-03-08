@@ -2399,7 +2399,7 @@ uint32_t saaFsmRunEventRxDisassoc(IN struct ADAPTER *prAdapter,
 					DBGLOG(SAA, INFO,
 						"notification of RX disassociation %d\n",
 						prSwRfb->u2PacketLen);
-#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
+#if KERNEL_VERSION(6, 0, 0) <= CFG80211_VERSION_CODE
 					if (wdev->connected)
 #else
 					if (wdev->current_bss)
@@ -2467,7 +2467,7 @@ uint32_t saaFsmRunEventRxDisassoc(IN struct ADAPTER *prAdapter,
 			wdev = prAdapter->prGlueInfo->prP2PInfo[ucRoleIdx]
 						->aprRoleHandler->ieee80211_ptr;
 
-#if KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE
+#if KERNEL_VERSION(6, 0, 0) <= CFG80211_VERSION_CODE
 			if (wdev->connected)
 #else
 			if (wdev->current_bss)

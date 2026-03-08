@@ -383,6 +383,7 @@ struct STA_RECORD {
 	 */
 	uint32_t u4VhtCapInfo;
 	uint16_t u2VhtRxMcsMap;
+	uint16_t u2VhtRxMcsMapAssoc;
 	uint16_t u2VhtRxHighestSupportedDataRate;
 	uint16_t u2VhtTxMcsMap;
 	uint16_t u2VhtTxHighestSupportedDataRate;

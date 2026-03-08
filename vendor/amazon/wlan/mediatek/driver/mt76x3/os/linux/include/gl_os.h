@@ -371,7 +371,6 @@ struct GL_WPA_INFO {
 	uint32_t u4Mfp;
 	uint8_t ucRSNMfpCap;
 #endif
-	uint8_t ucRsneLen;
 	uint8_t aucKek[NL80211_KEK_LEN];
 	uint8_t aucKck[NL80211_KCK_LEN];
 	uint8_t aucReplayCtr[NL80211_REPLAY_CTR_LEN];

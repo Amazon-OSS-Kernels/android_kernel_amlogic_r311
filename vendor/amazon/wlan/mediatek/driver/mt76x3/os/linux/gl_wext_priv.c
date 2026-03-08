@@ -2064,7 +2064,16 @@ priv_set_ndis(IN struct net_device *prNetDev,
 	} else if (prWlanReqEntry->eOidMethod ==
 		   ENUM_OID_DRIVER_CORE) {
 		/* driver core */
+		if (prNdisReq->inNdisOidlength >
+			sizeof(prNdisReq->ndisOidContent)) {
+			DBGLOG(REQ, WARN,
+			       "Set %s: Invalid length (current=%d, needed=%d)\n",
+			       prWlanReqEntry->pucOidName,
+			       prNdisReq->inNdisOidlength,
+			       sizeof(prNdisReq->ndisOidContent));
 
+			return -EINVAL;
+		}
 		status = kalIoctl(prGlueInfo,
 			(PFN_OID_HANDLER_FUNC) prWlanReqEntry->pfOidSetHandler,
 			prNdisReq->ndisOidContent,
@@ -2214,7 +2223,16 @@ priv_get_ndis(IN struct net_device *prNetDev,
 	} else if (prWlanReqEntry->eOidMethod ==
 		   ENUM_OID_DRIVER_CORE) {
 		/* driver core */
+		if (prNdisReq->inNdisOidlength >
+			sizeof(prNdisReq->ndisOidContent)) {
+			DBGLOG(REQ, WARN,
+			       "Set %s: Invalid length (current=%d, needed=%d)\n",
+			       prWlanReqEntry->pucOidName,
+			       prNdisReq->inNdisOidlength,
+			       sizeof(prNdisReq->ndisOidContent));
 
+			return -EINVAL;
+		}
 		status = kalIoctl(prGlueInfo,
 		    (PFN_OID_HANDLER_FUNC)prWlanReqEntry->pfOidQueryHandler,
 		    prNdisReq->ndisOidContent, prNdisReq->inNdisOidlength,

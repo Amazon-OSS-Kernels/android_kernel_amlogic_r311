@@ -302,7 +302,9 @@ extern uint8_t empty_mac[];
 		if ((aucDebugModule[DBG_##_Mod##_IDX] & \
 			 DBG_CLASS_##_Clz) == 0) \
 			break; \
-		LOG_FUNC_LIMITED("[%u]%s:(" #_Mod " " #_Clz ") " _Fmt, \
+		if (!kalPrintRateCtrl()) \
+			break; \
+		LOG_FUNC("[%u]%s:(" #_Mod " " #_Clz ") " _Fmt, \
 			 KAL_GET_CURRENT_THREAD_ID(), \
 			 __func__, ##__VA_ARGS__); \
 	} while (0)

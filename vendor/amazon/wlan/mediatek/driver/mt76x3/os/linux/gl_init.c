@@ -1360,7 +1360,7 @@ void wlanSchedWDevLockWorkQueue(struct work_struct *work)
 	struct PARAM_WDEV_LOCK_THREAD* prParamWDevLock = NULL;
 	struct QUE rTempQue;
 	struct QUE* prTempQue = &rTempQue;
-#if (KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE)
+#if (KERNEL_VERSION(6, 0, 0) <= CFG80211_VERSION_CODE)
 	struct cfg80211_assoc_failure assoc_failure_data = {0};
 	struct cfg80211_rx_assoc_resp rx_assoc_resp_data = {0};
 #endif
@@ -1398,7 +1398,7 @@ void wlanSchedWDevLockWorkQueue(struct work_struct *work)
 			}
 
 			kalAcquireWDevMutex(prParamWDevLock->pDev);
-#if (KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE)
+#if (KERNEL_VERSION(6, 0, 0) <= CFG80211_VERSION_CODE)
 			assoc_failure_data.ap_mld_addr = NULL;
 			assoc_failure_data.bss[0] = prParamWDevLock->pBss;
 #endif
@@ -1410,7 +1410,7 @@ void wlanSchedWDevLockWorkQueue(struct work_struct *work)
 											prParamWDevLock->pFrameBuf,
 											prParamWDevLock->frameLen,
 											prParamWDevLock->uapsd_queues);
-#if (KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE)
+#if (KERNEL_VERSION(6, 0, 0) <= CFG80211_VERSION_CODE)
 					rx_assoc_resp_data.buf = (const u8 *)prParamWDevLock->pFrameBuf;
 					rx_assoc_resp_data.len = prParamWDevLock->frameLen;
 					rx_assoc_resp_data.uapsd_queues = 0;
@@ -1471,7 +1471,7 @@ void wlanSchedWDevLockWorkQueue(struct work_struct *work)
 											);
 					break;
 				case CFG80211_ABANDON_ASSOC:
-#if (KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE)
+#if (KERNEL_VERSION(6, 0, 0) <= CFG80211_VERSION_CODE)
 					assoc_failure_data.timeout = false;
 					cfg80211_assoc_failure(prParamWDevLock->pDev,
 						&assoc_failure_data);
@@ -1484,7 +1484,7 @@ void wlanSchedWDevLockWorkQueue(struct work_struct *work)
 					 */
 					break;
 				case CFG80211_ASSOC_TIMEOUT:
-#if (KERNEL_VERSION(5, 15, 0) <= CFG80211_VERSION_CODE)
+#if (KERNEL_VERSION(6, 0, 0) <= CFG80211_VERSION_CODE)
 					assoc_failure_data.timeout = true;
 					cfg80211_assoc_failure(prParamWDevLock->pDev,
 						&assoc_failure_data);
@@ -2070,7 +2070,7 @@ static int32_t wlanNetRegister(struct wireless_dev *prWdev)
 		prWdev->netdev->features |= NETIF_F_GRO;
 		prWdev->netdev->hw_features |= NETIF_F_GRO;
 #endif /* CFG_GRO_SUPPORT */
-#if KERNEL_VERSION(6, 1, 0) <= CFG80211_VERSION_CODE
+#if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE
 		netif_napi_add(prWdev->netdev, &prGlueInfo->rNapi,
 			kalRxNapiPoll);
 #else
