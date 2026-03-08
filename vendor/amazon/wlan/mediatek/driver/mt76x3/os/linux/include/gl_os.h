@@ -558,6 +558,11 @@ struct GLUE_INFO {
 	volatile unsigned long ulFlag;		/* GLUE_FLAG_XXX */
 	uint32_t u4PendFlag;
 	uint32_t u4LinkDownPendFlag;
+
+#if (CFG_SUPPORT_CFG80211_AUTH == 1)
+	u_int8_t fgSuppSmeLinkDownPend;
+#endif
+
 	/* UINT_32 u4TimeoutFlag; */
 	uint32_t u4OidCompleteFlag;
 	uint32_t u4ReadyFlag;	/* check if card is ready */

@@ -313,7 +313,7 @@ uint16_t assocBuildCapabilityInfo(IN struct ADAPTER *prAdapter,
  * @return (none)
  */
 /*----------------------------------------------------------------------------*/
-static __KAL_INLINE__ void assocBuildReAssocReqFrameCommonIEs(
+static __KAL_INLINE__ uint32_t assocBuildReAssocReqFrameCommonIEs(
 				IN struct ADAPTER *prAdapter,
 				IN struct MSDU_INFO *prMsduInfo)
 {
@@ -331,10 +331,12 @@ static __KAL_INLINE__ void assocBuildReAssocReqFrameCommonIEs(
 	ASSERT(prMsduInfo->eSrc == TX_PACKET_MGMT);
 
 	prStaRec = cnmGetStaRecByIndex(prAdapter, prMsduInfo->ucStaRecIndex);
-	ASSERT(prStaRec);
 
-	if (!prStaRec)
-		return;
+	if (!prStaRec) {
+		DBGLOG(SAA, WARN,
+		       "cnmGetStaRecByIndex fails to get StaRec.\n");
+		return WLAN_STATUS_INVALID_PACKET;
+	}
 
 	pucBuffer =
 	    (uint8_t *) ((unsigned long)prMsduInfo->prPacket +
@@ -459,6 +461,7 @@ static __KAL_INLINE__ void assocBuildReAssocReqFrameCommonIEs(
 			pucBuffer += IE_SIZE(pucBuffer);
 		}
 	}
+	return WLAN_STATUS_SUCCESS;
 }			/* end of assocBuildReAssocReqFrameCommonIEs() */
 
 /*----------------------------------------------------------------------------*/
@@ -593,7 +596,7 @@ uint32_t assocSendReAssocReqFrame(IN struct ADAPTER *prAdapter,
 	uint16_t u2EstimatedFrameLen;
 	uint16_t u2EstimatedExtraIELen;
 	u_int8_t fgIsReAssoc;
-	uint32_t i;
+	uint32_t i, uRet;
 
 	ASSERT(prStaRec);
 
@@ -710,7 +713,14 @@ uint32_t assocSendReAssocReqFrame(IN struct ADAPTER *prAdapter,
 	/* 4 <4> Compose the frame body's IEs of the (Re)Association Request
 	 * frame.
 	 */
-	assocBuildReAssocReqFrameCommonIEs(prAdapter, prMsduInfo);
+	uRet = assocBuildReAssocReqFrameCommonIEs(prAdapter, prMsduInfo);
+	if (uRet != WLAN_STATUS_SUCCESS)
+	{
+		DBGLOG(SAA, WARN,
+		       "no StaRec for sending (Re)Assoc Request.\n");
+		cnmMgtPktFree(prAdapter, prMsduInfo);
+		return WLAN_STATUS_RESOURCES;
+	}
 
 	/* 4 <5> Compose IEs in MSDU_INFO_T */
 #if CFG_ENABLE_WIFI_DIRECT_CFG_80211 && CFG_ENABLE_WIFI_DIRECT

@@ -297,6 +297,8 @@ static int mtk_usb_suspend(struct usb_interface *intf, pm_message_t message)
 
 	halPreSuspendCmd(prGlueInfo->prAdapter);
 
+	DBGLOG(HAL, STATE, "Wait for USB pre_suspend\n");
+
 	while (prGlueInfo->rHifInfo.state != USB_STATE_PRE_SUSPEND_DONE) {
 		if (count > 500) {
 			DBGLOG(HAL, ERROR, "pre_suspend timeout\n");
@@ -306,6 +308,8 @@ static int mtk_usb_suspend(struct usb_interface *intf, pm_message_t message)
 		mdelay(2);
 		count++;
 	}
+
+	DBGLOG(HAL, STATE, "USB pre_suspend complete(%d)\n", count);
 
 	glUsbSetState(&prGlueInfo->rHifInfo, USB_STATE_SUSPEND);
 	halDisableInterrupt(prGlueInfo->prAdapter);

@@ -129,6 +129,8 @@ extern unsigned long long gConEmiSize;
 #endif
 #define MAX_EEPROM_BUFFER_SIZE	1536
 
+#define CAL_ARRAY_SIZE 	2048
+
 /*******************************************************************************
  *                    E X T E R N A L   R E F E R E N C E S
  *******************************************************************************
@@ -301,7 +303,7 @@ struct HQA_CMD_FRAME {
 	uint16_t Id;
 	uint16_t Length;
 	uint16_t Sequence;
-	uint8_t Data[2000];
+	uint8_t Data[CAL_ARRAY_SIZE];
 } __KAL_ATTRIB_PACKED__;
 
 typedef int32_t(*HQA_CMD_HANDLER) (struct net_device

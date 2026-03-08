@@ -47,7 +47,7 @@
 /* Local Configuration */
 /*============================================================================*/
 
-#define VERSION "9.0.2023022401"
+#define VERSION "9.0.2023032201"
 
 /*============================================================================*/
 /* Function Prototype */
@@ -148,6 +148,7 @@ static int btmtk_usb_send_get_vendor_cap(void);
 static int btmtk_usb_send_deinit_cmds(void);
 static void btmtk_usb_start_reset_dongle_progress(void);
 static void btmtk_usb_chip_reset_func_init(void);
+static void btmtk_usb_chip_reset_func(void);
 static void btmtk_usb_chip_reset_func_deinit(void);
 static void btmtk_usb_stop_acl_traffic(void);
 static void btmtk_usb_stop_traffic(void);
@@ -443,21 +444,11 @@ static void btmtk_chip_rst_disc_timo_func(void *data)
 	BTUSB_INFO("%s", __func__);
 
 	/* workaround for after toggle reset pin but disconnect can't occur. */
-	do {
-		typedef void (*set_pin_state_func_ptr) (struct device * dev, int state);
-		char *func_name = "btmtk_set_reset_pin_state";
-		set_pin_state_func_ptr set_pin_state_func =
-			(set_pin_state_func_ptr) btmtk_usb_kallsyms_lookup_name(func_name);
+	if (!pf_resetFunc1 && !pf_resetFunc2 && (!pf_lowFunc || !pf_highFunc)
+		&& !toggle_pin_func && !set_pin_state_func)
+		btmtk_usb_chip_reset_func_init();
 
-		if (set_pin_state_func) {
-			BTUSB_INFO("%s: Invoke %s(%d)", __func__, func_name, 0);
-			set_pin_state_func(&g_data->udev->dev, 0);
-			mdelay(btmtk_chip_reset_delay);
-			BTUSB_INFO("%s: Invoke %s(%d)", __func__, func_name, 1);
-			set_pin_state_func(&g_data->udev->dev, 1);
-		}  else
-			BTUSB_INFO("%s: No Exported Func Found [%s]", __func__, func_name);
-	} while (0);
+	btmtk_usb_chip_reset_func();
 
 	do {
 		typedef int (*usb_logical_disconnect_ptr) (struct usb_device *udev);
@@ -1304,10 +1295,7 @@ static void btmtk_usb_L0_hook_new_probe(usb_probe pFn_Probe)
 
 void btmtk_usb_toggle_rst_pin(void)
 {
-	struct device_node *node;
-	int rst_pin_num = 0;
 	int cur;
-
 	BTUSB_INFO("%s: begin", __func__);
 
 	/* Avoid multiple tasks try to toggle reset pin */
@@ -1335,101 +1323,13 @@ void btmtk_usb_toggle_rst_pin(void)
 	if (need_reset_stack_type == HW_ERR_NONE)
 		need_reset_stack_type = HW_ERR_CODE_BT_DRIVER;
 
-/* start timer to monitor disconnect event happen or not*/
+	/* start timer to monitor disconnect event happen or not*/
 	btmtk_add_timer(&g_data->chip_rst_disc_timer, btmtk_chip_rst_disc_timo_func,
 		RESET_TIMO, g_data);
 
-/*for amazon*/
-	if (toggle_pin_func) {
-		BTUSB_INFO("%s: Invoke btmtk_toggle_reset_pin(%d)", __func__, 1);
-		toggle_pin_func(&g_data->udev->dev, 1);
-		goto exit;
-	} else
-		BTUSB_INFO("%s: No Exported Func Found btmtk_toggle_reset_pin", __func__);
-/*for amazon*/
-	if (set_pin_state_func) {
-		BTUSB_INFO("%s: Invoke btmtk_set_reset_pin_state(%d)", __func__, 0);
-		set_pin_state_func(&g_data->udev->dev, 0);
-		mdelay(btmtk_chip_reset_delay);
-		BTUSB_INFO("%s: Invoke btmtk_set_reset_pin_state(%d)", __func__, 1);
-		set_pin_state_func(&g_data->udev->dev, 1);
-		goto exit;
-	}  else
-		BTUSB_INFO("%s: No Exported Func Found btmtk_set_reset_pin_state", __func__);
+	/*call reset function*/
+	btmtk_usb_chip_reset_func();
 
-	if (pf_pdwndFunc) {
-		BTUSB_INFO("%s: Invoke PDWNC_SetBTInResetState(%d)", __func__, 1);
-		pf_pdwndFunc(1);
-	} else
-		BTUSB_INFO("%s: No Exported Func Found PDWNC_SetBTInResetState", __func__);
-
-	if (pf_resetFunc1) {
-		BTUSB_INFO("%s: Invoke pf_resetFunc1(%d)", __func__, 0);
-		pf_resetFunc1(0);
-		mdelay(RESET_PIN_SET_LOW_TIME);
-		BTUSB_INFO("%s: Invoke pf_resetFunc1(%d)", __func__, 1);
-		pf_resetFunc1(1);
-		goto exit;
-	}
-
-	if (pf_resetFunc2) {
-		rst_pin_num = g_data->bt_cfg.dongle_reset_gpio_pin;
-		BTUSB_INFO("%s: Invoke pf_resetFunc2(%d,%d)", __func__, rst_pin_num, 0);
-		pf_resetFunc2(rst_pin_num, 0);
-		mdelay(RESET_PIN_SET_LOW_TIME);
-		BTUSB_INFO("%s: Invoke pf_resetFunc2(%d,%d)", __func__, rst_pin_num, 1);
-		pf_resetFunc2(rst_pin_num, 1);
-		goto exit;
-	}
-
-	node = of_find_compatible_node(NULL, NULL, "mstar,gpio-wifi-ctl");
-	if (node) {
-		if (of_property_read_u32(node, "wifi-ctl-gpio", &rst_pin_num) == 0) {
-			if (pf_lowFunc && pf_highFunc) {
-				BTUSB_INFO("%s: Invoke pf_lowFunc(%d)", __func__, rst_pin_num);
-				pf_lowFunc(rst_pin_num);
-				mdelay(RESET_PIN_SET_LOW_TIME);
-				BTUSB_INFO("%s: Invoke pf_highFunc(%d)", __func__, rst_pin_num);
-				pf_highFunc(rst_pin_num);
-				goto exit;
-			}
-		} else
-			BTUSB_WARN("%s, failed to obtain wifi control gpio\n", __func__);
-	} else {
-		if (pf_lowFunc && pf_highFunc) {
-			rst_pin_num = g_data->bt_cfg.dongle_reset_gpio_pin;
-			BTUSB_INFO("%s: Invoke pf_lowFunc(%d)", __func__, rst_pin_num);
-			pf_lowFunc(rst_pin_num);
-			mdelay(RESET_PIN_SET_LOW_TIME);
-			BTUSB_INFO("%s: Invoke pf_highFunc(%d)", __func__, rst_pin_num);
-			pf_highFunc(rst_pin_num);
-			goto exit;
-		}
-	}
-
-	/* use linux kernel common api */
-	do {
-		struct device_node *node;
-		int mt76xx_reset_gpio = g_data->bt_cfg.dongle_reset_gpio_pin;
-
-		node = of_find_compatible_node(NULL, NULL, "mediatek,connectivity-combo");
-		if (node) {
-			mt76xx_reset_gpio = of_get_named_gpio(node, "mt76xx-reset-gpio", 0);
-			if (gpio_is_valid(mt76xx_reset_gpio))
-				BTUSB_INFO("%s: Get chip reset gpio(%d)", __func__, mt76xx_reset_gpio);
-			else
-				mt76xx_reset_gpio = g_data->bt_cfg.dongle_reset_gpio_pin;
-		}
-
-		BTUSB_INFO("%s: Invoke Low(%d)", __func__, mt76xx_reset_gpio);
-		gpio_direction_output(mt76xx_reset_gpio, 0);
-		mdelay(RESET_PIN_SET_LOW_TIME);
-		BTUSB_INFO("%s: Invoke High(%d)", __func__, mt76xx_reset_gpio);
-		gpio_direction_output(mt76xx_reset_gpio, 1);
-		goto exit;
-	} while (0);
-
-exit:
 	BTUSB_INFO("%s: end", __func__);
 }
 EXPORT_SYMBOL(btmtk_usb_toggle_rst_pin);
@@ -4866,6 +4766,15 @@ static void btmtk_usb_chip_reset_func_init(void)
 		return;
 	}
 
+	pf_lowFunc = (set_gpio_low) btmtk_usb_kallsyms_lookup_name("MDrv_GPIO_Set_Low");
+	pf_highFunc = (set_gpio_high) btmtk_usb_kallsyms_lookup_name("MDrv_GPIO_Set_High");
+	if (!pf_lowFunc || !pf_highFunc)
+		BTUSB_WARN("%s: No Exported Func Found MDrv_GPIO_Set_Low or High", __func__);
+	else {
+		BTUSB_INFO("%s: Found MDrv_GPIO_Set_Low & MDrv_GPIO_Set_High", __func__);
+		return;
+	}
+
 	toggle_pin_func = (toggle_pin_func_ptr) btmtk_usb_kallsyms_lookup_name("btmtk_toggle_reset_pin");
 	if (!toggle_pin_func)
 		BTUSB_WARN("%s: No Exported Func Found btmtk_toggle_reset_pin", __func__);
@@ -4896,15 +4805,6 @@ static void btmtk_usb_chip_reset_func_init(void)
 		return;
 	}
 
-	pf_lowFunc = (set_gpio_low) btmtk_usb_kallsyms_lookup_name("MDrv_GPIO_Set_Low");
-	pf_highFunc = (set_gpio_high) btmtk_usb_kallsyms_lookup_name("MDrv_GPIO_Set_High");
-	if (!pf_lowFunc || !pf_highFunc)
-		BTUSB_WARN("%s: No Exported Func Found MDrv_GPIO_Set_Low or High", __func__);
-	else {
-		BTUSB_INFO("%s: Found MDrv_GPIO_Set_Low & MDrv_GPIO_Set_High", __func__);
-		return;
-	}
-
 	pf_resetFunc1 = (reset_func_ptr1) btmtk_usb_kallsyms_lookup_name("extern_wifi_set_enable");
 	if (!pf_resetFunc1)
 		BTUSB_WARN("%s: No Exported Func Found extern_wifi_set_enable", __func__);
@@ -4913,6 +4813,105 @@ static void btmtk_usb_chip_reset_func_init(void)
 		return;
 	}
 
+}
+
+static void btmtk_usb_chip_reset_func(void)
+{
+	struct device_node *node;
+	int rst_pin_num = 0;
+
+	/*for amazon, btmtk_set_reset_pin_state*/
+	if (set_pin_state_func) {
+		BTUSB_INFO("%s: Invoke btmtk_set_reset_pin_state(%d)", __func__, 0);
+		set_pin_state_func(&g_data->udev->dev, 0);
+		mdelay(btmtk_chip_reset_delay);
+		BTUSB_INFO("%s: Invoke btmtk_set_reset_pin_state(%d)", __func__, 1);
+		set_pin_state_func(&g_data->udev->dev, 1);
+		goto exit;
+	}  else
+		BTUSB_INFO("%s: No Exported Func Found btmtk_set_reset_pin_state", __func__);
+
+	/*MDrv_GPIO_Set_Low/MDrv_GPIO_Set_High*/
+	node = of_find_compatible_node(NULL, NULL, "mstar,gpio-wifi-ctl");
+	if (node) {
+		if (of_property_read_u32(node, "wifi-ctl-gpio", &rst_pin_num) == 0) {
+			if (pf_lowFunc && pf_highFunc) {
+				BTUSB_INFO("%s: Invoke pf_lowFunc(%d)", __func__, rst_pin_num);
+				pf_lowFunc(rst_pin_num);
+				mdelay(RESET_PIN_SET_LOW_TIME);
+				BTUSB_INFO("%s: Invoke pf_highFunc(%d)", __func__, rst_pin_num);
+				pf_highFunc(rst_pin_num);
+				goto exit;
+			}
+		} else
+			BTUSB_WARN("%s, failed to obtain wifi control gpio\n", __func__);
+	} else {
+		if (pf_lowFunc && pf_highFunc) {
+			rst_pin_num = g_data->bt_cfg.dongle_reset_gpio_pin;
+			BTUSB_INFO("%s: Invoke pf_lowFunc(%d)", __func__, rst_pin_num);
+			pf_lowFunc(rst_pin_num);
+			mdelay(RESET_PIN_SET_LOW_TIME);
+			BTUSB_INFO("%s: Invoke pf_highFunc(%d)", __func__, rst_pin_num);
+			pf_highFunc(rst_pin_num);
+			goto exit;
+		}
+	}
+
+	/*for amazon*/
+	if (toggle_pin_func) {
+		BTUSB_INFO("%s: Invoke btmtk_toggle_reset_pin(%d)", __func__, 1);
+		toggle_pin_func(&g_data->udev->dev, 1);
+		goto exit;
+	} else
+		BTUSB_INFO("%s: No Exported Func Found btmtk_toggle_reset_pin", __func__);
+
+	if (pf_pdwndFunc) {
+		BTUSB_INFO("%s: Invoke PDWNC_SetBTInResetState(%d)", __func__, 1);
+		pf_pdwndFunc(1);
+	} else
+		BTUSB_INFO("%s: No Exported Func Found PDWNC_SetBTInResetState", __func__);
+
+	if (pf_resetFunc1) {
+		BTUSB_INFO("%s: Invoke pf_resetFunc1(%d)", __func__, 0);
+		pf_resetFunc1(0);
+		mdelay(RESET_PIN_SET_LOW_TIME);
+		BTUSB_INFO("%s: Invoke pf_resetFunc1(%d)", __func__, 1);
+		pf_resetFunc1(1);
+		goto exit;
+	}
+
+	if (pf_resetFunc2) {
+		rst_pin_num = g_data->bt_cfg.dongle_reset_gpio_pin;
+		BTUSB_INFO("%s: Invoke pf_resetFunc2(%d,%d)", __func__, rst_pin_num, 0);
+		pf_resetFunc2(rst_pin_num, 0);
+		mdelay(RESET_PIN_SET_LOW_TIME);
+		BTUSB_INFO("%s: Invoke pf_resetFunc2(%d,%d)", __func__, rst_pin_num, 1);
+		pf_resetFunc2(rst_pin_num, 1);
+		goto exit;
+	}
+	/* use linux kernel common api */
+	do {
+		int mt76xx_reset_gpio = g_data->bt_cfg.dongle_reset_gpio_pin;
+
+		node = of_find_compatible_node(NULL, NULL, "mediatek,connectivity-combo");
+		if (node) {
+			mt76xx_reset_gpio = of_get_named_gpio(node, "mt76xx-reset-gpio", 0);
+			if (gpio_is_valid(mt76xx_reset_gpio))
+				BTUSB_INFO("%s: Get chip reset gpio(%d)", __func__, mt76xx_reset_gpio);
+			else
+				mt76xx_reset_gpio = g_data->bt_cfg.dongle_reset_gpio_pin;
+		}
+
+		BTUSB_INFO("%s: Invoke Low(%d)", __func__, mt76xx_reset_gpio);
+		gpio_direction_output(mt76xx_reset_gpio, 0);
+		mdelay(RESET_PIN_SET_LOW_TIME);
+		BTUSB_INFO("%s: Invoke High(%d)", __func__, mt76xx_reset_gpio);
+		gpio_direction_output(mt76xx_reset_gpio, 1);
+		goto exit;
+	} while (0);
+
+exit:
+	BTUSB_INFO("%s: end", __func__);
 }
 
 static void btmtk_usb_chip_reset_func_deinit(void)

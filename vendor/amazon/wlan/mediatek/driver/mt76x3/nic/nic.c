@@ -4723,6 +4723,11 @@ void nicSerSyncTimerHandler(IN struct ADAPTER *prAdapter,
 {
 	int ret = 0;
 	uint16_t u2SerState;
+	struct GLUE_INFO *prGlueInfo = NULL;
+
+	if (!prAdapter)
+		return;
+	prGlueInfo = prAdapter->prGlueInfo;
 
 	if (prAdapter->prGlueInfo->rHifInfo.state == USB_STATE_SUSPEND) {
 		DBGLOG(INIT, WARN,"USB is Suspend. Stop access USB\n");
@@ -4796,6 +4801,10 @@ void nicSerSyncTimerHandler(IN struct ADAPTER *prAdapter,
 
 bypass:
 	/* TODO SER error handling? */
+	if (kalIsResetting() || prGlueInfo->prAdapter == NULL) {
+		DBGLOG(INIT, WARN, "Chip resetting or Adapter is null. stop SER Sync\n");
+		return;
+	}
 
 	cnmTimerStartTimer(prAdapter, &prAdapter->rSerSyncTimer,
 			   WIFI_SER_SYNC_TIMER_TIMEOUT_IN_MS);

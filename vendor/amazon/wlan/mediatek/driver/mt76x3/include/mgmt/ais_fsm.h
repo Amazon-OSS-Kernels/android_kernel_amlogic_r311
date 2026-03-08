@@ -299,6 +299,8 @@ struct AIS_FSM_INFO {
 
 	/* Scan target channel when device roaming */
 	uint8_t fgTargetChnlScanIssued;
+
+	uint8_t fgIsReqDisconnectPending;
 };
 
 enum WNM_AIS_BSS_TRANSITION {

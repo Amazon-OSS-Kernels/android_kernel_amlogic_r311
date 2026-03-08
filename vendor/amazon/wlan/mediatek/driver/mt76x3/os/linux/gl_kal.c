@@ -3049,6 +3049,11 @@ kalIoctl(IN struct GLUE_INFO *prGlueInfo,
 	/* <6> Check if we use the command queue */
 	prIoReq->u4Flag = fgCmd;
 
+	if (prGlueInfo->rPendComp.done > 1)
+		DBGLOG(INIT, WARN, "[%pf] abnormal done(%d) field in prGlueInfo->rPendComp\n",
+					pfnOidHandler, prGlueInfo->rPendComp.done);
+	reinit_completion(&prGlueInfo->rPendComp);
+
 	/* <7> schedule the OID bit */
 	set_bit(GLUE_FLAG_OID_BIT, &prGlueInfo->ulFlag);
 

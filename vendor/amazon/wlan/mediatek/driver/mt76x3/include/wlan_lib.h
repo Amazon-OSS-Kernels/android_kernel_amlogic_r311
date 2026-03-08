@@ -1835,3 +1835,7 @@ uint32_t wlanKeepFullPwr(struct ADAPTER *prAdapter, uint8_t fgEnable);
 void wlanRxMcsInfoMonitor(struct ADAPTER *prAdapter,
 					    unsigned long ulParamPtr);
 #endif
+
+uint32_t wlanSetDisassociate(IN struct ADAPTER *prAdapter,
+			     IN uint8_t ucReasonOfDiconnect);
+

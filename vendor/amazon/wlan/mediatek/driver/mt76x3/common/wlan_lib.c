@@ -10244,6 +10244,7 @@ wlanWaitCfg80211SuspendDone(struct GLUE_INFO *prGlueInfo)
 		&prGlueInfo->prAdapter->ulSuspendFlag))) {
 		if (u1Count > HIF_SUSPEND_MAX_WAIT_TIME) {
 			DBGLOG(HAL, ERROR, "cfg80211 not suspend\n");
+			aisPreSuspendFlow(prGlueInfo);
 			break;
 		}
 		usleep_range(5000, 6000);
@@ -11201,3 +11202,61 @@ out:
 			   MCS_INFO_SAMPLE_PERIOD);
 }
 #endif
+
+uint32_t wlanSetDisassociate(IN struct ADAPTER *prAdapter,
+			     IN uint8_t ucReasonOfDiconnect) {
+	struct MSG_AIS_ABORT *prAisAbortMsg;
+
+	ASSERT(prAdapter);
+
+	if (prAdapter->rAcpiState == ACPI_STATE_D3) {
+		DBGLOG(REQ, WARN,
+		       "Fail in set disassociate! (Adapter not ready). ACPI=D%d, Radio=%d\n",
+		       prAdapter->rAcpiState, prAdapter->fgIsRadioOff);
+		return WLAN_STATUS_ADAPTER_NOT_READY;
+	}
+
+	/* prepare message to AIS */
+	prAdapter->rWifiVar.rConnSettings.fgIsConnReqIssued = FALSE;
+	prAdapter->rWifiVar.rConnSettings.eReConnectLevel =
+		RECONNECT_LEVEL_USER_SET;
+
+	/* Send AIS Abort Message */
+	prAisAbortMsg = (struct MSG_AIS_ABORT *) cnmMemAlloc(
+						prAdapter, RAM_TYPE_MSG,
+						sizeof(struct MSG_AIS_ABORT));
+	if (!prAisAbortMsg) {
+		DBGLOG(REQ, ERROR, "Fail in creating AisAbortMsg.\n");
+		return WLAN_STATUS_FAILURE;
+	}
+
+	prAisAbortMsg->rMsgHdr.eMsgId = MID_OID_AIS_FSM_JOIN_REQ;
+	prAisAbortMsg->ucReasonOfDisconnect = ucReasonOfDiconnect;
+	prAisAbortMsg->fgDelayIndication = FALSE;
+
+#if CFG_DISCONN_DEBUG_FEATURE
+	/* used to disconnect debug capability */
+	g_rDisconnInfoTemp.ucTrigger = DISCONNECT_TRIGGER_ACTIVE;
+#endif
+
+	mboxSendMsg(prAdapter, MBOX_ID_0,
+		    (struct MSG_HDR *) prAisAbortMsg, MSG_SEND_METHOD_BUF);
+
+	/* indicate for disconnection */
+	if (kalGetMediaStateIndicated(prAdapter->prGlueInfo) ==
+	    PARAM_MEDIA_STATE_CONNECTED) {
+		uint8_t ucBssIdx = 0;
+		ASSERT(prAdapter->prAisBssInfo);
+		ucBssIdx = prAdapter->prAisBssInfo->ucBssIndex;
+		kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
+			     WLAN_STATUS_MEDIA_DISCONNECT_LOCALLY, NULL, 0, ucBssIdx);
+		prAdapter->rWifiVar.rAisFsmInfo.fgIsReqDisconnectPending = TRUE;
+		return WLAN_STATUS_SUCCESS;
+	}
+	else {
+		return WLAN_STATUS_NOT_ACCEPTED;
+	}
+#if !defined(LINUX)
+	prAdapter->fgIsRadioOff = TRUE;
+#endif
+}				/* wlanoidSetDisassociate */

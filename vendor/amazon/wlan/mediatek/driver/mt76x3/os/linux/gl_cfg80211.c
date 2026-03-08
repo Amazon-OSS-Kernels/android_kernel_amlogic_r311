@@ -1184,11 +1184,11 @@ int mtk_cfg80211_auth(struct wiphy *wiphy, struct net_device *ndev,
 
 #if KERNEL_VERSION(4, 10, 0) > CFG80211_VERSION_CODE
 	if (req->sae_data_len != 0)
-		DBGLOG(REQ, INFO, "[wlan] mtk_cfg80211_auth %p %zu\n",
+		DBGLOG(REQ, STATE, "[wlan] mtk_cfg80211_auth %p %zu\n",
 			req->sae_data, req->sae_data_len);
 #else
 	if (req->auth_data_len != 0)
-		DBGLOG(REQ, INFO, "[wlan] mtk_cfg80211_auth %p %zu\n",
+		DBGLOG(REQ, STATE, "[wlan] mtk_cfg80211_auth %p %zu\n",
 			req->auth_data, req->auth_data_len);
 #endif
 
@@ -4144,7 +4144,7 @@ struct P2P_CONNECTION_REQ_INFO *prConnReqInfo =
 	cfg80211_ref_bss(wiphy, req->bss);
 	prConnSettings->bss = req->bss;
 #endif
-		DBGLOG(REQ, INFO, "mtk_cfg80211_assoc, media state:%d\n",
+		DBGLOG(REQ, STATE, "mtk_cfg80211_assoc, media state:%d\n",
 					prGlueInfo->eParamMediaStateIndicated);
 #if CFG_SUPPORT_CFG80211_AUTH
 		if (!prConnSettings->fgIsP2pConn)

@@ -9127,67 +9127,22 @@ uint32_t
 wlanoidSetDisassociate(IN struct ADAPTER *prAdapter,
 		       IN void *pvSetBuffer, IN uint32_t u4SetBufferLen,
 		       OUT uint32_t *pu4SetInfoLen) {
-	struct MSG_AIS_ABORT *prAisAbortMsg;
-	int ret;
+	uint32_t ret;
 
 	DEBUGFUNC("wlanoidSetDisassociate");
 
-	ASSERT(prAdapter);
 	ASSERT(pu4SetInfoLen);
 
 	*pu4SetInfoLen = 0;
 
-	if (prAdapter->rAcpiState == ACPI_STATE_D3) {
-		DBGLOG(REQ, WARN,
-		       "Fail in set disassociate! (Adapter not ready). ACPI=D%d, Radio=%d\n",
-		       prAdapter->rAcpiState, prAdapter->fgIsRadioOff);
-		return WLAN_STATUS_ADAPTER_NOT_READY;
+	ret = wlanSetDisassociate(prAdapter, DISCONNECT_REASON_CODE_NEW_CONNECTION);
+
+#if (CFG_SUPPORT_CFG80211_AUTH == 1)
+	if (ret == WLAN_STATUS_SUCCESS) {
+		prAdapter->prGlueInfo->fgSuppSmeLinkDownPend = TRUE;
+		return WLAN_STATUS_PENDING;
 	}
-
-	/* prepare message to AIS */
-	prAdapter->rWifiVar.rConnSettings.fgIsConnReqIssued = FALSE;
-	prAdapter->rWifiVar.rConnSettings.eReConnectLevel =
-		RECONNECT_LEVEL_USER_SET;
-
-	/* Send AIS Abort Message */
-	prAisAbortMsg = (struct MSG_AIS_ABORT *) cnmMemAlloc(
-						prAdapter, RAM_TYPE_MSG,
-						sizeof(struct MSG_AIS_ABORT));
-	if (!prAisAbortMsg) {
-		DBGLOG(REQ, ERROR, "Fail in creating AisAbortMsg.\n");
-		return WLAN_STATUS_FAILURE;
-	}
-
-	prAisAbortMsg->rMsgHdr.eMsgId = MID_OID_AIS_FSM_JOIN_REQ;
-	prAisAbortMsg->ucReasonOfDisconnect =
-		DISCONNECT_REASON_CODE_NEW_CONNECTION;
-	prAisAbortMsg->fgDelayIndication = FALSE;
-
-#if CFG_DISCONN_DEBUG_FEATURE
-	/* used to disconnect debug capability */
-	g_rDisconnInfoTemp.ucTrigger = DISCONNECT_TRIGGER_ACTIVE;
 #endif
-
-	mboxSendMsg(prAdapter, MBOX_ID_0,
-		    (struct MSG_HDR *) prAisAbortMsg, MSG_SEND_METHOD_BUF);
-
-	/* indicate for disconnection */
-	if (kalGetMediaStateIndicated(prAdapter->prGlueInfo) ==
-	    PARAM_MEDIA_STATE_CONNECTED) {
-		uint8_t ucBssIdx = 0;
-		ASSERT(prAdapter->prAisBssInfo);
-		ucBssIdx = prAdapter->prAisBssInfo->ucBssIndex;
-		kalIndicateStatusAndComplete(prAdapter->prGlueInfo,
-			     WLAN_STATUS_MEDIA_DISCONNECT_LOCALLY, NULL, 0, ucBssIdx);
-		ret = WLAN_STATUS_SUCCESS;
-	}
-	else {
-		ret = WLAN_STATUS_NOT_ACCEPTED;
-	}
-#if !defined(LINUX)
-	prAdapter->fgIsRadioOff = TRUE;
-#endif
-
 	return ret;
 }				/* wlanoidSetDisassociate */
 
@@ -14460,9 +14415,9 @@ wlanoidLinkDown(IN struct ADAPTER *prAdapter,
 		return WLAN_STATUS_ADAPTER_NOT_READY;
 	}
 
-	aisBssLinkDown(prAdapter);
-
 	prAdapter->prGlueInfo->u4LinkDownPendFlag = TRUE;
+
+	aisBssLinkDown(prAdapter);
 
 	return WLAN_STATUS_PENDING;
 } /* wlanoidSetDisassociate */
