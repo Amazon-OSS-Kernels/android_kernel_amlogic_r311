@@ -102,8 +102,6 @@ static int key_check_for_silent_ota(unsigned int key_code)
 			KEY_CUSTOM_2 == key_code ||
 			KEY_CUSTOM_3 == key_code ||
 			KEY_CUSTOM_4 == key_code ||
-			KEY_CUSTOM_6 == key_code ||
-			KEY_CUSTOM_7 == key_code ||
 			KEY_HOME == key_code ||
 			KEY_ENTER == key_code ||
 			KEY_SEARCH == key_code) {
