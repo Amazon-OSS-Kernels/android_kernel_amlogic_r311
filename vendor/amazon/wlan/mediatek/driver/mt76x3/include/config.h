@@ -1439,6 +1439,11 @@
 #define CFG_FTV_62866_PATCH 0
 #endif
 
+#ifndef CFG_SUPPORT_EXT_PTA_DEBUG_COMMAND
+#define CFG_SUPPORT_EXT_PTA_DEBUG_COMMAND 0
+#endif
+
+
 /*------------------------------------------------------------------------------
  * Support CFG_SUPPORT_INBAND_WAKEUP
  *------------------------------------------------------------------------------

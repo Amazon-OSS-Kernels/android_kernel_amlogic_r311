@@ -129,7 +129,7 @@ extern unsigned long long gConEmiSize;
 #endif
 #define MAX_EEPROM_BUFFER_SIZE	1536
 
-#define CAL_ARRAY_SIZE 	2048
+#define HQA_CMD_SIZE 	2000
 
 /*******************************************************************************
  *                    E X T E R N A L   R E F E R E N C E S
@@ -297,13 +297,16 @@ struct PARAM_RX_STAT {
 extern struct PARAM_RX_STAT g_HqaRxStat;
 #endif
 
+/*Set HQA_CMD_FRAME Data[2000] back to fix 32/64 bit over size issue
+If need to change data size, wifitest also need to change together
+Or wifitest cmd will be fail*/
 struct HQA_CMD_FRAME {
 	uint32_t MagicNo;
 	uint16_t Type;
 	uint16_t Id;
 	uint16_t Length;
 	uint16_t Sequence;
-	uint8_t Data[CAL_ARRAY_SIZE];
+	uint8_t Data[HQA_CMD_SIZE];
 } __KAL_ATTRIB_PACKED__;
 
 typedef int32_t(*HQA_CMD_HANDLER) (struct net_device

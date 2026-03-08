@@ -13804,10 +13804,10 @@ wlanAdvCtrl(IN struct ADAPTER *prAdapter,
 		*pu4QueryInfoLen = sizeof(struct CMD_PTA_CONFIG);
 		len = sizeof(struct CMD_PTA_CONFIG);
 		break;
-#ifdef CFG_SUPPORT_EXT_PTA_DEBUG_COMMAND
+#if CFG_SUPPORT_EXT_PTA_DEBUG_COMMAND
 	case CMD_EXT_PTA_CONFIG_TYPE:
-		*pu4QueryInfoLen = sizeof(CMD_PTA_CONFIG_T);
-		len = sizeof(CMD_PTA_CONFIG_T);
+		*pu4QueryInfoLen = sizeof(struct CMD_EXT_PTA_CONFIG);
+		len = sizeof(struct CMD_EXT_PTA_CONFIG);
 		break;
 #endif
 	case CMD_GET_REPORT_TYPE:

@@ -2986,11 +2986,12 @@ kalIoctl(IN struct GLUE_INFO *prGlueInfo,
 		return WLAN_STATUS_SUCCESS;
 #endif
 
+	if (!prGlueInfo || !(prGlueInfo->prAdapter)) {
+		return WLAN_STATUS_FAILURE;
+	}
+
 	if (wlanIsChipAssert(prGlueInfo->prAdapter))
 		return WLAN_STATUS_SUCCESS;
-
-	/* GLUE_SPIN_LOCK_DECLARATION(); */
-	ASSERT(prGlueInfo);
 
 	/* Just direct function call if already
 	*  in main_thread or interrupt context

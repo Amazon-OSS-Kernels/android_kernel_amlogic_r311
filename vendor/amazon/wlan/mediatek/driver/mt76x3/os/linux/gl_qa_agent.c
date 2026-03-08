@@ -5452,7 +5452,7 @@ static int32_t HQA_GetDumpRecal(struct net_device *prNetDev,
 						 prReCalInfo->u4Count);
 	/*According to nicExtEventRecalData prCalArray is 2048 groups*/
 	if (prReCalInfo->u4Count > 0 &&
-	    prReCalInfo->u4Count <= (CAL_ARRAY_SIZE - 6) /
+	    prReCalInfo->u4Count <= (HQA_CMD_SIZE - 6) /
 				    (3 * sizeof(u4Value))) {
 			for (i = 0; i < prReCalInfo->u4Count; i++) {
 				u4Value = ntohl(prCalArray[i].u4CalId);
